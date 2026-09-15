@@ -56,12 +56,11 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
     val cfg by store.config.collectAsState()
     val scope = rememberCoroutineScope()
 
-    val secretsPresent = cfg.prodSecret.isNotBlank() && cfg.hmacSecretKey.isNotBlank() &&
-        cfg.passwordPublicKey.isNotBlank()
-    val steps = remember(secretsPresent) {
+    val secretsValid = cfg.secretsValid
+    val steps = remember(secretsValid) {
         buildList {
             add(OnbStep.WELCOME)
-            if (!secretsPresent) add(OnbStep.SECRETS)
+            if (!secretsValid) add(OnbStep.SECRETS)
             add(OnbStep.LOGIN)
             add(OnbStep.KEY)
         }
@@ -97,7 +96,7 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
             Box(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
                 when (step) {
                     OnbStep.WELCOME -> WelcomeStep()
-                    OnbStep.SECRETS -> SecretsStep(deps, secretsPresent)
+                    OnbStep.SECRETS -> SecretsStep(deps, secretsValid)
                     OnbStep.LOGIN -> LoginStep(deps)
                     OnbStep.KEY -> KeyStep(deps)
                 }
@@ -109,7 +108,7 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
                 if (safeIdx > 0) TextButton(onClick = ::back) { Text("Back") } else Spacer(Modifier.height(1.dp))
                 when (step) {
                     OnbStep.WELCOME -> Button(onClick = ::next) { Text("Get started") }
-                    OnbStep.SECRETS -> Button(onClick = ::next, enabled = secretsPresent) { Text("Next") }
+                    OnbStep.SECRETS -> Button(onClick = ::next, enabled = secretsValid) { Text("Next") }
                     OnbStep.LOGIN -> Button(onClick = ::next, enabled = loggedIn) { Text("Next") }
                     OnbStep.KEY -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = onDone) { Text("Skip for now") }
@@ -156,7 +155,7 @@ private fun Bullet(n: String, title: String, body: String) {
 
 /** Clean/unbaked build with no secrets yet: let the user paste a zeekr_secrets.json. */
 @Composable
-private fun SecretsStep(deps: Deps, secretsPresent: Boolean) {
+private fun SecretsStep(deps: Deps, secretsValid: Boolean) {
     val store = deps.config
     var importText by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
@@ -176,7 +175,7 @@ private fun SecretsStep(deps: Deps, secretsPresent: Boolean) {
             status = store.importJson(importText).fold(
                 { deps.onEndpointChanged(); "Imported ✓" }, { "Import failed: ${it.message}" })
         }) { Text("Import") }
-        if (secretsPresent) Text("Keys present ✓ — tap Next.", color = MaterialTheme.colorScheme.primary)
+        if (secretsValid) Text("Keys valid ✓ — tap Next.", color = MaterialTheme.colorScheme.primary)
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
     }
 }

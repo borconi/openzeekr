@@ -125,6 +125,46 @@ data class SecretsConfig(
     /** Distance / range unit: "km" | "mi". */
     val distanceUnit: String = "km",
 ) {
+    /** True when the mandatory app-global secrets (non-account) are present and valid. */
+    val secretsValid: Boolean get() {
+        if (hmacAccessKey.isBlank() || hmacSecretKey.isBlank() || passwordPublicKey.isBlank() || prodSecret.isBlank()) return false
+        val vkLen = vinKey.toByteArray(Charsets.UTF_8).size
+        if (vinKey.isNotEmpty() && vkLen != 16) return false
+        val viLen = vinIv.toByteArray(Charsets.UTF_8).size
+        if (vinIv.isNotEmpty() && viLen != 16) return false
+        return true
+    }
+
+    /** Validates constraints on the configuration. Returns a list of error messages (empty if valid). */
+    fun validate(): List<String> = buildList {
+        // Mandatory fields
+        if (hmacAccessKey.isBlank()) add("hmac_access_key is required")
+        if (hmacSecretKey.isBlank()) add("hmac_secret_key is required")
+        if (passwordPublicKey.isBlank()) add("password_public_key is required")
+        if (prodSecret.isBlank()) add("prod_secret is required")
+        if (vin.isBlank()) add("vin is required")
+
+        // Overseas pair
+        if (overseasAccessKey.isBlank() != overseasSecretKey.isBlank()) {
+            add("Both overseas_access_key and overseas_secret_key must be set (or both blank)")
+        }
+
+        // AES length constraints (AES-128 requires 16 bytes). Note: we check byte length, not char
+        // length, to catch multi-byte characters or bad ASCII lengths (see reversing notes).
+        val vkLen = vinKey.toByteArray(Charsets.UTF_8).size
+        if (vinKey.isNotEmpty() && vkLen != 16)
+            add("vin_key must be exactly 16 bytes (got $vkLen)")
+        val viLen = vinIv.toByteArray(Charsets.UTF_8).size
+        if (vinIv.isNotEmpty() && viLen != 16)
+            add("vin_iv must be exactly 16 bytes (got $viLen)")
+    }
+
+    /** Throws IllegalArgumentException if the configuration is invalid. */
+    fun check() {
+        val errors = validate()
+        if (errors.isNotEmpty()) throw IllegalArgumentException(errors.first())
+    }
+
     /** True when the minimum needed to talk to the cloud is present. */
     val cloudReady: Boolean
         get() = baseUrl.isNotBlank() && prodSecret.isNotBlank() &&

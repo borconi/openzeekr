@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
+import com.openzeekr.app.util.Logx
 import java.util.UUID
 
 /**
@@ -26,11 +27,19 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
 
     private fun load(): SecretsConfig {
         // First run (nothing persisted yet): seed from the baked build defaults.
-        val raw = prefs.getString(KEY_CONFIG, null) ?: return ensureDeviceId(SecretsConfig.fromBuildDefaults())
-        return runCatching { json.decodeFromString<SecretsConfig>(raw) }
-            .getOrElse { SecretsConfig.fromBuildDefaults() }
-            .let(::backfillBakedSecrets)
+        val raw = prefs.getString(KEY_CONFIG, null)
+        val loaded = if (raw == null) {
+            SecretsConfig.fromBuildDefaults()
+        } else {
+            runCatching { json.decodeFromString<SecretsConfig>(raw) }.getOrElse { SecretsConfig.fromBuildDefaults() }
+        }
+
+        return loaded.let(::backfillBakedSecrets)
             .let(::ensureDeviceId)
+            .apply {
+                // Log validation failures but allow loading (catches bad baked secrets).
+                validate().forEach { Logx.w("config", "Load validation warning: $it") }
+            }
     }
 
     /**
@@ -71,10 +80,17 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
 
     fun update(transform: (SecretsConfig) -> SecretsConfig) {
         val next = ensureDeviceId(transform(_config.value))
+        // Log validation failures but persist anyway so the app doesn't crash on startup
+        // housekeeping; the user can fix missing fields in Settings.
+        next.validate().forEach { Logx.w("config", "Update validation warning: $it") }
         persist(next)
     }
 
-    fun replace(cfg: SecretsConfig) = persist(ensureDeviceId(cfg))
+    fun replace(cfg: SecretsConfig): Result<Unit> = runCatching {
+        val next = ensureDeviceId(cfg)
+        next.check()
+        persist(next)
+    }
 
     private fun persist(cfg: SecretsConfig) {
         prefs.edit().putString(KEY_CONFIG, json.encodeToString(SecretsConfig.serializer(), cfg)).apply()
@@ -100,6 +116,7 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
             vin = incoming.vin.ifBlank { cur.vin },
             accessToken = incoming.accessToken.ifBlank { cur.accessToken },
         )
+        merged.check() // Strict validation for user-initiated import
         persist(merged)
     }
 

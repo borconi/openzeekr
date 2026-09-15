@@ -117,11 +117,15 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
                 PrimaryButton("Sign in", Modifier.fillMaxWidth()) {
                     scope.launch {
                         status = "Signing in…"
-                        store.replace(cfg)
-                        status = when (val r = deps.auth.login()) {
-                            is CallResult.Ok -> { cfg = store.current(); "Signed in ✓" }
-                            is CallResult.Err -> "Sign-in failed: ${r.message}"
-                        }
+                        store.replace(cfg).fold(
+                            onSuccess = {
+                                status = when (val r = deps.auth.login()) {
+                                    is CallResult.Ok -> { cfg = store.current(); "Signed in ✓" }
+                                    is CallResult.Err -> "Sign-in failed: ${r.message}"
+                                }
+                            },
+                            onFailure = { status = "Save failed: ${it.message}" }
+                        )
                     }
                 }
             } else {
@@ -160,10 +164,11 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             if (liveCfg.debugLogging) LogViewer()
         }
 
-        // -------- app-secret configuration (clean-repo builds only) --------
         if (!baked) {
             SecretsSection(cfg, { upd -> cfg = upd(cfg) }) {
-                store.replace(cfg); deps.onEndpointChanged(); status = "Saved."
+                store.replace(cfg)
+                    .onSuccess { deps.onEndpointChanged(); status = "Saved." }
+                    .onFailure { status = "Save failed: ${it.message}" }
             }
             importExport(store) { cfg = store.current() }
         }
@@ -211,16 +216,17 @@ private fun SecretsSection(cfg: SecretsConfig, set: ((SecretsConfig) -> SecretsC
             Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = Brand.muted)
         }
         if (expanded) {
-            Field("hmac_access_key", cfg.hmacAccessKey, secret = true) { v -> set { it.copy(hmacAccessKey = v) } }
-            Field("hmac_secret_key", cfg.hmacSecretKey, secret = true) { v -> set { it.copy(hmacSecretKey = v) } }
-            Field("password_public_key", cfg.passwordPublicKey, secret = true) { v -> set { it.copy(passwordPublicKey = v) } }
-            Field("prod_secret", cfg.prodSecret, secret = true) { v -> set { it.copy(prodSecret = v) } }
-            Field("vin_key", cfg.vinKey, secret = true) { v -> set { it.copy(vinKey = v) } }
-            Field("vin_iv", cfg.vinIv, secret = true) { v -> set { it.copy(vinIv = v) } }
+            Field("hmac_access_key", cfg.hmacAccessKey, secret = true, supportingText = if (cfg.hmacAccessKey.isBlank()) "Required" else null) { v -> set { it.copy(hmacAccessKey = v) } }
+            Field("hmac_secret_key", cfg.hmacSecretKey, secret = true, supportingText = if (cfg.hmacSecretKey.isBlank()) "Required" else null) { v -> set { it.copy(hmacSecretKey = v) } }
+            Field("password_public_key", cfg.passwordPublicKey, secret = true, supportingText = if (cfg.passwordPublicKey.isBlank()) "Required" else null) { v -> set { it.copy(passwordPublicKey = v) } }
+            Field("prod_secret", cfg.prodSecret, secret = true, supportingText = if (cfg.prodSecret.isBlank()) "Required" else null) { v -> set { it.copy(prodSecret = v) } }
+            Field("vin_key", cfg.vinKey, secret = true, supportingText = if (cfg.vinKey.isNotEmpty() && cfg.vinKey.length != 16) "Error: must be exactly 16 chars" else "16-character AES key") { v -> set { it.copy(vinKey = v) } }
+            Field("vin_iv", cfg.vinIv, secret = true, supportingText = if (cfg.vinIv.isNotEmpty() && cfg.vinIv.length != 16) "Error: must be exactly 16 chars" else "16-character AES IV") { v -> set { it.copy(vinIv = v) } }
             Field("xchanger_sign_secret", cfg.xchangerSignSecret, secret = true) { v -> set { it.copy(xchangerSignSecret = v) } }
-            Field("overseas_access_key (notifications)", cfg.overseasAccessKey, secret = true) { v -> set { it.copy(overseasAccessKey = v) } }
-            Field("overseas_secret_key (notifications)", cfg.overseasSecretKey, secret = true) { v -> set { it.copy(overseasSecretKey = v) } }
-            Field("VIN", cfg.vin) { v -> set { it.copy(vin = v) } }
+            val overseasErr = if (cfg.overseasAccessKey.isBlank() != cfg.overseasSecretKey.isBlank()) "Error: both overseas keys must be set" else null
+            Field("overseas_access_key (notifications)", cfg.overseasAccessKey, secret = true, supportingText = overseasErr) { v -> set { it.copy(overseasAccessKey = v) } }
+            Field("overseas_secret_key (notifications)", cfg.overseasSecretKey, secret = true, supportingText = overseasErr) { v -> set { it.copy(overseasSecretKey = v) } }
+            Field("VIN", cfg.vin, supportingText = if (cfg.vin.isBlank()) "Required" else null) { v -> set { it.copy(vin = v) } }
             PrimaryButton("Save secrets", Modifier.fillMaxWidth()) { onSave() }
         }
     }
@@ -277,12 +283,13 @@ private fun SettingsCard(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Field(label: String, value: String, secret: Boolean = false, onChange: (String) -> Unit) {
+private fun Field(label: String, value: String, secret: Boolean = false, supportingText: String? = null, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value, onValueChange = onChange, label = { Text(label) },
         singleLine = !secret,
         visualTransformation = if (secret) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions = KeyboardOptions.Default, modifier = Modifier.fillMaxWidth(),
+        supportingText = supportingText?.let { { Text(it, fontSize = 11.sp) } }
     )
 }
 

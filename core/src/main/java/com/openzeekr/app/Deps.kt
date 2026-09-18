@@ -81,7 +81,15 @@ class Deps(context: Context) {
     /** Enter Demo Mode: reset simulated data and update config. */
     fun enterDemoMode() {
         DemoData.reset()
-        config.update { it.copy(demoMode = true, onboardingDone = true) }
+        config.update { it.copy(
+            demoMode = true,
+            onboardingDone = true,
+            email = "john.zeeker@example.com",
+            password = "demo-123456",
+            userId = "12345678",
+            vin = "DEMO1234567890123",
+            accessToken = "some-token-test",
+        ) }
     }
 
     /** Exit Demo Mode: wipe account, reset simulated data, and return to onboarding. */

@@ -10,14 +10,7 @@ import com.openzeekr.app.ble.ProximityController
 import com.openzeekr.app.ble.rpa.RpaController
 import com.openzeekr.app.config.ConfigStore
 import com.openzeekr.app.net.ApiClient
-import com.openzeekr.app.remote.AuthRepository
-import com.openzeekr.app.remote.CapabilityHolder
-import com.openzeekr.app.remote.InboxRepository
-import com.openzeekr.app.remote.JourneyRepository
-import com.openzeekr.app.remote.NavRepository
-import com.openzeekr.app.remote.RemoteControlRepository
-import com.openzeekr.app.remote.SentryRepository
-import com.openzeekr.app.remote.VehicleStatusHolder
+import com.openzeekr.app.remote.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -31,15 +24,32 @@ class Deps(context: Context) {
         .also { com.openzeekr.app.util.Logx.setEnabled(it.current().debugLogging) }
     val apiClient: ApiClient = ApiClient.get(config)
 
-    val auth = AuthRepository(config, apiClient)
-    val control = RemoteControlRepository(config, apiClient)
-    val sentry = SentryRepository(config, apiClient)
+    private val realAuth = RealAuthRepository(config, apiClient)
+    private val demoAuth = DemoAuthRepository()
+    val auth: IAuthRepository = DynamicAuthRepository(config, realAuth, demoAuth)
+
+    private val realControl = RealRemoteControlRepository(config, apiClient)
+    private val demoControl = DemoRemoteControlRepository()
+    val control: IRemoteControlRepository = DynamicRemoteControlRepository(config, realControl, demoControl)
+
+    private val realSentry = RealSentryRepository(config, apiClient)
+    private val demoSentry = DemoSentryRepository()
+    val sentry: ISentryRepository = DynamicSentryRepository(config, realSentry, demoSentry)
+
+    private val realJourney = RealJourneyRepository(config, apiClient)
+    private val demoJourney = DemoJourneyRepository()
     /** Journey log: trip history (distance / energy / duration) with CSV export. */
-    val journey = JourneyRepository(config, apiClient)
+    val journey: IJourneyRepository = DynamicJourneyRepository(config, realJourney, demoJourney)
+
+    private val realInbox = RealInboxRepository(config, apiClient)
+    private val demoInbox = DemoInboxRepository()
     /** Member message center (charging done, abnormal parking, alarms, OTA, …). */
-    val inbox = InboxRepository(config, apiClient)
+    val inbox: IInboxRepository = DynamicInboxRepository(config, realInbox, demoInbox)
+
+    private val realNav = RealNavRepository(config, apiClient)
+    private val demoNav = DemoNavRepository()
     /** Send-to-car: push a navigation POI to the car (also drives the geo:/nav intent handler). */
-    val nav = NavRepository(config, apiClient)
+    val nav: INavRepository = DynamicNavRepository(config, realNav, demoNav)
     /** Live vehicle status (foreground poll, no push) — observed by the UI. */
     val vehicleState = VehicleStatusHolder(control, appScope)
     /** Per-VIN supported functions — drives which controls the UI shows. */
@@ -67,4 +77,17 @@ class Deps(context: Context) {
 
     /** Call after the base URL / sign algo changes so the HTTP client rebuilds. */
     fun onEndpointChanged() = apiClient.rebuild()
+
+    /** Enter Demo Mode: reset simulated data and update config. */
+    fun enterDemoMode() {
+        DemoData.reset()
+        config.update { it.copy(demoMode = true, onboardingDone = true) }
+    }
+
+    /** Exit Demo Mode: wipe account, reset simulated data, and return to onboarding. */
+    fun exitDemoMode() {
+        config.signOut()
+        DemoData.reset()
+        config.update { it.copy(demoMode = false, onboardingDone = false) }
+    }
 }

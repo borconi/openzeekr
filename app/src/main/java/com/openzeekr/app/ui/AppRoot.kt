@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.filled.LocationOn
@@ -59,6 +60,7 @@ import android.net.Uri
 import com.openzeekr.app.Deps
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.ble.DkProvisioning
+import com.openzeekr.app.remote.DemoData
 import com.openzeekr.app.ui.theme.Brand
 import kotlinx.coroutines.launch
 
@@ -89,13 +91,15 @@ fun AppRoot(deps: Deps) {
     val provisioned = remember(prov.step) { deps.dkIdentity.isProvisioned } ||
         prov.step == DkProvisioning.Step.DONE
 
+    var showDemoWelcome by remember { mutableStateOf(cfg.demoMode) }
+
     // First run: guided wizard (login → key). Skip straight to the app once done.
     if (!cfg.onboardingDone) {
         OnboardingScreen(deps, onDone = { deps.config.update { it.copy(onboardingDone = true) } })
         return
     }
 
-    AppBootstrap(deps, serviceEnabled = loggedIn && provisioned)
+    AppBootstrap(deps, serviceEnabled = loggedIn && provisioned && !cfg.demoMode)
 
     // Account taken over on another device (TSP 079021): the interceptor already cleared the
     // token (so we're now on the signed-out flow) — just explain why. Mirrors the stock app,
@@ -141,8 +145,9 @@ fun AppRoot(deps: Deps) {
     }
 
     var tab by remember { mutableIntStateOf(Tab.SETTINGS.ordinal) }
-    LaunchedEffect(loggedIn, provisioned) {
+    LaunchedEffect(loggedIn, provisioned, cfg.demoMode) {
         tab = when {
+            cfg.demoMode -> Tab.VEHICLE.ordinal
             !loggedIn -> Tab.SETTINGS.ordinal
             !provisioned -> Tab.KEY.ordinal
             else -> Tab.VEHICLE.ordinal
@@ -151,8 +156,8 @@ fun AppRoot(deps: Deps) {
 
     Scaffold(
         topBar = {
-            val connText = when { bleReady && loggedIn -> "BLE · Cloud"; bleReady -> "BLE"; loggedIn -> "Cloud"; else -> "Offline" }
-            val connColor = when { bleReady -> Brand.good; loggedIn -> Brand.accent; else -> Brand.faint }
+            val (connText, isActive) = deps.control.connectionStatus(loggedIn, bleReady)
+            val connColor = if (isActive) (if (bleReady) Brand.good else Brand.accent) else Brand.faint
             Row(
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
                     .statusBarsPadding().padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 8.dp),
@@ -265,7 +270,23 @@ fun AppRoot(deps: Deps) {
 
     // One-time "this is a passion project" note. Shown once after onboarding; dismissing it (either
     // button) sets the persisted flag so it never appears again.
-    if (!cfg.supportNoteShown) {
+    if (showDemoWelcome) {
+        DemoModeDialog(
+            title = "Demo Mode Active",
+            confirmText = "Continue in Demo",
+            dismissText = "Exit Demo Mode",
+            isExitAction = true,
+            onConfirm = { showDemoWelcome = false },
+            onDismiss = {
+                showDemoWelcome = false
+                deps.exitDemoMode()
+            }
+        )
+    }
+
+    // One-time "this is a passion project" note. Shown once after onboarding; dismissing it (either
+    // button) sets the persisted flag so it never appears again.
+    if (!cfg.supportNoteShown && !cfg.demoMode) {
         val dismiss = { deps.config.update { it.copy(supportNoteShown = true) } }
         AlertDialog(
             onDismissRequest = dismiss,

@@ -1,62 +1,42 @@
 package com.openzeekr.app.remote
 
-import android.util.Base64
 import com.openzeekr.app.config.ConfigStore
+import com.openzeekr.app.net.AccountLogin
 import com.openzeekr.app.net.ApiClient
-import com.openzeekr.app.net.model.LoginRequest
-import com.openzeekr.app.net.model.RemoteControlResponse
-import com.openzeekr.app.net.model.SentryLiveTokenReq
-import com.openzeekr.app.net.model.SentryUploadReq
-import com.openzeekr.app.net.model.SentryVideoDetail
-import com.openzeekr.app.net.model.ModifyVehicleRequest
-import com.openzeekr.app.net.model.ServiceParameter
-import com.openzeekr.app.net.model.VehicleGarage
-import com.openzeekr.app.net.model.VehicleInfo
-import com.openzeekr.app.net.model.VehicleStatus
-import com.openzeekr.app.net.model.VehicleStatusBean
+import com.openzeekr.app.net.model.*
+import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.security.KeyFactory
-import java.security.spec.X509EncodedKeySpec
-import javax.crypto.Cipher
-
-/** Thin result wrapper so the UI can show ok/error uniformly. */
-sealed interface CallResult<out T> {
-    data class Ok<T>(val value: T) : CallResult<T>
-    data class Err(val message: String) : CallResult<Nothing>
-}
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import retrofit2.HttpException
 
 private inline fun <T> guarded(block: () -> T): CallResult<T> =
     runCatching { CallResult.Ok(block()) }
         .getOrElse { CallResult.Err(it.message ?: it.javaClass.simpleName) }
 
-/**
- * User message for a sentry/sentinel failure. The `sentinel-monitoring-service` is
- * NOT routed on the EU TSP gateway (the gateway answers 404 / code "00A01" — verified:
- * our path & params are byte-identical to the stock app; the service is only deployed
- * behind CN/other-region gateways). Surface that plainly instead of a raw HTTP 404.
- */
-const val SENTRY_REGION_UNAVAILABLE =
-    "Sentry isn't available for this account's region — the sentinel-monitoring-service " +
-        "isn't routed on the EU gateway. It only works on CN (or other-region) accounts."
-
-fun sentryMessage(t: Throwable): String =
-    if ((t as? retrofit2.HttpException)?.code() == 404) SENTRY_REGION_UNAVAILABLE
-    else t.message ?: t.javaClass.simpleName
-
 private inline fun <T> sentryGuarded(block: () -> T): CallResult<T> =
     runCatching { CallResult.Ok(block()) }
         .getOrElse { CallResult.Err(sentryMessage(it)) }
 
-class AuthRepository(private val store: ConfigStore, private val client: ApiClient) {
+fun sentryMessage(t: Throwable): String =
+    if ((t as? HttpException)?.code() == 404) SENTRY_REGION_UNAVAILABLE
+    else t.message ?: t.javaClass.simpleName
+
+class RealAuthRepository(private val store: ConfigStore, private val client: ApiClient) : IAuthRepository {
 
     /**
-     * Full Zeekr account login (see [com.openzeekr.app.net.AccountLogin]):
+     * Full Zeekr account login (see [AccountLogin]):
      * checkUser → loginByEmailEncrypt → user/info → tspCode → bearer_login →
      * vehicle-list. Writes accessToken + userId + vin into config.
      */
-    suspend fun login(): CallResult<String> = withContext(Dispatchers.IO) {
-        val r = com.openzeekr.app.net.AccountLogin(store).login()
+    override suspend fun login(): CallResult<String> = withContext(Dispatchers.IO) {
+        val r = AccountLogin(store).login()
         r.fold(
             onSuccess = { CallResult.Ok(store.current().accessToken) },
             onFailure = { CallResult.Err(it.message ?: it.javaClass.simpleName) },
@@ -64,11 +44,14 @@ class AuthRepository(private val store: ConfigStore, private val client: ApiClie
     }
 }
 
-class RemoteControlRepository(private val store: ConfigStore, private val client: ApiClient) {
+class RealRemoteControlRepository(private val store: ConfigStore, private val client: ApiClient) : IRemoteControlRepository {
+
+    override val demoMode: Boolean get() = false
+    override val demoModeFlow = store.config.map { it.demoMode }.distinctUntilChanged()
 
     /** Fire a catalog command. Physical-actuation ids (RDU_2/RDL_2/RDO/RDC) route through
      *  the ecarx device-api transport (System B); everything else through /ms-remote-control. */
-    suspend fun send(cmd: Command, extraParams: List<ServiceParameter> = emptyList()): CallResult<RemoteControlResponse> =
+    override suspend fun send(cmd: Command, extraParams: List<ServiceParameter>): CallResult<RemoteControlResponse> =
         withContext(Dispatchers.IO) {
             guarded {
                 val cfg = store.current()
@@ -77,7 +60,7 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                 // device. Stock heartbeats app/hb continuously; refresh our online
                 // status right before the command so the TSP doesn't reject execution
                 // (037005 "execution failed, please try again"). Best-effort.
-                runCatching { com.openzeekr.app.net.AccountLogin(store).heartbeat() }
+                runCatching { AccountLogin(store).heartbeat() }
                 if (cmd.serviceId == "RCS") {
                     // Charging (limit / start / stop) is its OWN service — ms-charge-manage, NOT
                     // ms-remote-control. Same body shape; different path. Routing RCS through
@@ -99,8 +82,8 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
         }
 
     /** Per-VIN supported functions (drives button visibility). Fail-open on error. */
-    suspend fun capabilities(): CallResult<com.openzeekr.app.net.model.VehicleCapabilities> = withContext(Dispatchers.IO) {
-        guarded { com.openzeekr.app.net.model.VehicleCapabilityParse.parse(client.api.vehicleCapability().data) }
+    override suspend fun capabilities(): CallResult<VehicleCapabilities> = withContext(Dispatchers.IO) {
+        guarded { VehicleCapabilityParse.parse(client.api.vehicleCapability().data) }
     }
 
     /**
@@ -109,16 +92,16 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
      * the cloud has us marked ONLINE and returns a fresh snapshot. VIN rides in the
      * X-VIN header; the query params (latest=false, target=new) mirror the stock app.
      */
-    suspend fun status(): CallResult<VehicleStatusBean> = withContext(Dispatchers.IO) {
+    override suspend fun status(): CallResult<VehicleStatusBean> = withContext(Dispatchers.IO) {
         guarded {
             val cfg = store.current()
             require(cfg.vin.isNotBlank()) { "VIN not configured" }
-            runCatching { com.openzeekr.app.net.AccountLogin(store).heartbeat() }
+            runCatching { AccountLogin(store).heartbeat() }
             val resp = client.api.vehicleStatus()
             val obj = resp.data ?: error(resp.message ?: "status failed (code=${resp.code})")
             // PII-safe: log only the key structure (names, never values like VIN/GPS/SOC)
             // so an unexpected shape can be diagnosed from the on-device debug log.
-            com.openzeekr.app.util.Logx.d("status", "keys=${VehicleStatus.keyTree(obj)}")
+            Logx.d("status", "keys=${VehicleStatus.keyTree(obj)}")
             // `data` is a raw JsonObject; map it tolerantly (never throws on shape).
             VehicleStatus.parse(obj)
         }
@@ -129,21 +112,21 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
      *  The raw `data` mixes strings, nulls and arrays, so we flatten tolerantly: primitives keep
      *  their content, and the glovebox array is reduced to a synthetic `gloveboxLocked` ("1"/"0")
      *  read off boxId 3's `status` — the toggles bind to that instead of the raw array. */
-    suspend fun controlState(): CallResult<Map<String, String>> = withContext(Dispatchers.IO) {
+    override suspend fun controlState(): CallResult<Map<String, String>> = withContext(Dispatchers.IO) {
         guarded {
             val cfg = store.current()
             require(cfg.vin.isNotBlank()) { "VIN not configured" }
             val data = client.api.remoteControlState().data ?: error("state failed")
             buildMap {
                 for ((k, v) in data) {
-                    if (v is kotlinx.serialization.json.JsonNull) continue
-                    (v as? kotlinx.serialization.json.JsonPrimitive)?.let { put(k, it.content) }
+                    if (v is JsonNull) continue
+                    (v as? JsonPrimitive)?.let { put(k, it.content) }
                 }
                 // storageBoxStatus: [{ "boxId":"3", "status":"0", ... }] → gloveboxLocked = boxId 3 status.
-                (data["storageBoxStatus"] as? kotlinx.serialization.json.JsonArray)
-                    ?.mapNotNull { it as? kotlinx.serialization.json.JsonObject }
-                    ?.firstOrNull { box -> (box["boxId"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "3" }
-                    ?.let { box -> (box["status"] as? kotlinx.serialization.json.JsonPrimitive)?.content }
+                (data["storageBoxStatus"] as? JsonArray)
+                    ?.mapNotNull { it as? JsonObject }
+                    ?.firstOrNull { box -> (box["boxId"] as? JsonPrimitive)?.content == "3" }
+                    ?.let { box -> (box["status"] as? JsonPrimitive)?.content }
                     ?.let { put("gloveboxLocked", it) }
             }
         }
@@ -152,7 +135,7 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
     /** Garage lookup: the car's model / colour / render / nickname (best-effort). Also
      *  refreshes the persisted `isOwner` flag so provisioning picks owner vs shared correctly
      *  even on a session that logged in before that flag was captured. */
-    suspend fun vehicleInfo(): CallResult<VehicleInfo?> = withContext(Dispatchers.IO) {
+    override suspend fun vehicleInfo(): CallResult<VehicleInfo?> = withContext(Dispatchers.IO) {
         guarded {
             VehicleGarage.parse(client.api.vehicleList().data)?.also { info ->
                 if (info.isOwner != store.current().isOwner) store.update { it.copy(isOwner = info.isOwner) }
@@ -161,8 +144,19 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
     }
 
     /** Rename the car (cloud). vehicleId is optional; the backend also keys off X-VIN. */
-    suspend fun renameVehicle(name: String, vehicleId: String? = null): CallResult<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun renameVehicle(name: String, vehicleId: String?): CallResult<Unit> = withContext(Dispatchers.IO) {
         guarded { client.api.modifyVehicle(ModifyVehicleRequest(id = vehicleId, vehNickname = name)); Unit }
+    }
+
+    override fun connectionStatus(loggedIn: Boolean, bleReady: Boolean): Pair<String, Boolean> {
+        val text = when {
+            bleReady && loggedIn -> "BLE · Cloud"
+            bleReady -> "BLE"
+            loggedIn -> "Cloud"
+            else -> "Offline"
+        }
+        val active = bleReady || loggedIn
+        return text to active
     }
 }
 
@@ -172,7 +166,7 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
  * gateway — there is no push of message bodies (FCM only deep-links). Endpoints and
  * response shapes are reversed but not yet verified live, so everything is tolerant.
  */
-class InboxRepository(private val store: ConfigStore, private val client: ApiClient) {
+class RealInboxRepository(private val store: ConfigStore, private val client: ApiClient) : IInboxRepository {
 
     /**
      * The message list. Uses the grouped `/inbox/home` landing (latest preview per category) —
@@ -180,25 +174,25 @@ class InboxRepository(private val store: ConfigStore, private val client: ApiCli
      * so home is the one call that returns messages with no params. Only page 1 fetches; later
      * pages return empty (home isn't paged), which the UI treats as "no more".
      */
-    suspend fun messages(page: Int = 1, pageSize: Int = 30): CallResult<List<com.openzeekr.app.net.model.InboxMessage>> =
+    override suspend fun messages(page: Int, pageSize: Int): CallResult<List<InboxMessage>> =
         withContext(Dispatchers.IO) {
             guarded {
                 if (page > 1) return@guarded emptyList()
                 val cfg = store.current()
                 require(cfg.overseasReady) { NOT_CONFIGURED }
-                runCatching { com.openzeekr.app.net.AccountLogin(store).heartbeat() }
+                runCatching { AccountLogin(store).heartbeat() }
                 // /home gives the four groups + each group's `customTypeId`; the FULL per-category
                 // history comes from the paged /inbox list filtered by that id (captured stock flow:
                 // GET /inbox?pageNumber=&pageSize=&customTypeId=<id>&vin= — vin sent EMPTY). We fetch
                 // page 1 of every category and merge, so the list is the real history, not just the
                 // one-preview-per-group /home fallback.
                 val home = client.api.inboxHome("$INBOX/home").data
-                val categories = com.openzeekr.app.net.model.Inbox.homeCategories(home)
-                if (categories.isEmpty()) return@guarded com.openzeekr.app.net.model.Inbox.parseHome(home)
-                val merged = LinkedHashMap<String, com.openzeekr.app.net.model.InboxMessage>()
+                val categories = Inbox.homeCategories(home)
+                if (categories.isEmpty()) return@guarded Inbox.parseHome(home)
+                val merged = LinkedHashMap<String, InboxMessage>()
                 for (cat in categories) {
                     val list = runCatching {
-                        com.openzeekr.app.net.model.Inbox.parse(
+                        Inbox.parse(
                             client.api.inbox(INBOX, pageNumber = 1, pageSize = pageSize, customTypeId = cat, vin = "").data)
                     }.getOrDefault(emptyList())
                     for (m in list) merged.putIfAbsent(m.id ?: "${m.title}:${m.timeMs}", m)
@@ -208,25 +202,27 @@ class InboxRepository(private val store: ConfigStore, private val client: ApiCli
         }
 
     /** Unread badge count = Σ the /home groups' `sum`. (No `/unread` GET — that route 500s.) */
-    suspend fun unreadCount(): CallResult<Int> = withContext(Dispatchers.IO) {
+    override suspend fun unreadCount(): CallResult<Int> = withContext(Dispatchers.IO) {
         guarded {
             if (!store.current().overseasReady) return@guarded 0
-            runCatching { com.openzeekr.app.net.AccountLogin(store).heartbeat() }
-            com.openzeekr.app.net.model.Inbox.homeUnread(client.api.inboxHome("$INBOX/home").data)
+            runCatching { AccountLogin(store).heartbeat() }
+            Inbox.homeUnread(client.api.inboxHome("$INBOX/home").data)
         }
     }
 
     /** Mark a single message read. */
-    suspend fun markRead(id: String): CallResult<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun markRead(id: String): CallResult<Unit> = withContext(Dispatchers.IO) {
         guarded { require(store.current().overseasReady) { NOT_CONFIGURED }; client.api.inboxMarkRead("$INBOX/$id"); Unit }
     }
 
     /** Mark every message read. */
-    suspend fun markAllRead(): CallResult<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun markAllRead(): CallResult<Unit> = withContext(Dispatchers.IO) {
         guarded {
             val cfg = store.current()
             require(cfg.overseasReady) { NOT_CONFIGURED }
-            client.api.inboxReadAll("$INBOX/read-all", com.openzeekr.app.net.model.MarkAllReadRequest(vin = cfg.vin.ifBlank { null })); Unit
+            client.api.inboxReadAll("$INBOX/read-all",
+                MarkAllReadRequest(vin = cfg.vin.ifBlank { null })
+            ); Unit
         }
     }
 
@@ -253,12 +249,7 @@ class InboxRepository(private val store: ConfigStore, private val client: ApiCli
  * optional per-trip GPS track. Read-only paged REST on the TSP gateway (ms-vehicle-trail),
  * same bearer + X-SIGNATURE + X-VIN signing the interceptors add for every other call.
  */
-/** Shown when the flaky trail service kept timing out (504) across every retry — tap Reload again. */
-const val JOURNEY_UPSTREAM_DOWN =
-    "The trip-history service is busy (it timed out). This is server-side and usually clears on a " +
-        "retry — tap Reload."
-
-class JourneyRepository(private val store: ConfigStore, private val client: ApiClient) {
+class RealJourneyRepository(private val store: ConfigStore, private val client: ApiClient) : IJourneyRepository {
 
     /** One [page] (1-based) of trips over the last [days], newest first. Body matches the documented
      *  `ForPageRequestBean {current,pageSize,startTime,endTime,lastId}` (PROFILE_SERVICES_FINDINGS.md).
@@ -266,14 +257,12 @@ class JourneyRepository(private val store: ConfigStore, private val client: ApiC
      *  504 and the user just keeps tapping Reload until it returns). So we auto-retry a transient 5xx
      *  up to [attempts] times before surfacing an error; the UI then offers a manual Reload too.
      *  Owner-only server-side (gated in UI). */
-    suspend fun trips(
-        page: Int = 1, pageSize: Int = 10, days: Int = 90, attempts: Int = 20,
-    ): CallResult<com.openzeekr.app.net.model.JourneyPage> = withContext(Dispatchers.IO) {
+    override suspend fun trips(page: Int, pageSize: Int, days: Int, attempts: Int): CallResult<JourneyPage> = withContext(Dispatchers.IO) {
         guarded {
             val cfg = store.current()
             require(cfg.vin.isNotBlank()) { "VIN not configured" }
             val now = System.currentTimeMillis()
-            val body = com.openzeekr.app.net.model.JourneyPageRequest(
+            val body = JourneyPageRequest(
                 current = page,
                 pageSize = pageSize,
                 startTime = now - days * 86_400_000L,
@@ -283,26 +272,26 @@ class JourneyRepository(private val store: ConfigStore, private val client: ApiC
             var last: Throwable? = null
             repeat(attempts) { attempt ->
                 val r = runCatching { client.api.journeyTrips(body) }
-                if (r.isSuccess) return@guarded com.openzeekr.app.net.model.Journey.parseTripsPage(r.getOrThrow().data)
+                if (r.isSuccess) return@guarded Journey.parseTripsPage(r.getOrThrow().data)
                 last = r.exceptionOrNull()
-                val code = (last as? retrofit2.HttpException)?.code()
+                val code = (last as? HttpException)?.code()
                 if (code != 500 && code != 502 && code != 503 && code != 504) throw last!! // real error → fail now
-                if (attempt < attempts - 1) kotlinx.coroutines.delay(600L)
+                if (attempt < attempts - 1) delay(600L)
             }
             error(JOURNEY_UPSTREAM_DOWN)
         }
     }
 
     /** The GPS track for a single trip (optional detail). */
-    suspend fun trackpoints(reportTime: Long, tripId: Int): CallResult<List<com.openzeekr.app.net.model.JourneyTrackpoint>> =
+    override suspend fun trackpoints(reportTime: Long, tripId: Int): CallResult<List<JourneyTrackpoint>> =
         withContext(Dispatchers.IO) {
-            guarded { com.openzeekr.app.net.model.Journey.parseTrackpoints(client.api.journeyTrackpoints(reportTime, tripId).data) }
+            guarded { Journey.parseTrackpoints(client.api.journeyTrackpoints(reportTime, tripId).data) }
         }
 }
 
-class SentryRepository(private val store: ConfigStore, private val client: ApiClient) {
+class RealSentryRepository(private val store: ConfigStore, private val client: ApiClient) : ISentryRepository {
 
-    suspend fun events(startMs: Long, endMs: Long): CallResult<List<SentryVideoDetail>> =
+    override suspend fun events(startMs: Long, endMs: Long): CallResult<List<SentryVideoDetail>> =
         withContext(Dispatchers.IO) {
             sentryGuarded {
                 val cfg = store.current()
@@ -318,7 +307,7 @@ class SentryRepository(private val store: ConfigStore, private val client: ApiCl
         }
 
     /** Ask the car to upload specific event clips to the cloud first. */
-    suspend fun requestUpload(ids: List<Long>): CallResult<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun requestUpload(ids: List<Long>): CallResult<Unit> = withContext(Dispatchers.IO) {
         sentryGuarded { client.api.sentryRequestUpload(SentryUploadReq(ids)); Unit }
     }
 
@@ -327,7 +316,7 @@ class SentryRepository(private val store: ConfigStore, private val client: ApiCl
      * otherwise ask the car to upload it and poll the event list (over [startMs]..
      * [endMs]) until the cloud URL appears. Returns the direct video URL to download.
      */
-    suspend fun prepareDownload(id: Long, startMs: Long, endMs: Long): CallResult<String> =
+    override suspend fun prepareDownload(id: Long, startMs: Long, endMs: Long): CallResult<String> =
         withContext(Dispatchers.IO) {
             try {
                 var url = videoUrlFor(id, startMs, endMs)
@@ -335,7 +324,7 @@ class SentryRepository(private val store: ConfigStore, private val client: ApiCl
                     client.api.sentryRequestUpload(SentryUploadReq(listOf(id)))
                     var tries = 0
                     while (url == null && tries < 40) {   // ~2 min at 3s
-                        kotlinx.coroutines.delay(3000); tries++
+                        delay(3000); tries++
                         url = videoUrlFor(id, startMs, endMs)
                     }
                 }
@@ -351,7 +340,7 @@ class SentryRepository(private val store: ConfigStore, private val client: ApiCl
 
     /** Obtain RTC join params for a live view. Rendering still needs the RTC
      *  provider SDK behind the returned appId (not yet identified). */
-    suspend fun liveToken(roomId: String): CallResult<String> = withContext(Dispatchers.IO) {
+    override suspend fun liveToken(roomId: String): CallResult<String> = withContext(Dispatchers.IO) {
         sentryGuarded {
             val cfg = store.current()
             val tok = client.api.sentryLiveToken(SentryLiveTokenReq(roomId, cfg.deviceIdentifier)).data
@@ -366,17 +355,17 @@ class SentryRepository(private val store: ConfigStore, private val client: ApiCl
  * loads the destination when it next syncs (delivery is server-queued, result carries a msgId).
  * Coordinates are raw WGS-84 — no client-side GCJ02/"mars" conversion. VIN travels in X-VIN.
  */
-class NavRepository(private val store: ConfigStore, private val client: ApiClient) {
+class RealNavRepository(private val store: ConfigStore, private val client: ApiClient) : INavRepository {
 
     /** Push [name] @ ([lat],[lon]) WGS-84 to the car. [address]/[city] are optional labels. */
-    suspend fun sendToCar(
-        lat: Double, lon: Double, name: String, address: String = "", city: String = "",
+    override suspend fun sendToCar(
+        lat: Double, lon: Double, name: String, address: String, city: String,
     ): CallResult<Unit> = withContext(Dispatchers.IO) {
         guarded {
             val cfg = store.current()
             require(cfg.vin.isNotBlank()) { "VIN not configured" }
             val resp = client.api.sendToCar(
-                com.openzeekr.app.net.model.SendToCarRequest(
+                SendToCarRequest(
                     address = address,
                     city = city,
                     content = "",

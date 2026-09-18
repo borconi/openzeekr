@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
  * the UI shows every control rather than hiding them ("fail open").
  */
 class CapabilityHolder(
-    private val control: RemoteControlRepository,
+    private val control: IRemoteControlRepository,
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow(VehicleCapabilities.UNKNOWN)

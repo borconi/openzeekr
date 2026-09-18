@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import com.openzeekr.app.remote.DemoData
 
 /**
  * Live vehicle status. There is NO server push (see live-status-polling notes), so the
@@ -18,7 +20,7 @@ import kotlinx.coroutines.launch
  * foreground/background.
  */
 class VehicleStatusHolder(
-    private val control: RemoteControlRepository,
+    private val control: IRemoteControlRepository,
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow<VehicleStatusBean?>(null)
@@ -31,9 +33,16 @@ class VehicleStatusHolder(
     fun start() {
         if (job?.isActive == true) return
         job = scope.launch {
-            while (isActive) {
-                refresh()
-                delay(POLL_MS)
+            // Observe demoMode changes and switch between real polling and simulated flow.
+            control.demoModeFlow.collectLatest { demo ->
+                if (demo) {
+                    DemoData.status.collect { _state.value = it }
+                } else {
+                    while (isActive) {
+                        refresh()
+                        delay(POLL_MS)
+                    }
+                }
             }
         }
     }

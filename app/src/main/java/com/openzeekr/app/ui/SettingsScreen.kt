@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.openzeekr.app.Deps
 import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.remote.CallResult
+import com.openzeekr.app.remote.DemoData
 import com.openzeekr.app.ui.theme.Brand
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.launch
@@ -147,6 +149,31 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             UnitRow("Distance", listOf("km" to "km", "mi" to "miles"), liveCfg.distanceUnit) { v -> store.update { it.copy(distanceUnit = v) } }
             UnitRow("Tyre pressure", listOf("bar" to "bar", "psi" to "psi", "kpa" to "kPa"), liveCfg.pressureUnit) { v -> store.update { it.copy(pressureUnit = v) } }
             UnitRow("Temperature", listOf("c" to "°C", "f" to "°F"), liveCfg.tempUnit) { v -> store.update { it.copy(tempUnit = v) } }
+        }
+
+        // -------- demo mode --------
+        if (liveCfg.demoMode) {
+            SettingsCard {
+                CardTitle("Demo Mode")
+                Text("App is running with simulated data and car controls.", color = Brand.muted, fontSize = 13.sp)
+                var confirmExit by remember { mutableStateOf(false) }
+                PrimaryButton("Exit demo mode", Modifier.fillMaxWidth()) {
+                    confirmExit = true
+                }
+                if (confirmExit) {
+                    DemoModeDialog(
+                        title = "Exit Demo Mode?",
+                        confirmText = "Continue in Demo",
+                        dismissText = "Exit Demo Mode",
+                        isExitAction = true,
+                        onConfirm = { confirmExit = false },
+                        onDismiss = {
+                            confirmExit = false
+                            deps.exitDemoMode()
+                        }
+                    )
+                }
+            }
         }
 
         // -------- app --------
@@ -307,7 +334,9 @@ private fun importExport(store: com.openzeekr.app.config.ConfigStore, onChanged:
         CardTitle("Import / Export")
         OutlinedTextField(
             value = importText, onValueChange = { importText = it },
-            label = { Text("Paste zeekr_secrets.json") }, modifier = Modifier.fillMaxWidth(), minLines = 3,
+            label = { Text("Paste zeekr_secrets.json") }, 
+            modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp), 
+            minLines = 3,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { msg = store.importJson(importText).fold({ onChanged(); "Imported." }, { "Import failed: ${it.message}" }) }) { Text("Import") }

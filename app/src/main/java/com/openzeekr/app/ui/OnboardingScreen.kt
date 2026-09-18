@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,10 +38,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.openzeekr.app.Deps
 import com.openzeekr.app.ble.DkProvisioning
 import com.openzeekr.app.config.SecretsConfig
+import com.openzeekr.app.ui.theme.Brand
 import com.openzeekr.app.remote.CallResult
+import com.openzeekr.app.remote.DemoData
 import kotlinx.coroutines.launch
 
 /**
@@ -66,6 +70,7 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
         }
     }
     var idx by remember { mutableIntStateOf(0) }
+    var showDemoInfo by remember { mutableStateOf(false) }
     val safeIdx = idx.coerceIn(0, steps.lastIndex)
     val step = steps[safeIdx]
     val loggedIn = cfg.accessToken.isNotBlank()
@@ -105,7 +110,18 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
             // Footer nav
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                if (safeIdx > 0) TextButton(onClick = ::back) { Text("Back") } else Spacer(Modifier.height(1.dp))
+                if (safeIdx > 0) {
+                    TextButton(onClick = ::back) { Text("Back") }
+                } else {
+                    if (step == OnbStep.WELCOME) {
+                        TextButton(onClick = { showDemoInfo = true }) {
+                            Text("DEMO", color = Brand.accent, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Spacer(Modifier.height(1.dp))
+                    }
+                }
+
                 when (step) {
                     OnbStep.WELCOME -> Button(onClick = ::next) { Text("Get started") }
                     OnbStep.SECRETS -> Button(onClick = ::next, enabled = secretsValid) { Text("Next") }
@@ -118,6 +134,19 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (showDemoInfo) {
+        DemoModeDialog(
+            title = "Enter Demo Mode?",
+            confirmText = "Enter Demo Mode",
+            dismissText = "Cancel",
+            onConfirm = {
+                showDemoInfo = false
+                deps.enterDemoMode()
+            },
+            onDismiss = { showDemoInfo = false }
+        )
     }
 }
 
@@ -169,7 +198,7 @@ private fun SecretsStep(deps: Deps, secretsValid: Boolean) {
         OutlinedTextField(
             value = importText, onValueChange = { importText = it },
             label = { Text("Paste zeekr_secrets.json") }, minLines = 4,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp),
         )
         Button(onClick = {
             status = store.importJson(importText).fold(

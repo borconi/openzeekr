@@ -158,9 +158,13 @@ data class SecretsConfig(
      *  endpoint (getChargingPlan.target is schedule-only), so — like the stock app — we cache
      *  the set value locally and seed the charge slider from it instead of a fixed 80%. */
     val chargeLimitPct: Int = 80,
+
+    /** Demo mode: skip all keys/secrets, bypass real API calls, show simulated data. */
+    val demoMode: Boolean = false,
 ) {
     /** True when the mandatory app-global secrets (non-account) are present and valid. */
     val secretsValid: Boolean get() {
+        if (demoMode) return true
         if (hmacAccessKey.isBlank() || hmacSecretKey.isBlank() || passwordPublicKey.isBlank() || prodSecret.isBlank()) return false
         val vkLen = vinKey.toByteArray(Charsets.UTF_8).size
         if (vinKey.isNotEmpty() && vkLen != 16) return false
@@ -171,6 +175,7 @@ data class SecretsConfig(
 
     /** Validates constraints on the configuration. Returns a list of error messages (empty if valid). */
     fun validate(): List<String> = buildList {
+        if (demoMode) return@buildList
         // Mandatory fields
         if (hmacAccessKey.isBlank()) add("hmac_access_key is required")
         if (hmacSecretKey.isBlank()) add("hmac_secret_key is required")
@@ -201,8 +206,8 @@ data class SecretsConfig(
 
     /** True when the minimum needed to talk to the cloud is present. */
     val cloudReady: Boolean
-        get() = baseUrl.isNotBlank() && prodSecret.isNotBlank() &&
-            (accessToken.isNotBlank() || (email.isNotBlank() && password.isNotBlank()))
+        get() = demoMode || (baseUrl.isNotBlank() && prodSecret.isNotBlank() &&
+            (accessToken.isNotBlank() || (email.isNotBlank() && password.isNotBlank())))
 
     /** The secret used for X-SIGNATURE. prodSecret per the reversing notes. */
     val signSecret: String get() = prodSecret

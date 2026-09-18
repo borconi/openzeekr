@@ -89,6 +89,7 @@ Legend: ✅ working & verified · 🟡 built but **unverified** (may or may not 
 | **Vehicle status** | ✅ **Working (EU)** — single GET (`vehicle/status/latest?latest=false&target=new`), tolerant JSON map (lock/doors/SOC/range/climate/odometer/tyres/location). Handles this platform's quirks: SOC lives in `chargeLevel` (not blank `stateOfCharge`); charging derived from live `chargeIAct×chargeUAct` kW (the `isCharging` flag is wrong) |
 | **Sentry footage / live view** | 🔴 **CN-only — not available on EU (or any overseas) gateway.** `sentinel-monitoring-service` is unrouted (gateway 404 `00A01`); our request is byte-identical to stock, so it's a server-side regional gap, not a client bug. **Hidden in the app for now; back-burner** — see below |
 | **Remote parking (RPA/RSPA)** | 🔴 **Not working — gated by the car.** The full schema is reverse-engineered and implemented (flow, opcodes, 500 ms dead-man heartbeat, challenge auto-answer, RSSI stream, AES-CMAC frame trailer + ECIES `cmacKey` unwrap). But at the car every request is NAK'd (`0x100a`) even with an owner key, armed on the head unit — the car only authorizes RPA for a **DK 3.0 / Secure-Element key**, which a software key can't be. Schema is available; actuation is not reachable |
+| **Demo Mode** | ✅ **Working** — full sandbox with simulated vehicle status, interactive controls, and mock notifications |
 | **Wear OS companion** (standalone watch app) | ✅ **Working at the car.** Pulls the phone's DK key over the Wear Data Layer (no separate sign-in — same `applicationId` + signing key), then locks/unlocks the car **directly over BLE from the watch**. Arbitrates the car's single BLE peer slot with the phone: stands down while phone Lock-on-approach is on, otherwise runs a pause → act → resume handover so the two never fight for the radio. Hero-style watch face (car render + one-tap lock/unlock) |
 
 The digital-key handshake and lock/unlock are real and verified. RPA rides the same
@@ -118,6 +119,10 @@ either restricts or doesn't offer at all:
 5. **Standalone Wear OS companion.** A watch app that locks/unlocks the car **directly
    over BLE from the wrist** (one tap — no proximity), usable on its own once it has
    borrowed the key from the phone. The stock app has no equivalent.
+6. **Interactive Demo Mode.** Explore the app's full UI with simulated car data and
+   interactive controls (lock/unlock, climate, seat heating, etc.) without requiring
+   any API keys or a real vehicle connection. Perfect for exploring the cockpit
+   layout before committing to the setup flow. The stock app has no sandbox mode.
 
 ## 🔑 Getting your own keys (required — none are shipped)
 

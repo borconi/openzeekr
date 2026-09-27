@@ -1,0 +1,78 @@
+# EditorConfig — the shared formatting contract between Android Studio / IntelliJ
+# and ktlint (run by Trunk, locally and in CI). https://editorconfig.org
+#
+# Why this file exists: without it, ktlint 1.x defaults to its own `ktlint_official`
+# code style, which is a stricter superset of the "official Kotlin style" that
+# `kotlin.code.style=official` (gradle.properties) selects in the IDE. The result is
+# that the IDE formats code one way and ktlint demands another. Measured on this
+# repo: 6610 ktlint findings under `ktlint_official` vs 3081 under `intellij_idea`.
+root = true
+
+# Note: indent_size is set per language, not globally. Prettier reads indent_size from
+# this file, and a global value would make it re-indent Markdown/YAML away from its own
+# defaults, fighting the formatter Trunk already runs.
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+trim_trailing_whitespace = true
+
+# Two trailing spaces are a hard line break in Markdown; prettier owns this format.
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+
+[*.{yml,yaml,json,jsonc,toml}]
+indent_size = 2
+
+[*.{java,xml,pro}]
+indent_size = 4
+
+[*.{c,h,cpp,hpp}]
+indent_size = 4
+
+[CMakeLists.txt]
+indent_size = 2
+
+# Windows batch files (incl. gradlew.bat) need CRLF. Matches .gitattributes.
+[*.bat]
+end_of_line = crlf
+
+[*.{kt,kts}]
+indent_size = 4
+# Match what Android Studio / IntelliJ produce for `kotlin.code.style=official`,
+# instead of ktlint's own stricter dialect.
+ktlint_code_style = intellij_idea
+# This codebase documents protocol/reversing details inline and runs long. The IDE
+# default (120) would rewrap comment-heavy lines constantly.
+max_line_length = 160
+
+# --- Opt-outs: rules that contradict this codebase's deliberate, existing style. ---
+# Disabled on purpose, not because the code is wrong. Re-enabling any of these means
+# a large mechanical reformat, so discuss it before changing.
+
+# @Composable functions are PascalCase by official Compose convention; the rule would
+# flag every screen (95 findings).
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# Trailing comments and constant tables are column-aligned for readability
+# (e.g. net/ZeekrConst.kt).
+ktlint_standard_no-multi-spaces = disabled
+ktlint_standard_spacing-between-declarations-with-comments = disabled
+# Compact single-line bodies are used throughout, e.g.
+#   fun setHttp(on: Boolean) { httpOn = on; if (!anyOn) _lines.value = emptyList() }
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_function-literal = disabled
+# Argument/parameter lists are kept compact rather than one-per-line.
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_class-signature = disabled
+# Trailing commas are not used consistently yet; enforcing them touches most files.
+# NOTE: these two rules depend on standard:wrapping, so leave `wrapping` enabled.
+ktlint_standard_trailing-comma-on-call-site = disabled
+ktlint_standard_trailing-comma-on-declaration-site = disabled
+ktlint_standard_blank-line-between-when-conditions = disabled
+
+# Generated / vendored Kotlin-adjacent files are excluded in .trunk/trunk.yaml.

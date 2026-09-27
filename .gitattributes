@@ -1,0 +1,25 @@
+# Normalise line endings so the build works on Linux, macOS and Windows.
+# The Gradle wrapper shell script MUST stay LF or it fails to execute on
+# Linux/macOS and in CI ("bad interpreter"); gradlew.bat must stay CRLF.
+* text=auto eol=lf
+
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Keep binaries byte-exact (no EOL conversion, no diffing).
+*.jar binary
+*.so binary
+*.apk binary
+*.aab binary
+*.keystore binary
+*.jks binary
+*.png binary
+*.webp binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+
+# Generated lint baselines: huge, machine-written, and reviewed as a whole.
+*/lint-baseline.xml linguist-generated=true

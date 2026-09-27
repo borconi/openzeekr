@@ -60,7 +60,7 @@ their work. Following their convention, **no decrypted app secrets are published
 
 ## Support this work 💛
 
-This comes with **no support** — but a *lot* of time, tooling and late nights went
+This comes with **no support** — but a _lot_ of time, tooling and late nights went
 into reverse-engineering it and bringing it this far. If it's useful to you, a small
 token of appreciation is genuinely welcome (never expected):
 
@@ -69,6 +69,7 @@ token of appreciation is genuinely welcome (never expected):
 ## Changelog
 
 ### 0.1.7
+
 - **Critical fix - reverted a 0.1.6 change that could break your digital key.** 0.1.6 included an
   experimental Bluetooth "pairing" step that was sent on every connection; it could corrupt the car's
   stored pairing for your phone, so entry/start stopped working and re-provisioning failed. That step
@@ -91,9 +92,10 @@ token of appreciation is genuinely welcome (never expected):
   handling, faster reconnect).
 
 ### 0.1.6
+
 - **Fixed: couldn't log back in after signing out.** Signing out cleared the saved VIN, but the app
   wrongly treated a VIN as mandatory before it would even attempt login - so the sign-in was rejected
-  with "vin is required" (the VIN is actually obtained *during* login). You can now sign out and back in
+  with "vin is required" (the VIN is actually obtained _during_ login). You can now sign out and back in
   normally.
 - **Southeast Asia / Australia login now works.** The region (now labelled **"Australia + SEA"**) was
   reaching the wrong login endpoint and couldn't read the gateway's responses, so sign-in failed at the
@@ -108,12 +110,14 @@ token of appreciation is genuinely welcome (never expected):
 - **Tidier notification counter** on the home screen.
 
 ### 0.1.5
+
 - **Send a diagnostic log from the login screen.** If sign-in fails during setup, a "Share diagnostic log"
   button now appears right there, and the login attempt's network traffic is captured automatically - so a
   tester who can't get past login (and therefore can't reach Settings) can still send us an encrypted log to
   diagnose the failure.
 
 ### 0.1.4
+
 - **Send a debug log as a file.** Settings now has a "Share" button that sends the encrypted log through
   your email / share sheet as a file attachment. A full session log is far longer than the clipboard can
   hold, so the old copy-paste route silently cut long logs off and made them unreadable - sharing a file
@@ -148,11 +152,12 @@ token of appreciation is genuinely welcome (never expected):
   accounts registered in SEA/Malaysia can sign in (previously the app signed every region's login
   with the EU keys and SEA was rejected). LA / ME will follow once their keys are added.
 - **Watch stays usable when the phone isn't at the car.** The Wear OS app now only stands down while
-  the phone is *actually holding* the car's Bluetooth link (not merely when Lock-on-approach is
+  the phone is _actually holding_ the car's Bluetooth link (not merely when Lock-on-approach is
   enabled), so you can still lock/unlock from the watch via the handover otherwise. Thanks to Jan
   Compen for the report and patch.
 
 ### 0.1.3
+
 - **Lock / unlock is now confirmed by the car, with self-healing.** The app waits for the car's
   acknowledgement instead of assuming a sent command worked, and if the digital-key session has
   gone stale it rebuilds the link and retries automatically - previously a lock/unlock could
@@ -173,6 +178,7 @@ token of appreciation is genuinely welcome (never expected):
   `.so` library instead of as plaintext strings in the APK.
 
 ### 0.1.2
+
 - **Region selection (beyond EU).** You can now pick your market — **EU / SEA / LA / ME** — in
   onboarding and under Settings › Region. This swaps in that region's Zeekr servers (TSP gateway,
   Azure overseas-app, xchanger DK backend), project-id, country and push region. **Only EU is
@@ -199,6 +205,7 @@ token of appreciation is genuinely welcome (never expected):
   car actually supports**, and seat ventilation is detected correctly again.
 
 ### 0.1.1
+
 - **Prevented log leakage when logging is off.** Debug logging is now truly silent unless
   you turn it on — and enabling it shows a clear warning first, because the log can contain
   key material, session tokens and your VIN.
@@ -212,19 +219,19 @@ token of appreciation is genuinely welcome (never expected):
 
 Legend: ✅ working & verified · 🟡 built but **unverified** (may or may not work) · 🔴 not working yet.
 
-| Area | Status |
-|------|--------|
-| **Account login** (idaas → TSP bearer) | ✅ Working (EU) — logs in and obtains the TSP bearer token |
-| **DK BLE digital key — pair + lock/unlock** | ✅ **Working & verified at the car.** Reverse-engineered handshake (cert exchange → ECDH → AES-128-GCM session) + control opcodes `0x110`/`0x111`; locks and unlocks over BLE, no native libs |
-| **DK cloud provisioning** (enrol our own keypair → key-info) | ✅ Working — provisions OpenZeekr's own digital key and pairs to the car |
-| **Cloud remote control** (lock/unlock, climate, engine, charge, windows, flash/horn, sentry, …) | ✅ **Core verified** — commands accepted (`000000`) via the stock body shape + `X-SIGNATURE`; some commands are vehicle-state gated (e.g. refused at low battery SOC) so remain effectively unverified |
-| **Unified quick action** (BLE if a DK session is connected, else cloud) | ✅ Working |
-| **Foreground service** (keeps the DK BLE session connected; approach unlock/lock) | ✅ **Working at the car.** Sole owner of the DK link — holds it connected and reconnects on drop; releases it on request so the watch companion can borrow the car's single BLE slot (pause → act → resume), then reclaims it. Screen-off approach uses a hardware-offloaded presence scan (zero-CPU wake) |
-| **Proximity unlock / walk-away lock (RSSI)** | ✅ **Working at the car.** Rides the keep-alive session's connected-GATT RSSI with adaptive cadence (2 s idle → 250 ms burst near the threshold) + EMA smoothing; unlocks on approach and locks on walk-away (zone crossings + a link-loss walk-away lock when the session drops as you leave). Auto-retries a failed unlock by resetting the BLE link |
-| **Vehicle status** | ✅ **Working (EU)** — single GET (`vehicle/status/latest?latest=false&target=new`), tolerant JSON map (lock/doors/SOC/range/climate/odometer/tyres/location). Handles this platform's quirks: SOC lives in `chargeLevel` (not blank `stateOfCharge`); charging derived from live `chargeIAct×chargeUAct` kW (the `isCharging` flag is wrong) |
-| **Sentry footage / live view** | 🔴 **CN-only — not available on EU (or any overseas) gateway.** `sentinel-monitoring-service` is unrouted (gateway 404 `00A01`); our request is byte-identical to stock, so it's a server-side regional gap, not a client bug. **Hidden in the app for now; back-burner** — see below |
-| **Remote parking (RPA/RSPA)** | 🔴 **Not working — gated by the car.** The full schema is reverse-engineered and implemented (flow, opcodes, 500 ms dead-man heartbeat, challenge auto-answer, RSSI stream, AES-CMAC frame trailer + ECIES `cmacKey` unwrap). But at the car every request is NAK'd (`0x100a`) even with an owner key, armed on the head unit — the car only authorizes RPA for a **DK 3.0 / Secure-Element key**, which a software key can't be. Schema is available; actuation is not reachable. **Breaktrough** on talking to car, **DK 3.0** might not be needed, but to early to conclude.  |
-| **Wear OS companion** (standalone watch app) | ✅ **Working at the car.** Pulls the phone's DK key over the Wear Data Layer (no separate sign-in — same `applicationId` + signing key), then locks/unlocks the car **directly over BLE from the watch**. Arbitrates the car's single BLE peer slot with the phone: stands down while phone Lock-on-approach is on, otherwise runs a pause → act → resume handover so the two never fight for the radio. Hero-style watch face (car render + one-tap lock/unlock) |
+| Area                                                                                            | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Account login** (idaas → TSP bearer)                                                          | ✅ Working (EU) — logs in and obtains the TSP bearer token                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **DK BLE digital key — pair + lock/unlock**                                                     | ✅ **Working & verified at the car.** Reverse-engineered handshake (cert exchange → ECDH → AES-128-GCM session) + control opcodes `0x110`/`0x111`; locks and unlocks over BLE, no native libs                                                                                                                                                                                                                                                                                                                                                                                   |
+| **DK cloud provisioning** (enrol our own keypair → key-info)                                    | ✅ Working — provisions OpenZeekr's own digital key and pairs to the car                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Cloud remote control** (lock/unlock, climate, engine, charge, windows, flash/horn, sentry, …) | ✅ **Core verified** — commands accepted (`000000`) via the stock body shape + `X-SIGNATURE`; some commands are vehicle-state gated (e.g. refused at low battery SOC) so remain effectively unverified                                                                                                                                                                                                                                                                                                                                                                          |
+| **Unified quick action** (BLE if a DK session is connected, else cloud)                         | ✅ Working                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Foreground service** (keeps the DK BLE session connected; approach unlock/lock)               | ✅ **Working at the car.** Sole owner of the DK link — holds it connected and reconnects on drop; releases it on request so the watch companion can borrow the car's single BLE slot (pause → act → resume), then reclaims it. Screen-off approach uses a hardware-offloaded presence scan (zero-CPU wake)                                                                                                                                                                                                                                                                      |
+| **Proximity unlock / walk-away lock (RSSI)**                                                    | ✅ **Working at the car.** Rides the keep-alive session's connected-GATT RSSI with adaptive cadence (2 s idle → 250 ms burst near the threshold) + EMA smoothing; unlocks on approach and locks on walk-away (zone crossings + a link-loss walk-away lock when the session drops as you leave). Auto-retries a failed unlock by resetting the BLE link                                                                                                                                                                                                                          |
+| **Vehicle status**                                                                              | ✅ **Working (EU)** — single GET (`vehicle/status/latest?latest=false&target=new`), tolerant JSON map (lock/doors/SOC/range/climate/odometer/tyres/location). Handles this platform's quirks: SOC lives in `chargeLevel` (not blank `stateOfCharge`); charging derived from live `chargeIAct×chargeUAct` kW (the `isCharging` flag is wrong)                                                                                                                                                                                                                                    |
+| **Sentry footage / live view**                                                                  | 🔴 **CN-only — not available on EU (or any overseas) gateway.** `sentinel-monitoring-service` is unrouted (gateway 404 `00A01`); our request is byte-identical to stock, so it's a server-side regional gap, not a client bug. **Hidden in the app for now; back-burner** — see below                                                                                                                                                                                                                                                                                           |
+| **Remote parking (RPA/RSPA)**                                                                   | 🔴 **Not working — gated by the car.** The full schema is reverse-engineered and implemented (flow, opcodes, 500 ms dead-man heartbeat, challenge auto-answer, RSSI stream, AES-CMAC frame trailer + ECIES `cmacKey` unwrap). But at the car every request is NAK'd (`0x100a`) even with an owner key, armed on the head unit — the car only authorizes RPA for a **DK 3.0 / Secure-Element key**, which a software key can't be. Schema is available; actuation is not reachable. **Breaktrough** on talking to car, **DK 3.0** might not be needed, but to early to conclude. |
+| **Wear OS companion** (standalone watch app)                                                    | ✅ **Working at the car.** Pulls the phone's DK key over the Wear Data Layer (no separate sign-in — same `applicationId` + signing key), then locks/unlocks the car **directly over BLE from the watch**. Arbitrates the car's single BLE peer slot with the phone: stands down while phone Lock-on-approach is on, otherwise runs a pause → act → resume handover so the two never fight for the radio. Hero-style watch face (car render + one-tap lock/unlock)                                                                                                               |
 
 The digital-key handshake and lock/unlock are real and verified. RPA rides the same
 `DkSession` and is byte-complete — flow, opcodes and CMAC crypto are all
@@ -240,7 +247,7 @@ either restricts or doesn't offer at all:
 1. **Digital Key works on any BLE-capable phone.** The official app's offline key is
    gated to a whitelist of Zeekr-approved phone models; OpenZeekr's key pairs and
    locks/unlocks from **any** Android phone with Bluetooth LE — no model allow-list.
-2. **Proximity unlock *and* walk-away lock actually work — without DK 3.0.** Hands-free
+2. **Proximity unlock _and_ walk-away lock actually work — without DK 3.0.** Hands-free
    approach unlock / walk-away lock run off the standard digital-key BLE session, so
    you don't need the newer DK 3.0 / UWB hardware the stock flow depends on.
 3. **Seat ventilation (cooling), not just heating.** The climate screen can turn on
@@ -281,13 +288,22 @@ They're stored in `EncryptedSharedPreferences` on-device only.
 
 ```jsonc
 // secrets.example.json — fill with YOUR OWN extracted values
-{ "hmac_access_key":"", "hmac_secret_key":"", "password_public_key":"",
-  "prod_secret":"", "vin_key":"", "vin_iv":"",
-  "overseas_access_key":"", "overseas_secret_key":"",
-  "email":"", "password":"", "vin":"" }
+{
+  "hmac_access_key": "",
+  "hmac_secret_key": "",
+  "password_public_key": "",
+  "prod_secret": "",
+  "vin_key": "",
+  "vin_iv": "",
+  "overseas_access_key": "",
+  "overseas_secret_key": "",
+  "email": "",
+  "password": "",
+  "vin": "",
+}
 ```
 
-**Optional — notifications inbox.** The message inbox lives on a *different* backend
+**Optional — notifications inbox.** The message inbox lives on a _different_ backend
 (the overseas-app Azure gateway) with its own HMAC AK/SK auth. To enable it, supply
 `overseas_access_key` + `overseas_secret_key` — the native `getNativeApplicationId()` /
 `getNativeSecret()` values from **your own** app's `libenv.so` (Frida-hook those, EU/PROD).
@@ -312,50 +328,70 @@ so the phone can wake and connect as you walk up without draining the battery.
 
 ## Project structure
 
-```
-config/   SecretsConfig + ConfigStore (encrypted, import/export)
-net/      Signing (X-SIGNATURE), interceptors, Retrofit TspApi, models
-remote/   Command catalog (serviceIds) + repositories (auth, control, sentry)
-ble/      DkSession (+placeholder), DkBleManager (GATT scaffold), DkLockController
-ble/rpa/  RpaOpcodes + RpaController (heartbeat / challenge / flow)
-ui/       Compose screens: Controls, Parking, Key (DK setup), Settings
-          (Sentry screen exists but its tab is hidden — see back-burner note)
+Three Gradle modules:
+
+```text
+:core   all the logic, in core/src/main/java/com/openzeekr/app/
+        ble/      digital key: GATT, handshake, crypto, proximity (ble/rpa/ = remote parking)
+        net/      TSP cloud client: signing (X-SIGNATURE), interceptors, Retrofit, login
+        remote/   command catalog + repositories (control, status, journey, inbox, share)
+        config/   SecretsConfig + ConfigStore (EncryptedSharedPreferences, import/export)
+        util/     Logx (gated logging), LogCrypto, NativeSecrets (JNI)
+        cpp/      libozsecrets.so — build-time-injected secrets
+:app    Compose phone UI (ui/), App.kt holds the Deps container
+:wear   Wear OS companion; shares :core and the phone's applicationId
 ```
 
+The map uses **MapLibre + OpenFreeMap** — free, no API key, no Google Play Services.
+
+For how these fit together at runtime — startup, request signing, the digital-key
+handshake, the phone/watch BLE handover — and the invariants that break silently, see
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
 > Note: region, base URL and project-id are EU defaults baked into
-> `SecretsConfig`/`ZeekrConst` — non-EU use would need these made configurable.
+> `SecretsConfig`/`ZeekrConst`; a **region selector** covers EU / SEA / LA / ME.
 
 ## Build
 
 Open the folder in **Android Studio (Koala or newer)** and let it sync, or from the CLI:
 
 ```bash
-./gradlew assembleDebug
+./gradlew verify          # build + unit tests + Android Lint + release/R8, as CI runs it
+./gradlew assembleDebug   # just the debug APKs
 ```
 
-Create `local.properties` with your SDK path (Android Studio does this for you):
+On Windows use `gradlew.bat` instead of `./gradlew`.
 
-```
+You need a full **JDK 17** (one that includes `jlink`; JRE/headless packages fail), the
+Android SDK with **NDK 27.0.12077973** and **CMake 3.22.1** for `:core`'s native lib, and
+a `local.properties` with your SDK path (Android Studio writes it for you):
+
+```properties
 sdk.dir=/path/to/Android/Sdk
 ```
 
-The app is split into two modules: **`:core`** (all BLE/DK/crypto/cloud logic + baked
-secrets) and **`:app`** (the Compose UI). The map uses **MapLibre + OpenFreeMap** — free,
-no API key, no Google Play Services.
+The build checks this environment before it starts and names the fix if something is
+missing. Full setup instructions for Linux, macOS and Windows, plus a troubleshooting
+table, are in **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
+
+Contributing: **[CONTRIBUTING.md](CONTRIBUTING.md)**. Security policy and how secrets are
+handled: **[SECURITY.md](SECURITY.md)**. Instructions for AI coding agents:
+**[AGENTS.md](AGENTS.md)**.
 
 ### Car renders (not shipped)
 
 The home screen tints a paint "identity card" and lays the car's white render on top.
 Those renders are Zeekr press images, so they're **gitignored** (like the secrets) and
 never published. Drop your own transparent white PNG/WebP per model into
-`app/src/main/assets/cars/` as `car_{001,x,7x,7gt,9x}.webp`. If absent, the hero simply
-shows the coloured card with no car — the app still builds and runs.
+`app/src/main/assets/cars/` as `car_{001,x,7x,7gt,9x}.webp` (and
+`wear/src/main/assets/cars/` for the watch face). If absent, the hero simply shows the
+coloured card with no car — the app still builds and runs.
 
 ## Signing (`X-SIGNATURE`)
 
 `X-SIGNATURE = base64(HMAC(prod_secret, stringToSign))`, where `stringToSign` is:
 
-```
+```text
 <x-api* headers, lowercased name:value, sorted, \n-joined>
 <query sorted by key, k=v joined by &>
 <hex MD5 of body, or "">

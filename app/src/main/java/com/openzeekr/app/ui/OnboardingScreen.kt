@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -33,10 +33,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import com.openzeekr.app.util.Logx
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +44,7 @@ import com.openzeekr.app.Deps
 import com.openzeekr.app.ble.DkProvisioning
 import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.remote.CallResult
+import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.launch
 
 /**
@@ -88,8 +88,10 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
                 BrandBadge(size = 32)
                 Column {
                     Text("OpenZeekr", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Setup ${safeIdx + 1} of ${steps.size}", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Setup ${safeIdx + 1} of ${steps.size}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             LinearProgressIndicator(
@@ -109,8 +111,10 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
             }
 
             // Footer nav
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (safeIdx > 0) TextButton(onClick = ::back) { Text("Back") } else Spacer(Modifier.height(1.dp))
                 when (step) {
                     OnbStep.WELCOME -> Button(onClick = ::next) { Text("Get started") }
@@ -119,8 +123,11 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
                     OnbStep.LOGIN -> Button(onClick = ::next, enabled = loggedIn) { Text("Next") }
                     OnbStep.KEY -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = onDone) { Text("Skip for now") }
-                        Button(onClick = onDone, enabled = deps.dkIdentity.isProvisioned ||
-                            deps.provisioning.state.value.step == DkProvisioning.Step.DONE) { Text("Finish") }
+                        Button(
+                            onClick = onDone,
+                            enabled = deps.dkIdentity.isProvisioned ||
+                                deps.provisioning.state.value.step == DkProvisioning.Step.DONE
+                        ) { Text("Finish") }
                     }
                 }
             }
@@ -188,8 +195,10 @@ private fun RegionStep(deps: Deps) {
 private fun Bullet(n: String, title: String, body: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Surface(color = MaterialTheme.colorScheme.primary, shape = MaterialTheme.shapes.small) {
-            Text(n, Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+            Text(
+                n, Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold
+            )
         }
         Column {
             Text(title, fontWeight = FontWeight.SemiBold)
@@ -217,8 +226,7 @@ private fun SecretsStep(deps: Deps, secretsValid: Boolean) {
             modifier = Modifier.fillMaxWidth(),
         )
         Button(onClick = {
-            status = store.importJson(importText).fold(
-                { deps.onEndpointChanged(); "Imported ✓" }, { "Import failed: ${it.message}" })
+            status = store.importJson(importText).fold({ deps.onEndpointChanged(); "Imported ✓" }, { "Import failed: ${it.message}" })
         }) { Text("Import") }
         if (secretsValid) Text("Keys valid ✓ — tap Next.", color = MaterialTheme.colorScheme.primary)
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
@@ -252,25 +260,36 @@ private fun LoginStep(deps: Deps) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Log in", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         if (loggedIn) {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth()) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("● Logged in", fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text(buildString {
-                        append(cfg.email.ifBlank { "(account)" })
-                        if (cfg.vin.isNotBlank()) append("  ·  VIN ${cfg.vin}")
-                    }, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(
+                        "● Logged in", fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        buildString {
+                            append(cfg.email.ifBlank { "(account)" })
+                            if (cfg.vin.isNotBlank()) append("  ·  VIN ${cfg.vin}")
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 }
             }
             Text("Tap Next to continue.", style = MaterialTheme.typography.bodySmall)
         } else {
-            OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(password, { password = it }, label = { Text("Password") },
+            OutlinedTextField(
+                email, { email = it }, label = { Text("Email") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                password, { password = it }, label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions.Default, modifier = Modifier.fillMaxWidth())
+                keyboardOptions = KeyboardOptions.Default, modifier = Modifier.fillMaxWidth()
+            )
             Button(
                 enabled = !busy && email.isNotBlank() && password.isNotBlank(),
                 onClick = {
@@ -289,8 +308,10 @@ private fun LoginStep(deps: Deps) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(
+                        Modifier.size(16.dp), strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
                     Text("Logging in…")
                 } else Text("Log in")
             }
@@ -330,8 +351,10 @@ private fun KeyStep(deps: Deps) {
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (provisioned) {
-                    Text("✓ Digital key ready", fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        "✓ Digital key ready", fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 } else {
                     Button(
                         enabled = !busy,
@@ -344,8 +367,10 @@ private fun KeyStep(deps: Deps) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(
+                                Modifier.size(16.dp), strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
                             Text("Setting up…")
                         } else Text("Set up digital key")
                     }
@@ -353,7 +378,9 @@ private fun KeyStep(deps: Deps) {
                 }
             }
         }
-        Text("Then tap Finish (Skip to do it later).", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Start)
+        Text(
+            "Then tap Finish (Skip to do it later).", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Start
+        )
     }
 }

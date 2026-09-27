@@ -90,9 +90,11 @@ class DkIdentity private constructor(private val prefs: android.content.SharedPr
     }
 
     // ---- provisioned material (persisted once enrolled + bound) ----
-    fun saveProvisioned(certBase64: String, dkId: String, bookId: String,
-                        digitalKeyB64: String, cmacKeyCertHex: String, coefSmallHex: String, vin: String,
-                        coefBigHex: String = "", mobileCodeHex: String = "") {
+    fun saveProvisioned(
+        certBase64: String, dkId: String, bookId: String,
+        digitalKeyB64: String, cmacKeyCertHex: String, coefSmallHex: String, vin: String,
+        coefBigHex: String = "", mobileCodeHex: String = ""
+    ) {
         prefs.edit()
             .putString(K_CERT, certBase64).putString(K_DKID, dkId).putString(K_BOOKID, bookId)
             .putString(K_DIGKEY, digitalKeyB64).putString(K_CMAC, cmacKeyCertHex)

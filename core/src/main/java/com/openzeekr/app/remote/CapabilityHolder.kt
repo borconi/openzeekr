@@ -40,10 +40,14 @@ class CapabilityHolder(
                         listOf("curtain", "shade", "skylight", "sunroof", "roof", "window", "windshield")
                             .any { k -> it.contains(k, true) }
                     }.sorted()
-                    com.openzeekr.app.util.Logx.d("caps",
-                        "loaded ${r.value.codes.size} codes; fridge=${r.value.fridge} matched=$fridgeCodes")
-                    com.openzeekr.app.util.Logx.d("caps",
-                        "roof: sunroof=${r.value.sunroof} sunshade=${r.value.sunshade} codes=$roofCodes")
+                    com.openzeekr.app.util.Logx.d(
+                        "caps",
+                        "loaded ${r.value.codes.size} codes; fridge=${r.value.fridge} matched=$fridgeCodes"
+                    )
+                    com.openzeekr.app.util.Logx.d(
+                        "caps",
+                        "roof: sunroof=${r.value.sunroof} sunshade=${r.value.sunshade} codes=$roofCodes"
+                    )
                 } else loaded = false
                 is CallResult.Err -> loaded = false
             }

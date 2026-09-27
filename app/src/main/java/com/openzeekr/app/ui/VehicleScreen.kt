@@ -1,5 +1,6 @@
 package com.openzeekr.app.ui
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -7,14 +8,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.filled.Air
-import androidx.compose.material.icons.filled.Kitchen
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Whatshot
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,25 +19,31 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Kitchen
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Luggage
 import androidx.compose.material.icons.filled.Power
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.Window
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,18 +68,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import android.graphics.BitmapFactory
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -226,7 +226,15 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             StatItem("Central lock", if (locked) "Locked" else "Unlocked", if (locked) Brand.good else Brand.energy, Modifier.weight(1f))
             StatItem("Battery", soc?.let { "${fmt(it)}%" } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-            StatItem("Range", rangeStr?.let { s -> s.toDoubleOrNull()?.let { Units.distance(it, cfg.distanceUnit) } ?: "$s km" } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+            StatItem(
+                "Range",
+                rangeStr?.let { s ->
+                    s.toDoubleOrNull()?.let {
+                        Units.distance(it, cfg.distanceUnit)
+                    } ?: "$s km"
+                } ?: "—",
+                MaterialTheme.colorScheme.onSurface, Modifier.weight(1f)
+            )
             // Live average energy consumption (ElectricStatusVo.averPowerConsumption); unit is the
             // car's own — assume kWh/100km. "Ø" = average (compact so the label stays on ONE line in
             // the narrow 1/4-width stat column, instead of wrapping like "Avg · kWh/100km" did).
@@ -242,8 +250,12 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
             // deps.vehicleControl (BLE-first, cloud fallback). Trunk is ALWAYS shown; its sheet offers
             // Open/Close on a powered tailgate, else latch unlock/lock, and reflects live state.
             val tiles = buildList<@Composable RowScope.() -> Unit> {
-                add { Ctl(if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen, if (locked) "Locked" else "Unlocked",
-                    tint = if (locked) Brand.good else Brand.energy, active = true, modifier = Modifier.weight(1f)) { door(!locked) } }
+                add {
+                    Ctl(
+                        if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen, if (locked) "Locked" else "Unlocked",
+                        tint = if (locked) Brand.good else Brand.energy, active = true, modifier = Modifier.weight(1f)
+                    ) { door(!locked) }
+                }
                 add { Ctl(climateIcon, "Climate", tint = climateTint, active = acOn, modifier = Modifier.weight(1f)) { showClimate = true } }
                 // Always open the sheet — charge limit, battery pre-conditioning (a PRE-charge action)
                 // and the charge-port control all live there, so it must be reachable when unplugged too.
@@ -255,9 +267,21 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                 // action — the car only supports flash-only and flash+honk together.)
                 add { Ctl(Icons.Filled.Campaign, "Flash+Honk", modifier = Modifier.weight(1f)) { fire("Locate") { deps.vehicleControl.send(Command.FLASH_HORN) } } }
                 add { Ctl(Icons.Filled.FlashOn, "Flash", modifier = Modifier.weight(1f)) { fire("Flash") { deps.vehicleControl.send(Command.FLASH) } } }
-                add { Ctl(Icons.Filled.Luggage, if (trunkOpen) "Open" else "Trunk", tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) { showTrunk = true } }
-                if (caps.fridge) add { Ctl(Icons.Filled.Kitchen, "Fridge", tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) { showFridge = true } }
-                if (caps.frunk) add { Ctl(Icons.Filled.Inventory2, "Frunk", modifier = Modifier.weight(1f)) { fire("Frunk") { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
+                add {
+                    Ctl(Icons.Filled.Luggage, if (trunkOpen) "Open" else "Trunk", tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) {
+                        showTrunk =
+                            true
+                    }
+                }
+                if (caps.fridge) add {
+                    Ctl(Icons.Filled.Kitchen, "Fridge", tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) {
+                        showFridge =
+                            true
+                    }
+                }
+                if (caps.frunk) add {
+                    Ctl(Icons.Filled.Inventory2, "Frunk", modifier = Modifier.weight(1f)) { fire("Frunk") { deps.vehicleControl.send(Command.FRONT_TRUNK) } }
+                }
             }
             tiles.chunked(4).forEach { rowTiles ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -290,8 +314,10 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatItem("Used", gb(used), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
                     StatItem("Total", gb(total), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-                    StatItem("Remaining", gb(remain),
-                        if (remain != null && remain < 1f) Brand.energy else Brand.good, Modifier.weight(1f))
+                    StatItem(
+                        "Remaining", gb(remain),
+                        if (remain != null && remain < 1f) Brand.energy else Brand.good, Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -310,9 +336,11 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                     StatItem("Odometer", odo ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
                     // 12 V rests ~12.4-12.8 V (higher while the DC-DC is charging it); warn under ~11.9 V,
                     // where a weak/flat aux battery can leave the car unable to wake or start.
-                    StatItem("12V battery", volts ?: "—",
+                    StatItem(
+                        "12V battery", volts ?: "—",
                         if (lvBatt != null && lvBatt < 11.9) Brand.energy else Brand.good,
-                        Modifier.weight(1f))
+                        Modifier.weight(1f)
+                    )
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatItem("Service in", svcKm ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
@@ -322,33 +350,40 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         }
     }
 
-    if (showCharge) ChargeSheet(status, soc, powerKw, charging, plugged, elec,
+    if (showCharge) ChargeSheet(
+        status, soc, powerKw, charging, plugged, elec,
         initialLimitPct = cfg.chargeLimitPct,
         onCmd = { c, extra -> fire("Charge") { deps.control.send(c, extra) } },
         onLimitSet = { pct -> deps.config.update { it.copy(chargeLimitPct = pct) } },
-        onDismiss = { showCharge = false })
-    if (showClimate) ClimateSheet(status?.additionalVehicleStatus?.climateStatus,
+        onDismiss = { showCharge = false }
+    )
+    if (showClimate) ClimateSheet(
+        status?.additionalVehicleStatus?.climateStatus,
         initialTemp = targetTemp, showSeatCool = caps.seatCool,
         onTempChange = { t -> targetTemp = t; writeTargetTemp(ctx, t) },
-        onCmd = { c, extra -> fireQuiet("Climate") { deps.control.send(c, extra) } }, onDismiss = { showClimate = false })
+        onCmd = { c, extra -> fireQuiet("Climate") { deps.control.send(c, extra) } }, onDismiss = { showClimate = false }
+    )
     // Window/trunk actions close the sheet first, THEN fire — the snackbar host lives behind the modal
     // sheet, so a toast raised while the sheet is open isn't visible until it's dismissed.
     if (showWindows) WindowsSheet(
         sunroof = caps.sunroof, sunshade = caps.sunshade,
         windowsOpen = windowsOpen, windowsVenting = windowsVenting, sunroofOpen = climate?.sunroofOpen == true,
         onCmd = { c, label -> showWindows = false; fire(label) { deps.vehicleControl.send(c) } },
-        onDismiss = { showWindows = false })
+        onDismiss = { showWindows = false }
+    )
     if (showTrunk) TrunkSheet(
         poweredOpen = caps.tailgate,
         trunkOpen = trunkOpen,
         onCmd = { c, label -> showTrunk = false; fire(label) { deps.vehicleControl.send(c) } },
-        onDismiss = { showTrunk = false })
+        onDismiss = { showTrunk = false }
+    )
     if (showFridge) FridgeSheet(
         isOn = fridgeOn, initialTemp = fridgeTemp,
         onTempChange = { t -> fridgeTemp = t; writeFridgeTemp(ctx, t) },
         onSetOn = { on -> fridgeOn = on },
         onCmd = { c, extra -> fireQuiet("Fridge") { deps.control.send(c, extra) } },
-        onDismiss = { showFridge = false })
+        onDismiss = { showFridge = false }
+    )
 }
 
 @Composable
@@ -362,10 +397,14 @@ private fun Hero(model: CarModel, paint: PaintColor, charging: Boolean, soc: Flo
         if (charging) Box(Modifier.matchParentSize().background(Brand.energy.copy(alpha = breathe)))
         // Stock press render (white car) on the paint-tinted card.
         val bmp = rememberAssetBitmap(model.renderAsset)
-        if (bmp != null) Image(bitmap = bmp, contentDescription = model.displayName,
-            modifier = Modifier.fillMaxWidth().align(Alignment.Center).padding(horizontal = 4.dp).aspectRatio(16f / 8f))
-        Row(Modifier.align(Alignment.BottomStart).padding(14.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        if (bmp != null) Image(
+            bitmap = bmp, contentDescription = model.displayName,
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center).padding(horizontal = 4.dp).aspectRatio(16f / 8f)
+        )
+        Row(
+            Modifier.align(Alignment.BottomStart).padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
             Box(Modifier.size(13.dp).clip(CircleShape).background(paint.color))
             Text(paint.name, color = Color.White.copy(alpha = .92f), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
         }
@@ -373,7 +412,8 @@ private fun Hero(model: CarModel, paint: PaintColor, charging: Boolean, soc: Flo
             val phase by trans.animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart), label = "soc")
             val shimmer = Brush.linearGradient(
                 0f to Brand.energy.copy(alpha = .55f), 0.5f to Color.White.copy(alpha = .85f), 1f to Brand.energy.copy(alpha = .55f),
-                start = Offset(-160f + phase * 320f, 0f), end = Offset(phase * 320f, 0f), tileMode = TileMode.Mirror)
+                start = Offset(-160f + phase * 320f, 0f), end = Offset(phase * 320f, 0f), tileMode = TileMode.Mirror
+            )
             Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.White.copy(alpha = .10f))) {
                 Box(Modifier.fillMaxWidth(soc / 100f).height(4.dp).background(shimmer))
             }
@@ -390,13 +430,20 @@ private fun StatItem(label: String, value: String, color: Color, modifier: Modif
 }
 
 @Composable
-private fun Ctl(icon: ImageVector, label: String, tint: Color = MaterialTheme.colorScheme.onSurface,
-                active: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.size(60.dp).clip(CircleShape)
-            .background(if (active) tint.copy(alpha = .16f) else Brand.surface2)
-            .border(1.dp, if (active) tint else Brand.line, CircleShape), contentAlignment = Alignment.Center) {
+private fun Ctl(
+    icon: ImageVector, label: String, tint: Color = MaterialTheme.colorScheme.onSurface,
+    active: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit
+) {
+    Column(
+        modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            Modifier.size(60.dp).clip(CircleShape)
+                .background(if (active) tint.copy(alpha = .16f) else Brand.surface2)
+                .border(1.dp, if (active) tint else Brand.line, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(icon, label, tint = if (active) tint else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
         }
         Text(label, color = Brand.muted, fontSize = 11.sp, textAlign = TextAlign.Center)
@@ -408,8 +455,10 @@ private fun ChargeCtl(
     charging: Boolean, plugged: Boolean, soc: Float?, powerKw: Double?,
     timeToFullMin: Int? = null, modifier: Modifier = Modifier, onClick: () -> Unit,
 ) {
-    Column(modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) {
             if (charging && soc != null) {
                 Canvas(Modifier.size(60.dp)) {
@@ -420,9 +469,11 @@ private fun ChargeCtl(
             } else {
                 Box(Modifier.size(60.dp).clip(CircleShape).background(Brand.surface2).border(1.dp, Brand.line, CircleShape))
             }
-            Icon(Icons.Filled.Bolt.takeIf { charging } ?: Icons.Filled.Power, "Charging",
+            Icon(
+                Icons.Filled.Bolt.takeIf { charging } ?: Icons.Filled.Power, "Charging",
                 tint = if (charging) Brand.energy else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(if (charging) 18.dp else 24.dp))
+                modifier = Modifier.size(if (charging) 18.dp else 24.dp)
+            )
         }
         Text(
             // Idle label hints that the sheet holds ALL the charge settings (limit, scheduled charging,
@@ -433,8 +484,10 @@ private fun ChargeCtl(
         )
         // Live countdown to a full/limited charge, ticking down under the bolt (car reports minutes).
         if (charging) chargeCountdown(timeToFullMin)?.let {
-            Text("$it to full", color = Brand.energy, fontSize = 10.5.sp,
-                fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+            Text(
+                "$it to full", color = Brand.energy, fontSize = 10.5.sp,
+                fontWeight = FontWeight.Medium, textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -460,11 +513,16 @@ private fun chargeCountdown(totalMinutes: Int?): String? {
 private fun Tyre(pos: String, kpa: String?, unit: String, modifier: Modifier = Modifier) {
     val kpaV = kpa?.toDoubleOrNull()
     val warn = kpaV != null && kpaV < 220.0   // < ~2.2 bar
-    Row(modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
-        .padding(horizontal = 12.dp, vertical = 9.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(pos, color = Brand.muted, fontSize = 11.sp)
-        Text(kpaV?.let { Units.pressure(it, unit) } ?: "—", color = if (warn) Brand.energy else MaterialTheme.colorScheme.onSurface,
-            fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(
+            kpaV?.let { Units.pressure(it, unit) } ?: "—", color = if (warn) Brand.energy else MaterialTheme.colorScheme.onSurface,
+            fontSize = 14.sp, fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -487,8 +545,10 @@ private fun ChargeSheet(
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(soc?.let { "${fmt(it)}%" } ?: "—", fontSize = 30.sp, fontWeight = FontWeight.Bold)
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(if (charging) (powerKw?.let { "${fmt1(it)} kW · 1-phase" } ?: "Charging") else if (plugged) "Plugged in" else "Unplugged",
-                        color = if (charging) Brand.energy else Brand.muted, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (charging) (powerKw?.let { "${fmt1(it)} kW · 1-phase" } ?: "Charging") else if (plugged) "Plugged in" else "Unplugged",
+                        color = if (charging) Brand.energy else Brand.muted, fontWeight = FontWeight.SemiBold
+                    )
                     status?.additionalVehicleStatus?.electricVehicleStatus?.distanceToEmptyOnBatteryOnly?.let { Text("$it km range", color = Brand.muted, fontSize = 12.sp) }
                 }
             }
@@ -498,7 +558,8 @@ private fun ChargeSheet(
             // Full 0–100 scale so the fill reads as the ACTUAL target % (an 80% limit fills 80% of
             // the bar), but dragging is clamped to ≥50 — the 0–50 region is a fixed floor you can't
             // set below, marked with a tick at 50%. steps=19 → 5% snapping across the whole range.
-            Slider(value = limit, onValueChange = { limit = it.coerceAtLeast(50f) }, valueRange = 0f..100f, steps = 19,
+            Slider(
+                value = limit, onValueChange = { limit = it.coerceAtLeast(50f) }, valueRange = 0f..100f, steps = 19,
                 // soc is TENTHS of a percent (stock: 90.3% = "903", 94.9% = "949"). Send pct×10.
                 onValueChangeFinished = {
                     onCmd(Command.SET_CHARGE_SOC, listOf(ServiceParameter("soc", (limit.toInt() * 10).toString())))
@@ -516,9 +577,12 @@ private fun ChargeSheet(
                             Box(Modifier.size(width = 2.dp, height = 10.dp).background(MaterialTheme.colorScheme.surface))
                         }
                     }
-                })
-            SheetToggleRow("Battery temp regulation", "Precondition the pack — run before charging",
-                checked = elec?.hvBatteryPreHeatingActive == true) { on ->
+                }
+            )
+            SheetToggleRow(
+                "Battery temp regulation", "Precondition the pack — run before charging",
+                checked = elec?.hvBatteryPreHeatingActive == true
+            ) { on ->
                 onCmd(if (on) Command.BATTERY_PREHEAT_ON else Command.BATTERY_PREHEAT_OFF, emptyList())
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -547,8 +611,10 @@ private fun WindowsSheet(
         Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 26.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Windows", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(when { windowsVenting -> "Venting"; windowsOpen -> "Open"; else -> "Closed" },
-                    color = if (windowsOpen) Brand.energy else Brand.muted, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(
+                    when { windowsVenting -> "Venting"; windowsOpen -> "Open"; else -> "Closed" },
+                    color = if (windowsOpen) Brand.energy else Brand.muted, fontWeight = FontWeight.SemiBold, fontSize = 13.sp
+                )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 // Filled = the current state (from winPos%): fully-down → Open, cracked → Vent, else Close.
@@ -674,8 +740,10 @@ private fun ClimateSheet(
                 // front row — copper-trimmed console between the seats
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     SeatCabinTile("Driver", "11", climate?.drvHeatSts, climate?.drvVentDetail, showSeatCool, Modifier.weight(1f), onCmd)
-                    Box(Modifier.width(20.dp).height(104.dp).clip(RoundedCornerShape(8.dp))
-                        .background(Brush.verticalGradient(listOf(ZCopper.copy(alpha = .5f), ZConsole))))
+                    Box(
+                        Modifier.width(20.dp).height(104.dp).clip(RoundedCornerShape(8.dp))
+                            .background(Brush.verticalGradient(listOf(ZCopper.copy(alpha = .5f), ZConsole)))
+                    )
                     SeatCabinTile("Passenger", "19", climate?.passHeatingSts, climate?.passVentDetail, showSeatCool, Modifier.weight(1f), onCmd)
                 }
                 // rear row
@@ -835,8 +903,10 @@ private fun SeatCabinTile(
                 val bodyTop = h * 0.20f
                 val corner = CornerRadius(w * 0.11f, w * 0.11f)
                 // headrest
-                drawRoundRect(ZBolster, topLeft = Offset(w * 0.34f, 0f),
-                    size = Size(w * 0.32f, h * 0.14f), cornerRadius = CornerRadius(w * 0.07f, w * 0.07f))
+                drawRoundRect(
+                    ZBolster, topLeft = Offset(w * 0.34f, 0f),
+                    size = Size(w * 0.32f, h * 0.14f), cornerRadius = CornerRadius(w * 0.07f, w * 0.07f)
+                )
                 // side bolsters (wings)
                 val bolsterBrush = Brush.verticalGradient(listOf(ZBolster, ZSeatBottom))
                 drawRoundRect(bolsterBrush, topLeft = Offset(0f, bodyTop), size = Size(bolsterW, h - bodyTop), cornerRadius = corner)
@@ -844,8 +914,10 @@ private fun SeatCabinTile(
                 // centre cushion, slightly recessed between the bolsters
                 val cxL = bolsterW - w * 0.02f
                 val cushionTop = bodyTop - h * 0.02f
-                drawRoundRect(Brush.verticalGradient(listOf(ZSeatTop, ZSeatBottom)),
-                    topLeft = Offset(cxL, cushionTop), size = Size(w - cxL * 2, h - cushionTop), cornerRadius = corner)
+                drawRoundRect(
+                    Brush.verticalGradient(listOf(ZSeatTop, ZSeatBottom)),
+                    topLeft = Offset(cxL, cushionTop), size = Size(w - cxL * 2, h - cushionTop), cornerRadius = corner
+                )
                 // quilt seams
                 val qx0 = cxL + w * 0.04f; val qx1 = w - cxL - w * 0.04f
                 listOf(0.42f, 0.62f, 0.82f).forEach { fy ->
@@ -891,8 +963,10 @@ private fun SeatMiniBtn(icon: ImageVector, level: Int, tint: Color, onClick: () 
         }
         Row(horizontalArrangement = Arrangement.spacedBy(2.5.dp)) {
             repeat(3) { i ->
-                Box(Modifier.size(width = 5.dp, height = 3.dp).clip(RoundedCornerShape(1.5.dp))
-                    .background(if (i < level) tint else Color.White.copy(alpha = .18f)))
+                Box(
+                    Modifier.size(width = 5.dp, height = 3.dp).clip(RoundedCornerShape(1.5.dp))
+                        .background(if (i < level) tint else Color.White.copy(alpha = .18f))
+                )
             }
         }
     }

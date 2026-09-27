@@ -11,6 +11,8 @@ import com.openzeekr.app.ble.ProximityController
 import com.openzeekr.app.ble.rpa.RpaController
 import com.openzeekr.app.config.ConfigStore
 import com.openzeekr.app.net.ApiClient
+import com.openzeekr.app.net.ReleaseInfo
+import com.openzeekr.app.net.UpdateChecker
 import com.openzeekr.app.remote.AuthRepository
 import com.openzeekr.app.remote.CapabilityHolder
 import com.openzeekr.app.remote.InboxRepository
@@ -19,11 +21,9 @@ import com.openzeekr.app.remote.NavRepository
 import com.openzeekr.app.remote.RemoteControlRepository
 import com.openzeekr.app.remote.SentryRepository
 import com.openzeekr.app.remote.VehicleStatusHolder
-import com.openzeekr.app.net.ReleaseInfo
-import com.openzeekr.app.net.UpdateChecker
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

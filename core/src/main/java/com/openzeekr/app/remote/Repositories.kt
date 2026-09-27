@@ -4,11 +4,11 @@ import android.util.Base64
 import com.openzeekr.app.config.ConfigStore
 import com.openzeekr.app.net.ApiClient
 import com.openzeekr.app.net.model.LoginRequest
+import com.openzeekr.app.net.model.ModifyVehicleRequest
 import com.openzeekr.app.net.model.RemoteControlResponse
 import com.openzeekr.app.net.model.SentryLiveTokenReq
 import com.openzeekr.app.net.model.SentryUploadReq
 import com.openzeekr.app.net.model.SentryVideoDetail
-import com.openzeekr.app.net.model.ModifyVehicleRequest
 import com.openzeekr.app.net.model.ServiceParameter
 import com.openzeekr.app.net.model.VehicleGarage
 import com.openzeekr.app.net.model.VehicleInfo
@@ -185,9 +185,11 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                 com.openzeekr.app.util.Logx.d("veh", "active car gone (share ended) -> repointed to …${store.current().vin.takeLast(4)}")
             val activeVin = store.current().vin
             val info = all.firstOrNull { it.vin == activeVin } ?: all.firstOrNull()
-            com.openzeekr.app.util.Logx.d("veh",
+            com.openzeekr.app.util.Logx.d(
+                "veh",
                 "vehicleInfo active vin=…${activeVin.takeLast(4)} -> model=${info?.model} color=${info?.colorName} " +
-                "(of ${all.size} car(s): ${all.joinToString { "${it.model}/…${it.vin?.takeLast(4)}" }})")
+                    "(of ${all.size} car(s): ${all.joinToString { "${it.model}/…${it.vin?.takeLast(4)}" }})"
+            )
             info?.also { if (it.isOwner != store.current().isOwner) store.update { c -> c.copy(isOwner = it.isOwner) } }
         }
     }
@@ -222,8 +224,11 @@ class ShareRepository(private val store: ConfigStore, private val client: ApiCli
                 if (all.isNotEmpty()) break
             }
             val pending = all.filter { it.isPending() }
-            com.openzeekr.app.util.Logx.d("share", "acceptlist total=${all.size} pending=${pending.size}" +
-                (if (all.isNotEmpty()) " [" + all.joinToString { "${it.model}/accepted=${it.acceptTime != null}" } + "]" else ""))
+            com.openzeekr.app.util.Logx.d(
+                "share",
+                "acceptlist total=${all.size} pending=${pending.size}" +
+                    (if (all.isNotEmpty()) " [" + all.joinToString { "${it.model}/accepted=${it.acceptTime != null}" } + "]" else "")
+            )
             pending
         }
     }
@@ -295,8 +300,7 @@ class InboxRepository(private val store: ConfigStore, private val client: ApiCli
                 val merged = LinkedHashMap<String, com.openzeekr.app.net.model.InboxMessage>()
                 for (cat in categories) {
                     val list = runCatching {
-                        com.openzeekr.app.net.model.Inbox.parse(
-                            client.api.inbox(INBOX, pageNumber = 1, pageSize = pageSize, customTypeId = cat, vin = "").data)
+                        com.openzeekr.app.net.model.Inbox.parse(client.api.inbox(INBOX, pageNumber = 1, pageSize = pageSize, customTypeId = cat, vin = "").data)
                     }.getOrDefault(emptyList())
                     for (m in list) merged.putIfAbsent(m.id ?: "${m.title}:${m.timeMs}", m)
                 }
@@ -464,7 +468,7 @@ class SentryRepository(private val store: ConfigStore, private val client: ApiCl
  */
 class NavRepository(private val store: ConfigStore, private val client: ApiClient) {
 
-    /** Push [name] @ ([lat],[lon]) WGS-84 to the car. [address]/[city] are optional labels. */
+    /** Push [name] @ ([lat], [lon]) WGS-84 to the car. [address]/[city] are optional labels. */
     suspend fun sendToCar(
         lat: Double, lon: Double, name: String, address: String = "", city: String = "",
     ): CallResult<Unit> = withContext(Dispatchers.IO) {

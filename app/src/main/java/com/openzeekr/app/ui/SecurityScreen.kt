@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
@@ -18,11 +19,14 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,17 +40,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import com.openzeekr.app.Deps
+import com.openzeekr.app.net.model.ServiceParameter
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.remote.Command
-import com.openzeekr.app.net.model.ServiceParameter
 import com.openzeekr.app.ui.theme.Brand
 import kotlinx.coroutines.launch
 
@@ -103,8 +103,10 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         Label("Security & access")
         Column(Modifier.padding(horizontal = 20.dp)) {
-            SecRow(Icons.Filled.Shield, "Sentry guard",
-                if (sentry) "Armed" else "Off") {
+            SecRow(
+                Icons.Filled.Shield, "Sentry guard",
+                if (sentry) "Armed" else "Off"
+            ) {
                 Switch(checked = sentry, onCheckedChange = { on ->
                     sentry = on
                     fire(if (on) "Sentry on" else "Sentry off", if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF)
@@ -112,8 +114,10 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
             }
             // Owner-only (shared accounts are refused server-side). Both need the user's PIN.
             if (owner) {
-                SecRow(Icons.Filled.Inventory2, "Glovebox lock",
-                    if (gloveboxLocked) "Locked · tap to unlock" else "Unlocked · tap to lock") {
+                SecRow(
+                    Icons.Filled.Inventory2, "Glovebox lock",
+                    if (gloveboxLocked) "Locked · tap to unlock" else "Unlocked · tap to lock"
+                ) {
                     Switch(checked = gloveboxLocked, onCheckedChange = { lock ->
                         // Enter PIN first; only flip once the command is confirmed.
                         pinFor = if (lock) Command.GLOVEBOX_LOCK else Command.GLOVEBOX_UNLOCK
@@ -127,8 +131,10 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 }
                 // Journey log is also owner-only server-side (a shared/Friend account is refused —
                 // confirmed 2026-09-16 against the stock app), so it lives inside the owner gate.
-                SecRow(Icons.Filled.Timeline, "Journey log", "Trips · distance & energy · export",
-                    onClick = { showJourney = true }) { Chevron() }
+                SecRow(
+                    Icons.Filled.Timeline, "Journey log", "Trips · distance & energy · export",
+                    onClick = { showJourney = true }
+                ) { Chevron() }
             }
         }
 
@@ -201,5 +207,7 @@ private fun Chevron() = Text("›", color = Brand.faint, fontSize = 18.sp)
 
 @Composable
 private fun Label(text: String) =
-    Text(text, color = Brand.faint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp))
+    Text(
+        text, color = Brand.faint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 22.dp, top = 20.dp, bottom = 6.dp)
+    )

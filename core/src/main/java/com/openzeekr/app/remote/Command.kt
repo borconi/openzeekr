@@ -50,21 +50,29 @@ enum class Command(
     // IMPORTANT: ZAF ALWAYS uses command="start"; on/off is the boolean *value*, not the command.
     // Old RCE mapping never actuated. Temperature/level/duration ride as serviceParameters (NO
     // operationScheduling for ZAF). AC.temp is overridable from the UI (dedup keeps the last value).
-    AC_ON("A/C On", Category.CLIMATE, "ZAF", "start",
-        listOf(ServiceParameter("AC", "true"), ServiceParameter("AC.temp", "22.0"), ServiceParameter("AC.duration", "15"))),
+    AC_ON(
+        "A/C On", Category.CLIMATE, "ZAF", "start",
+        listOf(ServiceParameter("AC", "true"), ServiceParameter("AC.temp", "22.0"), ServiceParameter("AC.duration", "15"))
+    ),
     AC_OFF("A/C Off", Category.CLIMATE, "ZAF", "start", listOf(ServiceParameter("AC", "false"))),
     // "A/C vent" = cabin ventilation, still serviceId RCC (on=start w/ 6-min schedule, off=stop).
     CABIN_ON("A/C Vent On", Category.CLIMATE, "RCC", "start", listOf(ServiceParameter("rcc.conditioner", "50"), ServiceParameter("rcc.ventilation", "0")), durationSec = 6),
     CABIN_OFF("A/C Vent Off", Category.CLIMATE, "RCC", "stop", listOf(ServiceParameter("rcc.conditioner", "50"), ServiceParameter("rcc.ventilation", "0"))),
-    DEFROST_ON("Defrost On", Category.CLIMATE, "ZAF", "start",
-        listOf(ServiceParameter("DF", "true"), ServiceParameter("DF.duration", "15"), ServiceParameter("DF.level", "2"))),
+    DEFROST_ON(
+        "Defrost On", Category.CLIMATE, "ZAF", "start",
+        listOf(ServiceParameter("DF", "true"), ServiceParameter("DF.duration", "15"), ServiceParameter("DF.level", "2"))
+    ),
     DEFROST_OFF("Defrost Off", Category.CLIMATE, "ZAF", "start", listOf(ServiceParameter("DF", "false"))),
     // SH.11 = driver seat (positions: 11=driver, 19=passenger, 21=rear-left, 29=rear-right).
-    SEAT_HEAT_ON("Seat Heat On", Category.COMFORT, "ZAF", "start",
-        listOf(ServiceParameter("SH.11", "true"), ServiceParameter("SH.11.level", "3"), ServiceParameter("SH.11.duration", "15"))),
+    SEAT_HEAT_ON(
+        "Seat Heat On", Category.COMFORT, "ZAF", "start",
+        listOf(ServiceParameter("SH.11", "true"), ServiceParameter("SH.11.level", "3"), ServiceParameter("SH.11.duration", "15"))
+    ),
     SEAT_HEAT_OFF("Seat Heat Off", Category.COMFORT, "ZAF", "start", listOf(ServiceParameter("SH.11", "false"))),
-    STEER_WHEEL_ON("Steering Wheel Heat On", Category.COMFORT, "ZAF", "start",
-        listOf(ServiceParameter("SW", "true"), ServiceParameter("SW.duration", "8"), ServiceParameter("SW.level", "3"))),
+    STEER_WHEEL_ON(
+        "Steering Wheel Heat On", Category.COMFORT, "ZAF", "start",
+        listOf(ServiceParameter("SW", "true"), ServiceParameter("SW.duration", "8"), ServiceParameter("SW.level", "3"))
+    ),
     STEER_WHEEL_OFF("Steering Wheel Heat Off", Category.COMFORT, "ZAF", "start", listOf(ServiceParameter("SW", "false"))),
     // Generic ZAF envelope (command="start", no base params) — the caller supplies the whole
     // serviceParameters set via extraParams. Used by the per-seat heat/cool grid so each seat's
@@ -77,8 +85,10 @@ enum class Command(
     // target temp (zae.temp — a FLOAT string like "5.0"; whole-degree range ~ -6.0..50.0, dynamic per
     // vehicle). OFF is just operation=0. zae.temp is overridable from the UI via extraParams (dedup keeps
     // the last value, exactly like AC.temp). Gated by VehicleCapabilities.fridge.
-    FRIDGE_ON("Fridge On", Category.COMFORT, "ZAE", "start",
-        listOf(ServiceParameter("operation", "1"), ServiceParameter("zae.model", "1"), ServiceParameter("zae.temp", "5.0"))),
+    FRIDGE_ON(
+        "Fridge On", Category.COMFORT, "ZAE", "start",
+        listOf(ServiceParameter("operation", "1"), ServiceParameter("zae.model", "1"), ServiceParameter("zae.temp", "5.0"))
+    ),
     FRIDGE_OFF("Fridge Off", Category.COMFORT, "ZAE", "stop", listOf(ServiceParameter("operation", "0"))),
 
     // ---- engine / RES ---- (engStrtType=1 as a param; duration via operationScheduling=60s)
@@ -102,8 +112,10 @@ enum class Command(
     // incorrect" (captured 2026-09-16). `soc` is a placeholder here so the UI's value override
     // (dedup by key) lands in this first slot instead of being appended. Stock 200 body:
     //   [{"key":"soc","value":"949"},{"key":"rcs.setting","value":"1"},{"key":"altCurrent","value":"1"}]
-    SET_CHARGE_SOC("Set Charge Limit", Category.CHARGING, "RCS", "start",
-        listOf(ServiceParameter("soc", "800"), ServiceParameter("rcs.setting", "1"), ServiceParameter("altCurrent", "1"))),
+    SET_CHARGE_SOC(
+        "Set Charge Limit", Category.CHARGING, "RCS", "start",
+        listOf(ServiceParameter("soc", "800"), ServiceParameter("rcs.setting", "1"), ServiceParameter("altCurrent", "1"))
+    ),
     BATTERY_PREHEAT_ON("Battery Preheat On", Category.CHARGING, "ZAN", "start"),
     BATTERY_PREHEAT_OFF("Battery Preheat Off", Category.CHARGING, "ZAN", "stop"),
 
@@ -126,15 +138,23 @@ enum class Command(
     // ---- glovebox PIN (serviceId ZAD) & visitor mode (serviceId ZAG) — captured 2026-09-15.
     // The PIN (`code`) is user-entered: pass it as an extraParam to override the placeholder here.
     // Glovebox: lock=start / unlock=stop, params code=<pin>, zad.model=1, boxId=3.
-    GLOVEBOX_LOCK("Glovebox Lock", Category.SECURITY, "ZAD", "start",
-        listOf(ServiceParameter("code", "0000"), ServiceParameter("zad.model", "1"), ServiceParameter("boxId", "3"))),
-    GLOVEBOX_UNLOCK("Glovebox Unlock", Category.SECURITY, "ZAD", "stop",
-        listOf(ServiceParameter("code", "0000"), ServiceParameter("zad.model", "1"), ServiceParameter("boxId", "3"))),
+    GLOVEBOX_LOCK(
+        "Glovebox Lock", Category.SECURITY, "ZAD", "start",
+        listOf(ServiceParameter("code", "0000"), ServiceParameter("zad.model", "1"), ServiceParameter("boxId", "3"))
+    ),
+    GLOVEBOX_UNLOCK(
+        "Glovebox Unlock", Category.SECURITY, "ZAD", "stop",
+        listOf(ServiceParameter("code", "0000"), ServiceParameter("zad.model", "1"), ServiceParameter("boxId", "3"))
+    ),
     // Visitor: on=start / off=stop, params code=<pin>, zag.model=1.
-    VISITOR_ON("Visitor Mode On", Category.SECURITY, "ZAG", "start",
-        listOf(ServiceParameter("code", "0000"), ServiceParameter("zag.model", "1"))),
-    VISITOR_OFF("Visitor Mode Off", Category.SECURITY, "ZAG", "stop",
-        listOf(ServiceParameter("code", "0000"), ServiceParameter("zag.model", "1"))),
+    VISITOR_ON(
+        "Visitor Mode On", Category.SECURITY, "ZAG", "start",
+        listOf(ServiceParameter("code", "0000"), ServiceParameter("zag.model", "1"))
+    ),
+    VISITOR_OFF(
+        "Visitor Mode Off", Category.SECURITY, "ZAG", "stop",
+        listOf(ServiceParameter("code", "0000"), ServiceParameter("zag.model", "1"))
+    ),
     ;
 
     private fun allParams(extraParams: List<ServiceParameter>): List<ServiceParameter> = buildList {

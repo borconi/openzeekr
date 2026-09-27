@@ -66,7 +66,7 @@ class DkProvisioning(
             .addInterceptor(SignInterceptor(store))
             .addInterceptor { chain ->
                 httpLog.level = if (Logx.isHttpEnabled) okhttp3.logging.HttpLoggingInterceptor.Level.BODY
-                    else okhttp3.logging.HttpLoggingInterceptor.Level.NONE
+                else okhttp3.logging.HttpLoggingInterceptor.Level.NONE
                 chain.proceed(chain.request())
             }
             .addInterceptor(httpLog)
@@ -121,7 +121,9 @@ class DkProvisioning(
                 }
                 out ?: throw IllegalStateException(
                     "This account is active on another device. Close / log out of the Zeekr app " +
-                    "on your other phone, then provision again. (079021 logged-in-elsewhere)", last)
+                        "on your other phone, then provision again. (079021 logged-in-elsewhere)",
+                    last
+                )
             }
             Logx.d("provision", "step 1 cert OK (${cert.length}B)")
 
@@ -132,10 +134,12 @@ class DkProvisioning(
             Logx.d("provision", "step 2 key-list (dkType=2) …")
             val kl = api.keyList(KeyListReq(deviceId = deviceId, dkType = 2, signature = sig()))
             Logx.d("provision", "step 2 key-list code=${kl.code} entries=${kl.data?.size ?: 0}")
-            if (!ok(kl.code)) error("key-list: ${kl.code} ${kl.msg}" +
-                if (kl.code == "061203") " (signature vs enrolled cert / userId mismatch)" else "")
+            if (!ok(kl.code)) error(
+                "key-list: ${kl.code} ${kl.msg}" +
+                    if (kl.code == "061203") " (signature vs enrolled cert / userId mismatch)" else ""
+            )
             val entry = if (owner) (kl.data?.firstOrNull { it.dkType == 2 } ?: kl.data?.firstOrNull())
-                        else kl.data?.firstOrNull()
+            else kl.data?.firstOrNull()
 
             // 3. bind THIS device to a dkId
             val dkId: String
@@ -152,17 +156,22 @@ class DkProvisioning(
                 _state.value = State(Step.BIND)
                 Logx.d("provision", "step 3 create-owner-blu-key (owner=$owner, empty key-list) …")
                 val cr = createOwnerBluKeyWithRetry(deviceId, sig)
-                val od = cr.data ?: error("create key failed: ${cr.code} ${cr.msg}" +
-                    if (!owner) " (this account is not the registered owner of the car - if the " +
-                        "cloud blocks non-owner minting, its error code shows here)" else "")
+                val od = cr.data ?: error(
+                    "create key failed: ${cr.code} ${cr.msg}" +
+                        if (!owner) " (this account is not the registered owner of the car - if the " +
+                            "cloud blocks non-owner minting, its error code shows here)" else ""
+                )
                 dkId = od.dkId; bookId = od.bookId
                 Logx.d("provision", "step 3 key created dkId=$dkId")
             } else {
                 dkId = entry.dkId; bookId = entry.bookId; shareStatus = entry.shareStatus
                 val ds = entry.dkStatus ?: -1
                 val boundToUs = entry.deviceId == deviceId
-                Logx.d("provision", "step 3 existing entry dkId=$dkId shareStatus=$shareStatus dkStatus=$ds " +
-                    "boundDeviceId=${entry.deviceId ?: "none"} boundToUs=$boundToUs")
+                Logx.d(
+                    "provision",
+                    "step 3 existing entry dkId=$dkId shareStatus=$shareStatus dkStatus=$ds " +
+                        "boundDeviceId=${entry.deviceId ?: "none"} boundToUs=$boundToUs"
+                )
                 // The car only accepts our BLE cert if OUR device is bound to the key and pushed to
                 // the vehicle. The gate is whether the key-list entry's deviceId == ours (a fresh
                 // share has no deviceId + empty digitalKey). Bind via receiveShareKey (/share-key);
@@ -189,7 +198,7 @@ class DkProvisioning(
                         // sync-key-list/repush here: sync-key-list ADVANCES 3(AUTHED)->5(ACTIVATED),
                         // which pushes the key OUT of the first-pair-able state and makes the car
                         // answer 0x1010. Just download the key material for BLE.
-                        Logx.d("provision", "step 3 bound to us, dkStatus=$ds (${if (ds==3) "AUTHED — first-pair ready" else if (ds==5) "ACTIVATED" else "?"}) — download only")
+                        Logx.d("provision", "step 3 bound to us, dkStatus=$ds (${if (ds == 3) "AUTHED — first-pair ready" else if (ds == 5) "ACTIVATED" else "?"}) — download only")
                     }
                 }
             }
@@ -209,8 +218,11 @@ class DkProvisioning(
                 )
                 val kd = ki.data ?: error("key-info: ${ki.code} ${ki.msg}")
                 d = kd
-                Logx.d("provision", "step 4 key-info OK digitalKey=${kd.digitalKey?.length ?: 0}B " +
-                    "cmacKeyCert=${kd.cmacKeyCert?.length ?: 0}B (attempt $attempt)")
+                Logx.d(
+                    "provision",
+                    "step 4 key-info OK digitalKey=${kd.digitalKey?.length ?: 0}B " +
+                        "cmacKeyCert=${kd.cmacKeyCert?.length ?: 0}B (attempt $attempt)"
+                )
                 if (!kd.digitalKey.isNullOrBlank()) break
                 if (attempt < 6) { Logx.d("provision", "digitalKey empty — retry key-info in 2s …"); kotlinx.coroutines.delay(2000) }
             }
@@ -226,9 +238,13 @@ class DkProvisioning(
             val demarcate = runCatching {
                 val pc = api.phoneCoef(
                     com.openzeekr.app.net.ZeekrConst.XCHANGER_DEVICE_MANUFACTURE,
-                    com.openzeekr.app.net.ZeekrConst.XCHANGER_DEVICE_MODEL, null)
-                Logx.d("provision", "step 5 phonecoef code=${pc.code} " +
-                    "coefBig=${pc.data?.coefBigParam?.length ?: 0} coefSmall=${pc.data?.coefSmallParam?.length ?: 0}")
+                    com.openzeekr.app.net.ZeekrConst.XCHANGER_DEVICE_MODEL, null
+                )
+                Logx.d(
+                    "provision",
+                    "step 5 phonecoef code=${pc.code} " +
+                        "coefBig=${pc.data?.coefBigParam?.length ?: 0} coefSmall=${pc.data?.coefSmallParam?.length ?: 0}"
+                )
                 pc.data
             }.onFailure { Logx.w("provision", "phonecoef: ${it.message} (non-fatal)") }.getOrNull()
 
@@ -268,14 +284,16 @@ class DkProvisioning(
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 429) {
                     last = e
-                    Logx.w("provision", "create-owner-blu-key 429 (gateway rate-limit 00A29) — " +
-                        "backoff ${OWNER_CREATE_BACKOFF_MS}ms, retry $attempt/$OWNER_CREATE_ATTEMPTS …")
+                    Logx.w(
+                        "provision",
+                        "create-owner-blu-key 429 (gateway rate-limit 00A29) — " +
+                            "backoff ${OWNER_CREATE_BACKOFF_MS}ms, retry $attempt/$OWNER_CREATE_ATTEMPTS …"
+                    )
                     if (attempt < OWNER_CREATE_ATTEMPTS) kotlinx.coroutines.delay(OWNER_CREATE_BACKOFF_MS)
                 } else throw e
             }
         }
-        throw IllegalStateException(
-            "create-owner-blu-key kept returning 429 (gateway rate-limit). Wait ~10s and try again.", last)
+        throw IllegalStateException("create-owner-blu-key kept returning 429 (gateway rate-limit). Wait ~10s and try again.", last)
     }
 
     /**
@@ -404,22 +422,30 @@ interface DkApi {
 @Serializable data class DkStatusData(val dkStatus: Int? = null)
 
 @Serializable data class RepushReq(val deviceId: String, val dkId: String, val signature: String)
+
 @Serializable data class RemoveKeyReq(val deviceId: String, val dkId: String, val signature: String)
 
 @Serializable data class DkResp<T>(val code: String? = null, val msg: String? = null, val data: T? = null)
+
 @Serializable data class CreateCertReq(val deviceId: String, val csr: String)
+
 @Serializable data class CertData(val id: String? = null, val cert: String? = null)
+
 @Serializable data class KeyListReq(
     val deviceId: String, val signature: String, val dkType: Int = 2, val type: Int = 2,
 )
+
 @Serializable data class ShareKeyReq(val deviceId: String, val dkId: String, val signature: String)
+
 @Serializable data class OwnerKeyReq(val deviceId: String, val proprietary: String = "", val signature: String)
+
 @Serializable data class KeyItem(
     val dkId: String, val bookId: String? = null, val vin: String? = null,
     val deviceId: String? = null,
     val dkStatus: Int? = null, val shareStatus: Int? = null, val keyType: Int? = null,
     val dkType: Int? = null, val ownerId: String? = null, val userId: String? = null,
 )
+
 @Serializable data class KeyInfoData(
     val dkId: String? = null, val bookId: String? = null,
     val digitalKey: String? = null, val cmacKeyCert: String? = null,

@@ -39,8 +39,8 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class DkLinkDropped : Exception(
     "BLE link dropped during the key handshake - the car (or the phone's Bluetooth) closed the " +
-    "connection before the key exchange finished. This is usually the car's DK module resetting the " +
-    "link (a stale session, or it wasn't ready). Reconnect and retry; if it repeats, wake the car."
+        "connection before the key exchange finished. This is usually the car's DK module resetting the " +
+        "link (a stale session, or it wasn't ready). Reconnect and retry; if it repeats, wake the car."
 )
 
 class RealDkSession(
@@ -104,16 +104,20 @@ class RealDkSession(
         val rnd = transport.broadcastRnd()
             ?: throw IllegalStateException(
                 "no broadcastRnd from advertisement — scan the car (don't connect by MAC) so the " +
-                "0x0101 connectKey can be derived")
+                    "0x0101 connectKey can be derived"
+            )
         val connectKey = DkCrypto.deriveConnectKey(cred.vin, rnd)
         Logx.d("dk", "handshake 0/5 connect-confirm (0x0101) rnd=${hexOf(rnd)} …")
         // Handshake diagnostics: dump the fields that go into CONNECT_CONFIRM so a "car never replies"
         // report (silence on 0x0102) can be triaged - an empty/zero field points to a provisioning gap,
         // and the VIN confirms the connectKey is derived from the right car. Sensitive, but the BLE log
         // is encrypted on copy, and this only emits when BLE logging is on.
-        Logx.d("dk", "handshake diag: vin=${cred.vin} dkId=${hexOf(cred.dkIdBytes)} phoneId=${hexOf(cred.phoneId8)} " +
-            "phoneType=${hexOf(cred.phoneType3)} bigCalibHash=${hexOf(cred.bigCalibHash4)} " +
-            "smallCalibHash=${hexOf(cred.smallCalibHash4)} coefSmall=${cred.coefSmall.size}B coefBig=${cred.coefBig.size}B")
+        Logx.d(
+            "dk",
+            "handshake diag: vin=${cred.vin} dkId=${hexOf(cred.dkIdBytes)} phoneId=${hexOf(cred.phoneId8)} " +
+                "phoneType=${hexOf(cred.phoneType3)} bigCalibHash=${hexOf(cred.bigCalibHash4)} " +
+                "smallCalibHash=${hexOf(cred.smallCalibHash4)} coefSmall=${cred.coefSmall.size}B coefBig=${cred.coefBig.size}B"
+        )
         // Dump the actual coef bytes so we can tell a REAL per-phone coef from a degenerate/FFFF fallback
         // (a prime suspect for the car rejecting the self-cal finalize at position 4). Not a secret - it's
         // RF calibration for this phone/car - and the BLE log is encrypted on copy.
@@ -141,8 +145,10 @@ class RealDkSession(
                 if (e is kotlinx.coroutines.CancellationException || e is DkLinkDropped) throw e
                 if (++stallTries > 3) throw IllegalStateException(
                     "car received CONNECT_CONFIRM (0x0101) but sent NO 0x0102 reply after $stallTries tries - " +
-                    "it could not validate our confirm. Likely: wrong VIN-derived key, the digital key is not " +
-                    "registered on THIS car, or an unsupported confirm-code version for this model.", e)
+                        "it could not validate our confirm. Likely: wrong VIN-derived key, the digital key is not " +
+                        "registered on THIS car, or an unsupported confirm-code version for this model.",
+                    e
+                )
                 Logx.d("dk", "handshake 0/5 no 0x0102 (stall #$stallTries) - re-send CONNECT_CONFIRM")
                 delay(1200)
                 continue
@@ -166,33 +172,45 @@ class RealDkSession(
             0x1011 -> { Logx.d("dk", "handshake 0/5 notAuthenticated (first-pair) - sending cert"); true }
             else -> throw IllegalStateException(
                 "CONNECT_CONFIRM rejected: DK_STATUS errCode=0x%04x".format(err ?: 0) +
-                (if (err == 0x1010)
-                    " (EEC_confirmFailed) - the vehicle has NO registration for this key/device yet. " +
-                    "The cloud->vehicle key push hasn't reached the car. Wake/start the car so its DK " +
-                    "module syncs its key list from the cloud, then retry."
-                else if (err == 0x100c)
-                    " (EEC_busy) - the car's DK module stayed busy after 6x2.5s retries. " +
-                    "Another BLE session (the stock app's :dkservice, or a stale connection) is " +
-                    "likely holding it. Force-stop the stock app and retry."
-                else " (unexpected)"))
+                    (
+                        if (err == 0x1010)
+                            " (EEC_confirmFailed) - the vehicle has NO registration for this key/device yet. " +
+                                "The cloud->vehicle key push hasn't reached the car. Wake/start the car so its DK " +
+                                "module syncs its key list from the cloud, then retry."
+                        else if (err == 0x100c)
+                            " (EEC_busy) - the car's DK module stayed busy after 6x2.5s retries. " +
+                                "Another BLE session (the stock app's :dkservice, or a stale connection) is " +
+                                "likely holding it. Force-stop the stock app and retry."
+                        else " (unexpected)"
+                        )
+            )
         }
 
         // A reconnect (0x1012) skips the cert exchange and goes straight to the factor
         // exchange. We can't reach it until first-pair works, so fail explicitly for now.
-        if (!firstPair) throw IllegalStateException(
-            "DK reconnect (0x1012 authenticated) flow not implemented yet — expected first-pair (0x1011)")
+        if (!firstPair) throw IllegalStateException("DK reconnect (0x1012 authenticated) flow not implemented yet — expected first-pair (0x1011)")
 
         // 1) mutual cert exchange (cleartext during pairing)
         Logx.d("dk", "handshake 1/5 cert exchange …")
         runCatching {
             val c = parseCert(cred.dkCertDer)
-            Logx.d("dk", "our leaf cert: subj='${c.subjectX500Principal.name}' iss='${c.issuerX500Principal.name}' " +
-                "serial=${c.serialNumber.toString(16)} sig=${c.sigAlgName} der=${cred.dkCertDer.size}B")
+            Logx.d(
+                "dk",
+                "our leaf cert: subj='${c.subjectX500Principal.name}' iss='${c.issuerX500Principal.name}' " +
+                    "serial=${c.serialNumber.toString(16)} sig=${c.sigAlgName} der=${cred.dkCertDer.size}B"
+            )
             Logx.d("dk", "our cert DER head=${hexOf(cred.dkCertDer.copyOfRange(0, minOf(48, cred.dkCertDer.size)))}")
-        }.onFailure { Logx.w("dk", "our cert parse failed (sending anyway): ${it.message} der=${cred.dkCertDer.size}B " +
-            "head=${hexOf(cred.dkCertDer.copyOfRange(0, minOf(32, cred.dkCertDer.size)))}") }
-        val carCertBody = exchange(DkProtocol.CMD_A2V_SEND_APP_CERT, cred.dkCertDer,
-            DkProtocol.CMD_V2A_SEND_VEHICLE_CERT)
+        }.onFailure {
+            Logx.w(
+                "dk",
+                "our cert parse failed (sending anyway): ${it.message} der=${cred.dkCertDer.size}B " +
+                    "head=${hexOf(cred.dkCertDer.copyOfRange(0, minOf(32, cred.dkCertDer.size)))}"
+            )
+        }
+        val carCertBody = exchange(
+            DkProtocol.CMD_A2V_SEND_APP_CERT, cred.dkCertDer,
+            DkProtocol.CMD_V2A_SEND_VEHICLE_CERT
+        )
         val carCert = parseCert(afterHeader(carCertBody))
         Logx.d("dk", "handshake 1/5 vehicle cert: ${carCert.subjectX500Principal.name.take(64)}")
         // Authenticate the CAR before we ever release our digital key (0x010b): the vehicle cert must
@@ -211,8 +229,10 @@ class RealDkSession(
         val digest = DkCrypto.sha256(content)
         val sig = DkCrypto.ecdsaSignDer(cred.dkPrivateKey, content)
         val factorBody = content + digest + sig                         // full payload
-        val vfBody = exchangeRaw(DkProtocol.CMD_A2V_SEND_APP_FACTOR, factorBody, false,
-            DkProtocol.CMD_V2A_SEND_VEHICLE_FACTOR)
+        val vfBody = exchangeRaw(
+            DkProtocol.CMD_A2V_SEND_APP_FACTOR, factorBody, false,
+            DkProtocol.CMD_V2A_SEND_VEHICLE_FACTOR
+        )
 
         // 3) verify vehicle factor + derive session keys (frames become GCM from here)
         Logx.d("dk", "handshake 3/5 verify factor + derive session keys …")
@@ -238,8 +258,10 @@ class RealDkSession(
         // 5) coef upload on channel 2 (plaintext) — optional (RPA/approach only)
         Logx.d("dk", "handshake 5/5 coef upload …")
         runCatching {
-            exchange(DkProtocol.CMD_A2V_SMALL_CALIBRATION_DATA, cred.coefSmall,
-                DkProtocol.CMD_V2A_SMALL_CALIBRATION_DATA_RESP)
+            exchange(
+                DkProtocol.CMD_A2V_SMALL_CALIBRATION_DATA, cred.coefSmall,
+                DkProtocol.CMD_V2A_SMALL_CALIBRATION_DATA_RESP
+            )
         }.onFailure { Logx.w("dk", "coef upload: ${it.message}") }
 
         isEstablished = true
@@ -261,8 +283,11 @@ class RealDkSession(
             throw IllegalStateException("0x0102 decrypt failed (wrong VIN or broadcastRnd?): ${e.message}")
         }
         val err = if (status.size >= 8) ((status[6].toInt() and 0xFF) shl 8) or (status[7].toInt() and 0xFF) else null
-        Logx.d("dk", "handshake 0/5 DK_STATUS (initState=$initState) errCode=${err?.let { "0x%04x".format(it) } ?: "?"} " +
-            "status=${hexOf(status)}")
+        Logx.d(
+            "dk",
+            "handshake 0/5 DK_STATUS (initState=$initState) errCode=${err?.let { "0x%04x".format(it) } ?: "?"} " +
+                "status=${hexOf(status)}"
+        )
         return err
     }
 
@@ -281,18 +306,20 @@ class RealDkSession(
         val digest = DkCrypto.sha256(rnd)
         val idx = digest[0].toInt() and 0x0f
         val sha = digest.copyOfRange(idx, idx + 8)
-        return DkPayload.wrap(nSeq, ts,
+        return DkPayload.wrap(
+            nSeq, ts,
             byteArrayOf((initState and 0xFF).toByte()) +   // initState
-            cred.dkIdBytes +           // dkID = hexToBytes(bookId) (4B, e.g. 8000a6af) — NOT numeric dkId
-            sha +                      // sha (8B)
-            cred.phoneId8 +            // phoneId = deviceId[0:8]
-            cred.phoneType3 +          // phoneType(3) = mobileCode bytes (stock p0/n)
-            cred.bigCalibHash4 +       // bigCalibrationDataHash(4) = SHA256(coefBigParam)[0:4]
-            cred.smallCalibHash4 +     // smallCalibrationDataHash(4) = SHA256(coefSmallParam)[0:4]
-            ByteArray(4) +             // selfCalibrationDataHash(4) — no <vin>_SELF_CALIBRATION_HASH file on first pair
-            byteArrayOf(0))            // calibrationType(1) = getCalibrationMode(vin) default 0. (An experimental
-                                       //   0x01 in 0.1.6 fired on every connect; reverted to 0 with the 0x0137
-                                       //   change to return the handshake to the known-good 0.1.5 behavior.)
+                cred.dkIdBytes +           // dkID = hexToBytes(bookId) (4B, e.g. 8000a6af) — NOT numeric dkId
+                sha +                      // sha (8B)
+                cred.phoneId8 +            // phoneId = deviceId[0:8]
+                cred.phoneType3 +          // phoneType(3) = mobileCode bytes (stock p0/n)
+                cred.bigCalibHash4 +       // bigCalibrationDataHash(4) = SHA256(coefBigParam)[0:4]
+                cred.smallCalibHash4 +     // smallCalibrationDataHash(4) = SHA256(coefSmallParam)[0:4]
+                ByteArray(4) +             // selfCalibrationDataHash(4) — no <vin>_SELF_CALIBRATION_HASH file on first pair
+                byteArrayOf(0)
+        )            // calibrationType(1) = getCalibrationMode(vin) default 0. (An experimental
+        //   0x01 in 0.1.6 fired on every connect; reverted to 0 with the 0x0137
+        //   change to return the handshake to the known-good 0.1.5 behavior.)
     }
 
     private fun deriveSession(vfBody: ByteArray, carCert: X509Certificate) {
@@ -476,8 +503,12 @@ class RealDkSession(
      */
     suspend fun calibStart(type: Byte, timeoutMs: Long = this.timeoutMs): Int {
         if (!isEstablished || !cryptoReady) { Logx.w("dk", "calibStart: session not ready"); return -1 }
-        val rsp = runCatching { exchange(DkProtocol.CMD_A2V_CALIBRATION_START, byteArrayOf(type),
-            DkProtocol.CMD_V2A_CALIBRATION_RSP, timeoutMs) }.getOrElse { Logx.w("dk", "calibStart: ${it.message}"); return -1 }
+        val rsp = runCatching {
+            exchange(
+                DkProtocol.CMD_A2V_CALIBRATION_START, byteArrayOf(type),
+                DkProtocol.CMD_V2A_CALIBRATION_RSP, timeoutMs
+            )
+        }.getOrElse { Logx.w("dk", "calibStart: ${it.message}"); return -1 }
         val err = errByteAt6(rsp)
         Logx.d("dk", "calibStart type=$type -> 0x0191 errCode=$err")
         return err
@@ -492,8 +523,12 @@ class RealDkSession(
      */
     suspend fun calibLoc(type: Byte, timeoutMs: Long = this.timeoutMs): Int {
         if (!isEstablished || !cryptoReady) { Logx.w("dk", "calibLoc: session not ready"); return -1 }
-        val rsp = runCatching { exchange(DkProtocol.CMD_A2V_CALIBRATION_LOC_SEND, byteArrayOf(type),
-            DkProtocol.CMD_V2A_CALIBRATION_LOC_RSP, timeoutMs) }.getOrElse { Logx.w("dk", "calibLoc: ${it.message}"); return -1 }
+        val rsp = runCatching {
+            exchange(
+                DkProtocol.CMD_A2V_CALIBRATION_LOC_SEND, byteArrayOf(type),
+                DkProtocol.CMD_V2A_CALIBRATION_LOC_RSP, timeoutMs
+            )
+        }.getOrElse { Logx.w("dk", "calibLoc: ${it.message}"); return -1 }
         val err = errByteAt6(rsp)
         Logx.d("dk", "calibLoc type=$type -> 0x0193 errCode=$err")
         return err
@@ -502,8 +537,12 @@ class RealDkSession(
     /** 0x0196 PE_MODE_REQ [mode] -> 0x0197 [errCode] (passive-entry / walk-away enable). errCode or -1. */
     suspend fun calibSetPeMode(mode: Byte): Int {
         if (!isEstablished || !cryptoReady) { Logx.w("dk", "calibSetPeMode: session not ready"); return -1 }
-        val rsp = runCatching { exchange(DkProtocol.CMD_A2V_PE_MODE_REQ, byteArrayOf(mode),
-            DkProtocol.CMD_V2A_PE_MODE_RSP) }.getOrElse { Logx.w("dk", "calibSetPeMode: ${it.message}"); return -1 }
+        val rsp = runCatching {
+            exchange(
+                DkProtocol.CMD_A2V_PE_MODE_REQ, byteArrayOf(mode),
+                DkProtocol.CMD_V2A_PE_MODE_RSP
+            )
+        }.getOrElse { Logx.w("dk", "calibSetPeMode: ${it.message}"); return -1 }
         val err = errByteAt6(rsp)
         Logx.d("dk", "calibSetPeMode mode=$mode -> 0x0197 errCode=$err")
         return err
@@ -544,7 +583,6 @@ class RealDkSession(
         Logx.d("dk", "calibSendModel: 0x0199 model=$model (GCM, ch2) write=$ok")
         return ok
     }
-
 
     /** errCode = body[6] (1 byte) for the calibration rsp frames, or -1 if the body is too short. */
     private fun errByteAt6(body: ByteArray): Int = if (body.size >= 7) body[6].toInt() and 0xFF else -1
@@ -637,7 +675,8 @@ class RealDkSession(
         // the 0x0194 table (this is a real gap in our calibration flow, not just cosmetic parity).
         if (cmdId == DkProtocol.CMD_V2A_VSTATUS_SYNC ||
             cmdId == DkProtocol.CMD_V2A_CALIBRATION_LOC_RSP ||
-            cmdId == DkProtocol.CMD_V2A_RECEIVE_CALIBRATION) {
+            cmdId == DkProtocol.CMD_V2A_RECEIVE_CALIBRATION
+        ) {
             val ackBody = body
             ackScope.launch { runCatching { sendAck(cmdId, ackBody) } }
         }
@@ -667,7 +706,7 @@ class RealDkSession(
     private suspend fun sendAck(ackedCmdId: Int, ackedBody: ByteArray) {
         if (!cryptoReady) return
         val nSeqTs = if (ackedBody.size >= 6) ackedBody.copyOfRange(0, 6)
-            else DkPayload.wrap(DkPayload.nextSeq(), DkPayload.timestamp(), ByteArray(0))
+        else DkPayload.wrap(DkPayload.nextSeq(), DkPayload.timestamp(), ByteArray(0))
         val tail = byteArrayOf(
             ((ackedCmdId ushr 8) and 0xFF).toByte(), (ackedCmdId and 0xFF).toByte(),
             0x10, 0x00,   // status 0x1000 = OK, as stock sends

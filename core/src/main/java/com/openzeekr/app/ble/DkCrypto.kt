@@ -48,7 +48,7 @@ object DkCrypto {
         // Re-parse via BC to get the EC point regardless of the source provider.
         val bcPub = java.security.KeyFactory.getInstance("EC", bc)
             .generatePublic(java.security.spec.X509EncodedKeySpec(pub.encoded))
-                as org.bouncycastle.jce.interfaces.ECPublicKey
+            as org.bouncycastle.jce.interfaces.ECPublicKey
         val point = bcPub.q.normalize()
         return byteArrayOf(0x04) + fixed32(point.affineXCoord.toBigInteger()) + fixed32(point.affineYCoord.toBigInteger())
     }
@@ -64,9 +64,11 @@ object DkCrypto {
      * @param peerPoint peer public key as 04||X||Y (65B) or X||Y (64B).
      */
     fun ecdhSharedPoint(ourPrivate: PrivateKey, peerPoint: ByteArray): ByteArray {
-        val d: BigInteger = (java.security.KeyFactory.getInstance("EC", bc)
-            .generatePrivate(java.security.spec.PKCS8EncodedKeySpec(ourPrivate.encoded))
-                as org.bouncycastle.jce.interfaces.ECPrivateKey).d
+        val d: BigInteger = (
+            java.security.KeyFactory.getInstance("EC", bc)
+                .generatePrivate(java.security.spec.PKCS8EncodedKeySpec(ourPrivate.encoded))
+                as org.bouncycastle.jce.interfaces.ECPrivateKey
+            ).d
         val encoded = if (peerPoint.size == 64) byteArrayOf(0x04) + peerPoint else peerPoint
         val q = curveSpec.curve.decodePoint(encoded)
         val shared = q.multiply(d).normalize()

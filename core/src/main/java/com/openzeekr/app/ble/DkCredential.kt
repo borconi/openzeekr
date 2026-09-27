@@ -29,7 +29,7 @@ data class DkCredential(
     val dkId: String,
     val cloudDkId: String,
     val vin: String,
-    val deviceId: String,               // our 64-hex deviceId (getDeviceID) — feeds phoneId
+    val deviceId: String, // our 64-hex deviceId (getDeviceID) — feeds phoneId
     val dkCertDer: ByteArray,
     val dkPrivateKey: PrivateKey,
     val digitalKey: ByteArray,
@@ -85,8 +85,8 @@ data class DkCredential(
             cloudDkId: String,
             vin: String,
             deviceId: String,
-            certBase64: String,      // create-app-certificate data.cert (base64 DER, no PEM armor)
-            privateKeyPem: String,   // our enrolled EC private key (PKCS#8 PEM)
+            certBase64: String, // create-app-certificate data.cert (base64 DER, no PEM armor)
+            privateKeyPem: String, // our enrolled EC private key (PKCS#8 PEM)
             digitalKeyBase64: String,
             cmacKeyCertHex: String,
             coefSmallHex: String,

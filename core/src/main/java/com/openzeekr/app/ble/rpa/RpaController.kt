@@ -47,6 +47,7 @@ class RpaController(
     private var heartbeat: Job? = null
     private var rssiJob: Job? = null
     private var reqModeJob: Job? = null
+
     /** Current move direction (rspaControl), echoed as the challenge-answer gesture. */
     @Volatile private var gesture: Byte = 0
 
@@ -88,7 +89,8 @@ class RpaController(
                         phase = Phase.ERROR,
                         message = "The car didn't open a remote-parking session. Enable Remote Parking on " +
                             "the car's centre screen first, then retry — the car ignores the request until " +
-                            "RPA is armed in-car.")
+                            "RPA is armed in-car."
+                    )
                 }
             }
         }
@@ -111,9 +113,12 @@ class RpaController(
                 }
                 runCatching {
                     val blk = block(RpaReq.CMD_RPA_REQ_MODE, RpaReq.CMD_NONE)
-                    com.openzeekr.app.util.Logx.d("dk", "RPA REQ_MODE block=" +
-                        blk.joinToString("") { "%02x".format(it) } +
-                        " (phoneStatus=%02x)".format(blk[3]))
+                    com.openzeekr.app.util.Logx.d(
+                        "dk",
+                        "RPA REQ_MODE block=" +
+                            blk.joinToString("") { "%02x".format(it) } +
+                            " (phoneStatus=%02x)".format(blk[3])
+                    )
                     session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ, blk)
                 } // ignore NAK/0x100a — keep polling until the car sends 0x0117 SYNC
                 delay(REQ_MODE_POLL_MS)
@@ -181,10 +186,14 @@ class RpaController(
     fun startParkOut(direction: Byte) {
         scope.launch {
             runCatching {
-                session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ,
-                    block(RpaReq.CMD_RPA_OUT_MODE_SET, outMode = direction))
-                session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ,
-                    block(RpaReq.CMD_RPA_START_PARKING_OUT))
+                session.sendFrame(
+                    DkOpcodes.CMD_A2V_RPA_REQ,
+                    block(RpaReq.CMD_RPA_OUT_MODE_SET, outMode = direction)
+                )
+                session.sendFrame(
+                    DkOpcodes.CMD_A2V_RPA_REQ,
+                    block(RpaReq.CMD_RPA_START_PARKING_OUT)
+                )
             }.onSuccess { _state.value = _state.value.copy(phase = Phase.PARKING_OUT) }
                 .onFailure { fail(it) }
         }
@@ -202,8 +211,10 @@ class RpaController(
         heartbeat = scope.launch {
             while (isActive) {
                 runCatching {
-                    session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ,
-                        block(rpaCtrl = RpaReq.CMD_NONE, rspaCtrl = rspa))
+                    session.sendFrame(
+                        DkOpcodes.CMD_A2V_RPA_REQ,
+                        block(rpaCtrl = RpaReq.CMD_NONE, rspaCtrl = rspa)
+                    )
                 }.onFailure { fail(it); return@launch }
                 delay(RpaConst.HEARTBEAT_MS)
             }
@@ -216,8 +227,10 @@ class RpaController(
         gesture = 0
         scope.launch {
             runCatching {
-                session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ,
-                    block(RpaReq.CMD_NONE, RpaReq.CMD_RSPA_BOTTOM_RELEASE))
+                session.sendFrame(
+                    DkOpcodes.CMD_A2V_RPA_REQ,
+                    block(RpaReq.CMD_NONE, RpaReq.CMD_RSPA_BOTTOM_RELEASE)
+                )
             }
             if (_state.value.phase == Phase.MOVING) _state.value = _state.value.copy(phase = Phase.READY)
         }

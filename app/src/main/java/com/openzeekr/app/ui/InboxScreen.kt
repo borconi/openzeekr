@@ -5,8 +5,6 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +20,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryChargingFull
@@ -99,8 +99,10 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { onBack() }.padding(8.dp),
             )
-            Text("Messages", fontWeight = FontWeight.Bold, fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
+            Text(
+                "Messages", fontWeight = FontWeight.Bold, fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp)
+            )
             if (messages.any { !it.read }) {
                 Text(
                     "Mark all read", color = Brand.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,

@@ -61,8 +61,11 @@ class HeaderInterceptor(private val store: ConfigStore) : Interceptor {
         // it correctly (blank key -> omit rather than send a bad raw value).
         val sendVin = cfg.vin.isNotBlank() && cfg.vinKey.isNotBlank() && cfg.vinIv.isNotBlank()
         if (sendVin) b.header("x-vin", VinCrypto.encryptVin(cfg.vin, cfg.vinKey, cfg.vinIv))
-        Logx.d("tsp", "${chain.request().method} ${chain.request().url.encodedPath} " +
-            "auth=${if (cfg.accessToken.isNotBlank()) "yes" else "no"} x-vin=${if (sendVin) "yes" else "no"}")
+        Logx.d(
+            "tsp",
+            "${chain.request().method} ${chain.request().url.encodedPath} " +
+                "auth=${if (cfg.accessToken.isNotBlank()) "yes" else "no"} x-vin=${if (sendVin) "yes" else "no"}"
+        )
         return chain.proceed(b.build())
     }
 }

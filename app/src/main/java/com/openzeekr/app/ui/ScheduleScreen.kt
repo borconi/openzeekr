@@ -387,8 +387,8 @@ private val VENTI_LOCATIONS = intArrayOf(1, 2)
  */
 private fun newRecurringDeparture(
     name: String,
-    time: String,            // "HH:mm:00"
-    selectedDays: Set<Int>,  // 1..7 (1=Mon .. 7=Sun)
+    time: String, // "HH:mm:00"
+    selectedDays: Set<Int>, // 1..7 (1=Mon .. 7=Sun)
     preheat: Boolean,
     cabin: Boolean,
 ): BookingTravelSetting = BookingTravelSetting(

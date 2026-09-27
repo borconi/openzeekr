@@ -6,8 +6,8 @@ import com.openzeekr.app.net.model.InboxMessage
 import com.openzeekr.app.util.CarNotifier
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Receives the car's message-centre pushes via FCM (the STOCK Firebase project — see

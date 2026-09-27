@@ -121,11 +121,11 @@ data class RemoteControlResponse(
 data class ChargingPlanV1Request(
     val bcCycleActive: Boolean,
     val bcTempActive: Boolean,
-    val command: String,             // "start" | "stop"
-    val startTime: String? = null,   // "HH:mm"; omitted on stop
-    val endTime: String? = null,     // "HH:mm"; omitted on stop
-    val scheduledTime: String,       // epoch-ms string (next trigger)
-    val target: String,              // "1" = keep charging past end until limit, "2" = stop at end
+    val command: String, // "start" | "stop"
+    val startTime: String? = null, // "HH:mm"; omitted on stop
+    val endTime: String? = null, // "HH:mm"; omitted on stop
+    val scheduledTime: String, // epoch-ms string (next trigger)
+    val target: String, // "1" = keep charging past end until limit, "2" = stop at end
     val timerId: String,             // reuse the read-back timerId
 )
 
@@ -353,8 +353,10 @@ object VehicleGarage {
         when (data) {
             is JsonArray -> return data.mapNotNull { it as? JsonObject }
             is JsonObject -> {
-                (data["list"] as? JsonArray ?: data["records"] as? JsonArray
-                    ?: data["vehicleList"] as? JsonArray)?.let { arr -> return arr.mapNotNull { it as? JsonObject } }
+                (
+                    data["list"] as? JsonArray ?: data["records"] as? JsonArray
+                        ?: data["vehicleList"] as? JsonArray
+                    )?.let { arr -> return arr.mapNotNull { it as? JsonObject } }
                 if (data.containsKey("vin") || data.containsKey("modelName") || data.containsKey("seriesName")) return listOf(data)
                 data.values.forEach { if (it is JsonArray) return it.mapNotNull { o -> o as? JsonObject } }
             }
@@ -367,8 +369,10 @@ object VehicleGarage {
         when (data) {
             is JsonArray -> return data.firstOrNull() as? JsonObject
             is JsonObject -> {
-                (data["list"] as? JsonArray ?: data["records"] as? JsonArray
-                    ?: data["vehicleList"] as? JsonArray)?.let { return it.firstOrNull() as? JsonObject }
+                (
+                    data["list"] as? JsonArray ?: data["records"] as? JsonArray
+                        ?: data["vehicleList"] as? JsonArray
+                    )?.let { return it.firstOrNull() as? JsonObject }
                 if (data.containsKey("modelName") || data.containsKey("seriesName") || data.containsKey("vin")) return data
                 data.values.forEach { if (it is JsonArray) (it.firstOrNull() as? JsonObject)?.let { o -> return o } }
             }
@@ -430,8 +434,10 @@ object ShareInviteParse {
     fun parse(data: JsonElement?): List<ShareInvite> {
         val arr = when (data) {
             is JsonArray -> data
-            is JsonObject -> (data["data"] as? JsonArray ?: data["list"] as? JsonArray
-                ?: data["records"] as? JsonArray ?: data.values.firstOrNull { it is JsonArray } as? JsonArray)
+            is JsonObject -> (
+                data["data"] as? JsonArray ?: data["list"] as? JsonArray
+                    ?: data["records"] as? JsonArray ?: data.values.firstOrNull { it is JsonArray } as? JsonArray
+                )
             else -> null
         } ?: return emptyList()
         return arr.mapNotNull { it as? JsonObject }.mapNotNull { o ->
@@ -557,8 +563,10 @@ object Inbox {
     /** Tolerant parse of the unread-count `data` — either { unreadNum } or a bare number. */
     fun parseUnread(data: JsonElement?): Int = when (data) {
         is JsonPrimitive -> data.contentOrNull?.toIntOrNull() ?: 0
-        is JsonObject -> (listOf("unreadNum", "unread", "count", "total", "num")
-            .firstNotNullOfOrNull { (data[it] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() }) ?: 0
+        is JsonObject -> (
+            listOf("unreadNum", "unread", "count", "total", "num")
+                .firstNotNullOfOrNull { (data[it] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() }
+            ) ?: 0
         else -> 0
     }
 
@@ -585,8 +593,10 @@ object Inbox {
     private fun listNode(data: JsonElement?): List<JsonElement> = when (data) {
         is JsonArray -> data
         is JsonObject -> {
-            val direct = (data["objects"] ?: data["records"] ?: data["list"] ?: data["rows"]
-                ?: data["items"] ?: data["content"]) as? JsonArray
+            val direct = (
+                data["objects"] ?: data["records"] ?: data["list"] ?: data["rows"]
+                    ?: data["items"] ?: data["content"]
+                ) as? JsonArray
             when {
                 direct != null -> direct
                 data["data"] != null && data["data"] !is JsonPrimitive -> listNode(data["data"])
@@ -751,9 +761,11 @@ object Journey {
     /** The trip array lives under `data` in the paged wrapper; fall back to any array. */
     private fun tripArray(data: JsonElement?): List<JsonElement> = when (data) {
         is JsonArray -> data
-        is JsonObject -> (data["data"] as? JsonArray ?: data["records"] as? JsonArray
-            ?: data["list"] as? JsonArray ?: data["rows"] as? JsonArray
-            ?: data.values.firstOrNull { it is JsonArray } as? JsonArray) ?: emptyList()
+        is JsonObject -> (
+            data["data"] as? JsonArray ?: data["records"] as? JsonArray
+                ?: data["list"] as? JsonArray ?: data["rows"] as? JsonArray
+                ?: data.values.firstOrNull { it is JsonArray } as? JsonArray
+            ) ?: emptyList()
         else -> emptyList()
     }
 
@@ -883,8 +895,10 @@ object VehicleCapabilityParse {
     fun parse(data: JsonElement?): VehicleCapabilities {
         val arr = when (data) {
             is JsonArray -> data
-            is JsonObject -> (data["list"] as? JsonArray ?: data["records"] as? JsonArray
-                ?: data["data"] as? JsonArray ?: data.values.firstOrNull { it is JsonArray } as? JsonArray)
+            is JsonObject -> (
+                data["list"] as? JsonArray ?: data["records"] as? JsonArray
+                    ?: data["data"] as? JsonArray ?: data.values.firstOrNull { it is JsonArray } as? JsonArray
+                )
             else -> null
         } ?: return VehicleCapabilities.UNKNOWN
         val beans = arr.mapNotNull { it as? JsonObject }

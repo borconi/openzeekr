@@ -47,17 +47,17 @@ object LogCrypto {
      */
     private const val PUBLIC_KEY_B64 =
         "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAwJFw8YbTa2FrSfUAeEoW" +
-        "UJVPmW1j3vTCxBmw4MNDrK6GxBMgUjm3eWzPOnWHNoKDlHamKYtMVgfUaoO0L8Q" +
-        "OqIY2bp3eeuPx/iqsh6mwZTVi1TLmvTtlwrVPqzqGNsLdD2QI4DXp95gRyBn6eI" +
-        "VDESrNxdLlQurXisBVPfRzL+LY28F6Xn2lk6itoaF47eYDVnGOTOexSox7kg5VGy" +
-        "EiXHuRTTPy8Bw0RbgNQYzcgFmF2FeBslf9BVQyX/lh5Ujx6YFNnM9MMSTgQPlqA" +
-        "y4htH3tCQqta9Z+fEypBVkpYJvwh98LXvkgxeiGR9Klc9Exz5iK259KyZvusDIk" +
-        "AdplF061+fKjBoHJclygCa1joDhuLoFKNV9wjk5Dld9a3GcWcT4V9eJT0gdG6Cp" +
-        "MuYYvBqbz+zIscJAID5MYbeUUEmU7qUKWjau/OPeE0hBFCQCqQv22ehWrJEI1OK" +
-        "CdBkgRB/nPh6WtXFjZD0hqwpOcyc4oyHbkIdaZVY62XQKIbFxMUxzy+jy1KE13Z" +
-        "Fkwl2Kr6R+Eb0pfym5kmNj0pWf1fjq+f+pSFO1o2uvCbSK18CwkV7DvDIJpH3xj" +
-        "LvWB3dqytUCcXw+rj7pLGLGy4K9inTgKVNwrhy1cJI1wkUYiz8Gdae7GAwg+Y/E" +
-        "u5NLRB35xX0+3ndLVB+w0rZb/eu3Dmv0CAwEAAQ=="
+            "UJVPmW1j3vTCxBmw4MNDrK6GxBMgUjm3eWzPOnWHNoKDlHamKYtMVgfUaoO0L8Q" +
+            "OqIY2bp3eeuPx/iqsh6mwZTVi1TLmvTtlwrVPqzqGNsLdD2QI4DXp95gRyBn6eI" +
+            "VDESrNxdLlQurXisBVPfRzL+LY28F6Xn2lk6itoaF47eYDVnGOTOexSox7kg5VGy" +
+            "EiXHuRTTPy8Bw0RbgNQYzcgFmF2FeBslf9BVQyX/lh5Ujx6YFNnM9MMSTgQPlqA" +
+            "y4htH3tCQqta9Z+fEypBVkpYJvwh98LXvkgxeiGR9Klc9Exz5iK259KyZvusDIk" +
+            "AdplF061+fKjBoHJclygCa1joDhuLoFKNV9wjk5Dld9a3GcWcT4V9eJT0gdG6Cp" +
+            "MuYYvBqbz+zIscJAID5MYbeUUEmU7qUKWjau/OPeE0hBFCQCqQv22ehWrJEI1OK" +
+            "CdBkgRB/nPh6WtXFjZD0hqwpOcyc4oyHbkIdaZVY62XQKIbFxMUxzy+jy1KE13Z" +
+            "Fkwl2Kr6R+Eb0pfym5kmNj0pWf1fjq+f+pSFO1o2uvCbSK18CwkV7DvDIJpH3xj" +
+            "LvWB3dqytUCcXw+rj7pLGLGy4K9inTgKVNwrhy1cJI1wkUYiz8Gdae7GAwg+Y/E" +
+            "u5NLRB35xX0+3ndLVB+w0rZb/eu3Dmv0CAwEAAQ=="
 
     /**
      * Encrypt [plaintext] to a base64 blob, or return null on ANY failure. Callers MUST treat

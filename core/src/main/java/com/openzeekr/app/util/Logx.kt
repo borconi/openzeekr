@@ -50,6 +50,7 @@ object Logx {
      *  config is applied. When OFF, verbose [d] for HTTP areas is suppressed from BOTH logcat and
      *  the ring buffer, so no request bodies/tokens/VIN reach the log. */
     @Volatile private var httpOn = false
+
     /** BLE-category gate, driven by the Settings "BLE logging" switch; off by default. When OFF,
      *  verbose [d] for BLE areas is suppressed from logcat and the buffer (no key material/RSSI). */
     @Volatile private var bleOn = false

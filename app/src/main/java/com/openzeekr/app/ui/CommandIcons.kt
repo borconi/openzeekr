@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.DirectionsWalk
@@ -13,6 +12,7 @@ import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LocalFlorist
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen

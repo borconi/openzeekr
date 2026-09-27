@@ -50,10 +50,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.openzeekr.app.Deps
-import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.ble.ProximityController
 import com.openzeekr.app.ble.ProximityService
+import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.net.model.VehicleStatusBean
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.remote.Category
@@ -107,8 +107,10 @@ fun ControlsScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                QuickAction("Unlock", Icons.Filled.LockOpen, Modifier.weight(1f),
-                    accent = MaterialTheme.colorScheme.primary) { door(lockIt = false) }
+                QuickAction(
+                    "Unlock", Icons.Filled.LockOpen, Modifier.weight(1f),
+                    accent = MaterialTheme.colorScheme.primary
+                ) { door(lockIt = false) }
                 QuickAction("Lock", Icons.Filled.Lock, Modifier.weight(1f)) { door(lockIt = true) }
                 QuickAction("Climate", Icons.Filled.Thermostat, Modifier.weight(1f)) { fire("Climate On") { deps.control.send(Command.AC_ON) } }
                 QuickAction("Locate", Icons.Filled.Campaign, Modifier.weight(1f)) { fire("Flash + Horn") { deps.control.send(Command.FLASH_HORN) } }
@@ -205,30 +207,45 @@ private fun VehicleStatusCard(deps: Deps) {
             val maint = status?.additionalVehicleStatus?.maintenanceStatus
 
             when {
-                error != null -> Text("⚠ $error", color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
-                status == null -> Text("Tap Refresh to fetch the latest status from the cloud.",
+                error != null -> Text(
+                    "⚠ $error", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                status == null -> Text(
+                    "Tap Refresh to fetch the latest status from the cloud.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 else -> {
                     // Lock: 1 = locked, 0 = unlocked (Geely convention).
-                    StatusRow("Central lock", when (safety?.centralLockingStatus) {
-                        "1" -> "Locked"; "0" -> "Unlocked"; null, "" -> null
-                        else -> safety?.centralLockingStatus
-                    })
+                    StatusRow(
+                        "Central lock",
+                        when (safety?.centralLockingStatus) {
+                            "1" -> "Locked"; "0" -> "Unlocked"; null, "" -> null
+                            else -> safety?.centralLockingStatus
+                        }
+                    )
                     // SOC: this car leaves stateOfCharge blank and reports % in chargeLevel.
                     val soc = electric?.stateOfCharge?.takeIf { it.isNotBlank() }
                         ?: electric?.chargeLevel?.takeIf { it.isNotBlank() }
                     StatusRow("SOC", soc?.let { "$it%" })
-                    StatusRow("EV range", (electric?.distanceToEmptyOnBatteryOnly?.takeIf { it.isNotBlank() && it != "0" }
-                        ?: status?.basicVehicleStatus?.distanceToEmpty?.takeIf { it.isNotBlank() && it != "0" })
-                        ?.let { "$it km" })
+                    StatusRow(
+                        "EV range",
+                        (
+                            electric?.distanceToEmptyOnBatteryOnly?.takeIf { it.isNotBlank() && it != "0" }
+                                ?: status?.basicVehicleStatus?.distanceToEmpty?.takeIf { it.isNotBlank() && it != "0" }
+                            )
+                            ?.let { "$it km" }
+                    )
                     // isCharging is buggy (false while charging) — derive from live power.
-                    StatusRow("Charging", electric?.let {
-                        if (it.chargingActive)
-                            it.chargePowerW?.takeIf { w -> w > 0 }?.let { w -> "yes · %.1f kW".format(w / 1000) } ?: "yes"
-                        else "no"
-                    })
+                    StatusRow(
+                        "Charging",
+                        electric?.let {
+                            if (it.chargingActive)
+                                it.chargePowerW?.takeIf { w -> w > 0 }?.let { w -> "yes · %.1f kW".format(w / 1000) } ?: "yes"
+                            else "no"
+                        }
+                    )
                     // Only while charging, and only when the car reports an estimate (hidden otherwise).
                     StatusRow("Time to full", electric?.timeToFullLabel)
                     StatusRow("Odometer", maint?.odometer?.let { "$it km" })
@@ -244,13 +261,17 @@ private fun VehicleStatusCard(deps: Deps) {
                     )
                     val open = doors.filter { (_, v) -> !v.isNullOrBlank() && v != "0" }.map { it.first }
                     val anyKnown = doors.any { (_, v) -> !v.isNullOrBlank() }
-                    if (anyKnown) StatusRow("Doors/trunk",
-                        if (open.isEmpty()) "All closed" else "Open: ${open.joinToString(", ")}")
+                    if (anyKnown) StatusRow(
+                        "Doors/trunk",
+                        if (open.isEmpty()) "All closed" else "Open: ${open.joinToString(", ")}"
+                    )
                     status?.updateTime?.let {
-                        Text("updated ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
-                            .format(java.util.Date(it))}",
+                        Text(
+                            "updated ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                                .format(java.util.Date(it))}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -262,8 +283,10 @@ private fun VehicleStatusCard(deps: Deps) {
 private fun StatusRow(label: String, value: String?) {
     if (value.isNullOrBlank()) return
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
 }
@@ -305,8 +328,10 @@ private fun ProximityCard(deps: Deps) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Box(
                         Modifier.size(36.dp).clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
@@ -314,8 +339,10 @@ private fun ProximityCard(deps: Deps) {
                     ) { Icon(Icons.Filled.Bolt, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
                     Column {
                         Text("Proximity unlock", fontWeight = FontWeight.SemiBold)
-                        Text("RSSI approach / walk-away", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "RSSI approach / walk-away", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 Switch(
@@ -344,22 +371,34 @@ private fun ProximityCard(deps: Deps) {
                         ProximityController.Phase.MONITORING -> "monitoring (connected)"
                     }
                     RssiMeter(prox.smoothedRssi, cfg.effectiveLockRssi, cfg.effectiveUnlockRssi)
-                    Text("${prox.smoothedRssi ?: "--"} dBm   ·   $zone",
-                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Text(phase, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "${prox.smoothedRssi ?: "--"} dBm   ·   $zone",
+                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        phase, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     if (prox.lastAction.isNotBlank())
-                        Text("last: ${prox.lastAction}", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    prox.error?.let { Text("⚠ $it", color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall) }
+                        Text(
+                            "last: ${prox.lastAction}", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    prox.error?.let {
+                        Text(
+                            "⚠ $it", color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
 
             // Single knob: unlock threshold, floored at -65 dBm (can't be set weaker).
             // The lock threshold is derived (unlock − 5 dB) so the two never overlap.
-            Text("Unlock at ≥ ${cfg.effectiveUnlockRssi} dBm   ·   auto-lock at ≤ ${cfg.effectiveLockRssi} dBm",
-                style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Unlock at ≥ ${cfg.effectiveUnlockRssi} dBm   ·   auto-lock at ≤ ${cfg.effectiveLockRssi} dBm",
+                style = MaterialTheme.typography.bodySmall
+            )
             Slider(
                 value = cfg.effectiveUnlockRssi.toFloat(),
                 onValueChange = { v -> deps.config.update { it.copy(unlockRssi = v.toInt()) } },

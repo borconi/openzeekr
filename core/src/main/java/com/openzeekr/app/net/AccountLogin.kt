@@ -52,7 +52,7 @@ class AccountLogin(private val store: ConfigStore) {
     // Runs just before httpLog and sets its level from the debug-logging toggle.
     private val httpLogGate = okhttp3.Interceptor { chain ->
         httpLog.level = if (Logx.isHttpEnabled) okhttp3.logging.HttpLoggingInterceptor.Level.HEADERS
-            else okhttp3.logging.HttpLoggingInterceptor.Level.NONE
+        else okhttp3.logging.HttpLoggingInterceptor.Level.NONE
         chain.proceed(chain.request())
     }
 
@@ -112,17 +112,23 @@ class AccountLogin(private val store: ConfigStore) {
             //    any password is ever submitted, so a transport bug can't cause a
             //    failed-password lockout).
             Logx.d("login", "step 1/6 checkUserV2 …")
-            ucPost("$uc${ZeekrConst.CHECKUSER_URL}", buildJsonObject {
-                put("email", cfg.email); put("checkType", "1")
-            })
+            ucPost(
+                "$uc${ZeekrConst.CHECKUSER_URL}",
+                buildJsonObject {
+                    put("email", cfg.email); put("checkType", "1")
+                }
+            )
             Logx.d("login", "step 1/6 checkUserV2 OK")
 
             // 2. login (RSA-encrypted password) -> user-center token
             Logx.d("login", "step 2/6 loginByEmailEncrypt …")
             val encPw = encryptPassword(cfg.password, cfg.passwordPublicKey)
-            val loginData = ucPost("$uc${ZeekrConst.LOGIN_URL}", buildJsonObject {
-                put("code", ""); put("codeId", ""); put("email", cfg.email); put("password", encPw)
-            })
+            val loginData = ucPost(
+                "$uc${ZeekrConst.LOGIN_URL}",
+                buildJsonObject {
+                    put("code", ""); put("codeId", ""); put("email", cfg.email); put("password", encPw)
+                }
+            )
             val tokenName = loginData?.get("tokenName")?.jsonPrimitive?.contentOrNull
             val tokenValue = loginData?.get("tokenValue")?.jsonPrimitive?.contentOrNull
             require(tokenName == "Authorization" && !tokenValue.isNullOrBlank()) { "login token missing ($tokenName)" }
@@ -154,11 +160,14 @@ class AccountLogin(private val store: ConfigStore) {
             //     (app-authorization 1009). Best-effort — never blocks TSP login.
             runCatching {
                 Logx.d("login", "step 4b xchanger tspCode (client ${ZeekrConst.XCHANGER_CLIENT_ID}) …")
-                val xCodeData = exec(ucClient, Request.Builder()
-                    .url("$uc${ZeekrConst.TSPCODE_URL}?tspClientId=${ZeekrConst.XCHANGER_CLIENT_ID}")
-                    .header("app-authorization", "1009")
-                    .header("client-id", ZeekrConst.XCHANGER_CLIENT_ID)
-                    .get().build())
+                val xCodeData = exec(
+                    ucClient,
+                    Request.Builder()
+                        .url("$uc${ZeekrConst.TSPCODE_URL}?tspClientId=${ZeekrConst.XCHANGER_CLIENT_ID}")
+                        .header("app-authorization", "1009")
+                        .header("client-id", ZeekrConst.XCHANGER_CLIENT_ID)
+                        .get().build()
+                )
                 val xAuthCode = xCodeData?.get("code")?.jsonPrimitive?.contentOrNull ?: error("no xchanger authCode")
                 Logx.d("login", "step 4b xchanger authCode=${Logx.preview(xAuthCode)}")
                 // Full HF headers: device-identity (HFOkHttpClientUtil$RequestInterceptor) PLUS the
@@ -194,32 +203,35 @@ class AccountLogin(private val store: ConfigStore) {
                 // Header set mirrors stock's HFOkHttpClientUtil$RequestInterceptor for ZEEKR.
                 // Only Accept + X-api-* participate in the signature; the rest are unsigned.
                 // (No PLATFORM header — stock adds it only for GEELY/CMA operators, not ZEEKR.)
-                val xRoot = execRoot(xchangerClient, Request.Builder()
-                    .url(cfg.xchangerSessionUrl)
-                    .header("urlname", "user-api")
-                    .header("X-APP-ID", ZeekrConst.XCHANGER_APP_ID)
-                    .header("Accept", ZeekrConst.XCHANGER_ACCEPT)
-                    .header("Connection", "close")
-                    .header("X-AGENT-TYPE", "android")
-                    .header("X-DEVICE-TYPE", "mobile")
-                    .header("X-OPERATOR-CODE", ZeekrConst.XCHANGER_OPERATOR)
-                    .header("X-DEVICE-IDENTIFIER", devId)
-                    .header("X-ENV-TYPE", "production")
-                    .header("Accept-Encoding", "identity")
-                    .header("X-VERSION", "zeekrNew")
-                    .header("X-TIMEZONE", java.util.TimeZone.getDefault().id)
-                    .header("Accept-Language", "en_US")
-                    .header("X-api-signature-version", "1.0")
-                    .header("X-api-signature-nonce", nonce)
-                    .header("X-DEVICE-MANUFACTURE", ZeekrConst.XCHANGER_DEVICE_MANUFACTURE)
-                    .header("X-DEVICE-BRAND", ZeekrConst.XCHANGER_DEVICE_BRAND)
-                    .header("X-DEVICE-MODEL", ZeekrConst.XCHANGER_DEVICE_MODEL)
-                    .header("X-DEVICE-RELEASE-DATE", "")
-                    .header("X-AGENT-VERSION", ZeekrConst.XCHANGER_AGENT_VERSION)
-                    .header("X-SIGNATURE", sig)
-                    .header("X-TIMESTAMP", ts)
-                    .post(bodyStr.toRequestBody(jsonMedia))
-                    .build())
+                val xRoot = execRoot(
+                    xchangerClient,
+                    Request.Builder()
+                        .url(cfg.xchangerSessionUrl)
+                        .header("urlname", "user-api")
+                        .header("X-APP-ID", ZeekrConst.XCHANGER_APP_ID)
+                        .header("Accept", ZeekrConst.XCHANGER_ACCEPT)
+                        .header("Connection", "close")
+                        .header("X-AGENT-TYPE", "android")
+                        .header("X-DEVICE-TYPE", "mobile")
+                        .header("X-OPERATOR-CODE", ZeekrConst.XCHANGER_OPERATOR)
+                        .header("X-DEVICE-IDENTIFIER", devId)
+                        .header("X-ENV-TYPE", "production")
+                        .header("Accept-Encoding", "identity")
+                        .header("X-VERSION", "zeekrNew")
+                        .header("X-TIMEZONE", java.util.TimeZone.getDefault().id)
+                        .header("Accept-Language", "en_US")
+                        .header("X-api-signature-version", "1.0")
+                        .header("X-api-signature-nonce", nonce)
+                        .header("X-DEVICE-MANUFACTURE", ZeekrConst.XCHANGER_DEVICE_MANUFACTURE)
+                        .header("X-DEVICE-BRAND", ZeekrConst.XCHANGER_DEVICE_BRAND)
+                        .header("X-DEVICE-MODEL", ZeekrConst.XCHANGER_DEVICE_MODEL)
+                        .header("X-DEVICE-RELEASE-DATE", "")
+                        .header("X-AGENT-VERSION", ZeekrConst.XCHANGER_AGENT_VERSION)
+                        .header("X-SIGNATURE", sig)
+                        .header("X-TIMESTAMP", ts)
+                        .post(bodyStr.toRequestBody(jsonMedia))
+                        .build()
+                )
                 val xCode = xRoot?.get("code")?.jsonPrimitive?.contentOrNull
                 val xData = xRoot?.get("data")?.let { if (it is JsonObject) it else null }
                 if (xCode != "1000" || xData == null) {
@@ -245,17 +257,23 @@ class AccountLogin(private val store: ConfigStore) {
                     put("platformType", 1); put("receive", accountUuid ?: ""); put("region", cfg.snsRegion)
                 }
                 Logx.d("login", "step 4c equipment/relation register (push device, claims session) …")
-                val eqRoot = execRoot(ucClient, Request.Builder()
-                    .url("${cfg.messageCoreUrl}/open-api/v1/mcs/notice/receiver/equipment/relation/sycn")
-                    .header("app-authorization", "1009")
-                    .header("client-id", ZeekrConst.XCHANGER_CLIENT_ID)
-                    .header("msgClientId", "1009")
-                    .header("msgAppId", "10008")
-                    .header("Brand", "ZEEKR")
-                    .post(eqBody.toString().toRequestBody(jsonMedia))
-                    .build())
-                Logx.d("login", "step 4c equipment register code=${eqRoot?.get("code")?.jsonPrimitive?.contentOrNull} " +
-                    "endpoint=${(eqRoot?.get("data") as? JsonObject)?.get("endpoint")?.jsonPrimitive?.contentOrNull ?: "-"}")
+                val eqRoot = execRoot(
+                    ucClient,
+                    Request.Builder()
+                        .url("${cfg.messageCoreUrl}/open-api/v1/mcs/notice/receiver/equipment/relation/sycn")
+                        .header("app-authorization", "1009")
+                        .header("client-id", ZeekrConst.XCHANGER_CLIENT_ID)
+                        .header("msgClientId", "1009")
+                        .header("msgAppId", "10008")
+                        .header("Brand", "ZEEKR")
+                        .post(eqBody.toString().toRequestBody(jsonMedia))
+                        .build()
+                )
+                Logx.d(
+                    "login",
+                    "step 4c equipment register code=${eqRoot?.get("code")?.jsonPrimitive?.contentOrNull} " +
+                        "endpoint=${(eqRoot?.get("data") as? JsonObject)?.get("endpoint")?.jsonPrimitive?.contentOrNull ?: "-"}"
+                )
             }.onFailure { Logx.w("login", "step 4c equipment register FAILED: ${it.message}") }
 
             // 5. bearer login (TSP) -> accessToken
@@ -266,14 +284,17 @@ class AccountLogin(private val store: ConfigStore) {
             // claims the active-device slot nor logs other devices out). We present as the same
             // Pixel 6a identity we already spoof to xchanger, so the whole login is one device.
             val loginDeviceId = "${ZeekrConst.XCHANGER_DEVICE_MANUFACTURE}-${ZeekrConst.XCHANGER_DEVICE_MODEL}-30-${ZeekrConst.XCHANGER_AGENT_VERSION}"
-            val bearerData = tspPost("$tsp${ZeekrConst.BEARERLOGIN_URL}", buildJsonObject {
-                put("identifier", tspCode); put("identityType", 10)
-                put("loginDeviceId", loginDeviceId)
-                put("loginDeviceJgId", ""); put("loginDeviceType", 1)
-                put("loginPhoneBrand", ZeekrConst.XCHANGER_DEVICE_MANUFACTURE)
-                put("loginPhoneModel", ZeekrConst.XCHANGER_DEVICE_MODEL)
-                put("loginSystem", "Android")
-            })
+            val bearerData = tspPost(
+                "$tsp${ZeekrConst.BEARERLOGIN_URL}",
+                buildJsonObject {
+                    put("identifier", tspCode); put("identityType", 10)
+                    put("loginDeviceId", loginDeviceId)
+                    put("loginDeviceJgId", ""); put("loginDeviceType", 1)
+                    put("loginPhoneBrand", ZeekrConst.XCHANGER_DEVICE_MANUFACTURE)
+                    put("loginPhoneModel", ZeekrConst.XCHANGER_DEVICE_MODEL)
+                    put("loginSystem", "Android")
+                }
+            )
             Logx.d("login", "step 5/6 bearer_login loginDeviceId=$loginDeviceId")
             val bearer = bearerData?.get("accessToken")?.jsonPrimitive?.contentOrNull
                 ?: error("no bearer token")
@@ -287,18 +308,19 @@ class AccountLogin(private val store: ConfigStore) {
 
             // persist token+userId (+ account openId for the inbox HS256 token, see
             // InboxAuthToken) BEFORE the vehicle-list call (it needs auth)
-            store.update { it.copy(
-                accessToken = bearer,
-                userId = jwtUserId ?: userId ?: it.userId,
-                accountUuid = accountUuid ?: it.accountUuid,
-            ) }
+            store.update {
+                it.copy(
+                    accessToken = bearer,
+                    userId = jwtUserId ?: userId ?: it.userId,
+                    accountUuid = accountUuid ?: it.accountUuid,
+                )
+            }
 
             // 6. vehicle list -> ALL cars (multi-car switcher) + set the active VIN
             Logx.d("login", "step 6/6 vehicle-list …")
             runCatching {
                 val vehData = tspGetArray("$tsp${ZeekrConst.VEHLIST_URL}")
-                val all = com.openzeekr.app.net.model.VehicleGarage.parseAll(
-                    vehData?.let { kotlinx.serialization.json.JsonArray(it) })
+                val all = com.openzeekr.app.net.model.VehicleGarage.parseAll(vehData?.let { kotlinx.serialization.json.JsonArray(it) })
                 val refs = all.mapNotNull { v ->
                     v.vin?.takeIf { it.isNotBlank() }?.let {
                         com.openzeekr.app.config.VehicleRef(it, v.nickName ?: v.model ?: "", v.isOwner)

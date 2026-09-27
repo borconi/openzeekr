@@ -36,9 +36,11 @@ class SendToCarActivity : Activity() {
             withContext(Dispatchers.Main) {
                 if (dest == null) {
                     val preview = (intent.getStringExtra(Intent.EXTRA_TEXT) ?: intent.dataString ?: "").take(48)
-                    Toast.makeText(applicationContext,
+                    Toast.makeText(
+                        applicationContext,
                         if (preview.isBlank()) "Couldn't read a location to send" else "Couldn't read location from: $preview",
-                        Toast.LENGTH_SHORT).show()
+                        Toast.LENGTH_SHORT
+                    ).show()
                     finish(); return@withContext
                 }
                 if (isFinishing || isDestroyed) return@withContext
@@ -86,8 +88,11 @@ class SendToCarActivity : Activity() {
                 for (i in 0 until cd.itemCount) cd.getItemAt(i)?.coerceToText(this@SendToCarActivity)?.toString()?.let { add(it) }
             }
         }
-        Logx.d("sendToCar", "recv action=${intent.action} type=${intent.type} " +
-            "data=${intent.dataString?.take(120)} text=${intent.getStringExtra(Intent.EXTRA_TEXT)?.take(200)}")
+        Logx.d(
+            "sendToCar",
+            "recv action=${intent.action} type=${intent.type} " +
+                "data=${intent.dataString?.take(120)} text=${intent.getStringExtra(Intent.EXTRA_TEXT)?.take(200)}"
+        )
         // Explode each blob into whole lines (place-name line survives for labelling) + whitespace
         // tokens (an embedded URL gets isolated for expansion).
         val candidates = buildList {

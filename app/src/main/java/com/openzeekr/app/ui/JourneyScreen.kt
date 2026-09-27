@@ -60,7 +60,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-
 /**
  * Journey log — the car's trip history (distance / energy / duration / odometer), pulled
  * from `ms-vehicle-trail/journalLog/trip/listForPage`. The whole list can be exported to a
@@ -131,8 +130,10 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { onBack() }.padding(8.dp),
             )
-            Text("Journey log", fontWeight = FontWeight.Bold, fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
+            Text(
+                "Journey log", fontWeight = FontWeight.Bold, fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp)
+            )
         }
 
         // Export button always visible at the top (disabled while there's nothing to export).
@@ -156,8 +157,10 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             }
             trips.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                    JourneyEmptyInner(Icons.Filled.Route, "No trips yet",
-                        "Your recent drives — distance, energy and duration — will show up here.")
+                    JourneyEmptyInner(
+                        Icons.Filled.Route, "No trips yet",
+                        "Your recent drives — distance, energy and duration — will show up here."
+                    )
                     Spacer(Modifier.size(16.dp))
                     PrimaryButton("Reload", modifier = Modifier.fillMaxWidth()) { scope.launch { load(reset = true) } }
                 }
@@ -194,12 +197,16 @@ private fun TripCard(t: JourneyTrip, distanceUnit: String) {
             ) { Icon(Icons.Filled.Route, null, tint = Brand.accent, modifier = Modifier.size(20.dp)) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(fmtDate(t.startTime), fontWeight = FontWeight.Bold, fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    fmtDate(t.startTime), fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text("${fmtClock(t.startTime)} – ${fmtClock(t.endTime)}", color = Brand.muted, fontSize = 12.5.sp)
             }
-            Text(distanceLabel(t.distanceKm, distanceUnit), fontWeight = FontWeight.Bold,
-                fontSize = 16.sp, color = Brand.accent)
+            Text(
+                distanceLabel(t.distanceKm, distanceUnit), fontWeight = FontWeight.Bold,
+                fontSize = 16.sp, color = Brand.accent
+            )
         }
         // Start → end location, reverse-geocoded from the trip's first/last GPS point. Tapping the
         // card opens Google Maps with this route (directions icon signals it's tappable).
@@ -249,7 +256,7 @@ private fun JourneyEmptyInner(icon: ImageVector, title: String, subtitle: String
 /** Reverse-geocode cache (rounded lat,lon → short place label), shared across cards. */
 private val geocodeCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
-/** Reverse-geocode ([lat],[lon]) to a short place label (street/area), cached; falls back to
+/** Reverse-geocode ([lat], [lon]) to a short place label (street/area), cached; falls back to
  *  the coordinates while resolving / if the geocoder is unavailable. */
 @Composable
 private fun rememberAddress(lat: Double?, lon: Double?): String? {

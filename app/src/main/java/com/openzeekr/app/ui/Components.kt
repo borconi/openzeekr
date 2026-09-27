@@ -31,8 +31,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openzeekr.core.R
 import com.openzeekr.app.ui.theme.Brand
+import com.openzeekr.core.R
 
 /**
  * One consistent Switch palette for the whole app. The Material3 defaults wash out on

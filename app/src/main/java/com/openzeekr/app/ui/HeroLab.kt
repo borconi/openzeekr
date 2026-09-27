@@ -111,7 +111,7 @@ private fun LabHeroCard(model: CarModel, paint: PaintColor, mode: HeroMode) {
     val streak by trans.animateFloat(0f, 1f, infiniteRepeatable(tween(520, easing = LinearEasing), RepeatMode.Restart), label = "streak")
 
     val bg: Brush = if (model.key == "7GT") SolidColor(Color.White)
-        else Brush.radialGradient(listOf(Color(0xFFCED1D6), Color(0xFFA6A9AF)))
+    else Brush.radialGradient(listOf(Color(0xFFCED1D6), Color(0xFFA6A9AF)))
     val filter = paint.recolor?.let { ColorFilter.colorMatrix(labScale(it)) }
         ?: ColorFilter.colorMatrix(labLum(paint.color))
 

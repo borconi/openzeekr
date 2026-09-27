@@ -13,7 +13,7 @@ matching **private** key is what decrypts a blob. It is **not** in the app and *
 
 Install the dependency:
 
-```
+```bash
 pip install cryptography
 ```
 
@@ -24,7 +24,7 @@ can read every copied log, so treat it like a signing key.
 
 ### Decrypt a blob
 
-```
+```bash
 # from a file holding the pasted blob
 python3 scripts/decrypt_log.py --key tools/log-decrypt/private_key.pem --in blob.txt
 
@@ -39,7 +39,7 @@ The decrypted plaintext log is written to stdout.
 
 ### Rotating the keypair
 
-```
+```bash
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out tools/log-decrypt/private_key.pem
 openssl rsa -in tools/log-decrypt/private_key.pem -pubout -out tools/log-decrypt/public_key.pem
 openssl rsa -in tools/log-decrypt/private_key.pem -pubout -outform DER | base64 -w0

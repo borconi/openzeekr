@@ -1,5 +1,9 @@
 package com.openzeekr.app.ui
 
+import android.app.DownloadManager
+import android.content.Context
+import android.net.Uri
+import android.os.Environment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Videocam
@@ -36,11 +41,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.app.DownloadManager
-import android.content.Context
-import android.net.Uri
-import android.os.Environment
-import androidx.compose.material.icons.filled.Download
 import com.openzeekr.app.Deps
 import com.openzeekr.app.net.model.SentryVideoDetail
 import com.openzeekr.app.remote.CallResult
@@ -134,10 +134,14 @@ fun SentryScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = Mo
 @Composable
 private fun SentryEventCard(e: SentryVideoDetail, time: String, onDownload: () -> Unit) {
     val ready = !e.alarmVideoUrl.isNullOrBlank()
-    Card(Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Box(
                 Modifier.size(44.dp).clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
@@ -145,8 +149,10 @@ private fun SentryEventCard(e: SentryVideoDetail, time: String, onDownload: () -
             ) { Icon(Icons.Filled.Shield, null, tint = MaterialTheme.colorScheme.primary) }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Level ${e.alarmLevel ?: "?"} event", fontWeight = FontWeight.SemiBold)
-                Text(time, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    time, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 TextButton(onClick = onDownload, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
                     Icon(if (ready) Icons.Filled.Download else Icons.Filled.CloudUpload, null, modifier = Modifier.size(16.dp))
                     Text(if (ready) "  Download clip" else "  Upload + download")
@@ -180,12 +186,20 @@ private fun EmptyState(loaded: Boolean) {
             Modifier.size(72.dp).clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Filled.Videocam, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(34.dp)) }
-        Text(if (loaded) "No sentry events in range" else "Load sentry events to begin",
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Cloud footage via sentinel-monitoring-service. Live view needs the RTC provider SDK (not identified yet).",
+        ) {
+            Icon(
+                Icons.Filled.Videocam, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(34.dp)
+            )
+        }
+        Text(
+            if (loaded) "No sentry events in range" else "Load sentry events to begin",
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            "Cloud footage via sentinel-monitoring-service. Live view needs the RTC provider SDK (not identified yet).",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 24.dp))
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
     }
 }

@@ -23,6 +23,7 @@ class ApiClient private constructor(private val store: ConfigStore) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; isLenient = true }
 
     @Volatile private var retrofit: Retrofit = build()
+
     @Volatile var api: TspApi = retrofit.create(TspApi::class.java)
         private set
 

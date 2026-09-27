@@ -27,6 +27,7 @@ object PhoneLink {
     }
 
     @Volatile private var statusWaiter: CompletableDeferred<Status>? = null
+
     @Volatile private var pauseWaiter: CompletableDeferred<Unit>? = null
 
     /** Called by [KeySyncService] when the phone answers a status query. */

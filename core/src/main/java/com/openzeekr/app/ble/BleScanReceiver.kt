@@ -32,8 +32,10 @@ class BleScanReceiver : BroadcastReceiver() {
 
         @Suppress("UNCHECKED_CAST")
         val results: List<ScanResult> =
-            (intent.getParcelableArrayListExtra<ScanResult>(BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT)
-                ?: emptyList())
+            (
+                intent.getParcelableArrayListExtra<ScanResult>(BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT)
+                    ?: emptyList()
+                )
 
         // Pick the strongest advertiser (only our car should realistically match the 0xFDFD/0x06FE
         // filter near us; identity is verified by the DK handshake regardless).

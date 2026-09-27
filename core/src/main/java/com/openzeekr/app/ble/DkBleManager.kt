@@ -9,23 +9,23 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
-import android.os.ParcelUuid
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.ParcelUuid
 import android.util.Log
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -53,6 +53,7 @@ class DkBleManager(base: Context) : DkTransport {
 
     private val _state = MutableStateFlow(State.IDLE)
     val state: StateFlow<State> = _state
+
     @Volatile var lastError: String? = null; private set
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -141,6 +142,7 @@ class DkBleManager(base: Context) : DkTransport {
 
     // ---- live RSSI of the connected car (for the RPA proximity gate) ----
     @Volatile private var lastRemoteRssi: Int? = null
+
     // True between initiating a readRemoteRssi and its onReadRemoteRssi callback. If a NEW read is
     // initiated while this is still set, the PREVIOUS read never called back -> the link is wedged
     // (its cached value is stale), so pollRemoteRssi reports null rather than a stale reading. This is
@@ -212,6 +214,7 @@ class DkBleManager(base: Context) : DkTransport {
     private var scanCb: ScanCallback? = null
     private var scanJob: Job? = null
     private val seenAdvertisers = mutableSetOf<String>()
+
     /** 8-byte broadcast-random from the matched car's advertisement (see [parseBroadcastRnd]). */
     @Volatile private var advBroadcastRnd: ByteArray? = null
     /** Per-MAC broadcast-random seen during this scan (the DK mfr-data advert is separate from
@@ -231,6 +234,7 @@ class DkBleManager(base: Context) : DkTransport {
     // thrash (battery + log noise). After a few consecutive establish() failures we back off AUTO
     // reconnects for a short, growing window; a user-initiated connect calls [resetHandshakeBackoff].
     @Volatile private var handshakeFailStreak = 0
+
     @Volatile private var handshakeBackoffUntilMs = 0L
 
     private fun inHandshakeBackoff(): Boolean {
@@ -388,11 +392,14 @@ class DkBleManager(base: Context) : DkTransport {
                 val mfrIds = rec?.manufacturerSpecificData?.let { m ->
                     if (m.size() == 0) "none" else (0 until m.size()).joinToString { "%04x".format(m.keyAt(it)) }
                 } ?: "none"
-                Logx.d("ble", "adv $addr rssi=${result.rssi} name=${name ?: "?"} " +
-                    "uuids=${uuids?.joinToString { it.uuid.toString() } ?: "none"} svcData=[$svcData] mfr=[$mfrIds] " +
-                    // Full raw advert bytes - lets us derive the hardware ScanFilter (company id +
-                    // constant/masked bytes) for the PendingIntent offloaded screen-off scan.
-                    "raw=${rec?.bytes?.joinToString("") { "%02x".format(it) } ?: ""}")
+                Logx.d(
+                    "ble",
+                    "adv $addr rssi=${result.rssi} name=${name ?: "?"} " +
+                        "uuids=${uuids?.joinToString { it.uuid.toString() } ?: "none"} svcData=[$svcData] mfr=[$mfrIds] " +
+                        // Full raw advert bytes - lets us derive the hardware ScanFilter (company id +
+                        // constant/masked bytes) for the PendingIntent offloaded screen-off scan.
+                        "raw=${rec?.bytes?.joinToString("") { "%02x".format(it) } ?: ""}"
+                )
             }
             // The DK broadcast-random rides a separate manufacturer-data PDU; capture it per-MAC
             // from every advert so it's ready whichever PDU triggers the name match.
@@ -446,9 +453,12 @@ class DkBleManager(base: Context) : DkTransport {
             }
         }
         scanCb = cb
-        Logx.d("ble", "scanning (UNFILTERED, ${if (useBatching) "batched ${REPORT_DELAY_MS}ms" else "immediate"}) " +
-            "- match by name *zeekr*, adv-uuid 0xFDFD, DK service ${DkProtocol.SERVICE_UUID}, svcData or mfr 0x06FE. " +
-            "Every advertiser is logged so a car with different adv identifiers is still visible.")
+        Logx.d(
+            "ble",
+            "scanning (UNFILTERED, ${if (useBatching) "batched ${REPORT_DELAY_MS}ms" else "immediate"}) " +
+                "- match by name *zeekr*, adv-uuid 0xFDFD, DK service ${DkProtocol.SERVICE_UUID}, svcData or mfr 0x06FE. " +
+                "Every advertiser is logged so a car with different adv identifiers is still visible."
+        )
         // Foreground connect: scan UNFILTERED and match in software (see handleAdvert). The hardware
         // 0xFDFD/0x06FE ScanFilter is kept ONLY for the offloaded background presence scan; on the
         // foreground connect it risked hiding (and never logging) a car whose region/firmware
@@ -458,8 +468,10 @@ class DkBleManager(base: Context) : DkTransport {
             delay(SCAN_TIMEOUT_MS)
             if (_state.value == State.SCANNING) {
                 stopScanInternal(scanner)
-                fail("no DK device matched in ${SCAN_TIMEOUT_MS / 1000}s — check the advertiser log above " +
-                    "for the car's name/MAC, then connect by MAC")
+                fail(
+                    "no DK device matched in ${SCAN_TIMEOUT_MS / 1000}s — check the advertiser log above " +
+                        "for the car's name/MAC, then connect by MAC"
+                )
             }
         }
     }
@@ -691,8 +703,11 @@ class DkBleManager(base: Context) : DkTransport {
             chNotify1 = svc.getCharacteristic(UUID.fromString(DkProtocol.CHAR_CH1_NOTIFY))
             chWrite2 = svc.getCharacteristic(UUID.fromString(DkProtocol.CHAR_CH2_WRITE))
             chNotify2 = svc.getCharacteristic(UUID.fromString(DkProtocol.CHAR_CH2_NOTIFY))
-            Logx.d("ble", "services discovered: ch1w=${chWrite1 != null} ch1n=${chNotify1 != null} " +
-                "ch2w=${chWrite2 != null} ch2n=${chNotify2 != null}")
+            Logx.d(
+                "ble",
+                "services discovered: ch1w=${chWrite1 != null} ch1n=${chNotify1 != null} " +
+                    "ch2w=${chWrite2 != null} ch2n=${chNotify2 != null}"
+            )
             if (chWrite1 == null || chNotify1 == null) { fail("DK characteristics missing"); return }
             setupJob = scope.launch { setupNotificationsAndEstablish(g) }
         }
@@ -713,7 +728,8 @@ class DkBleManager(base: Context) : DkTransport {
         // API < 33
         @Deprecated("Deprecated in API 33")
         override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
-            @Suppress("DEPRECATION") onNotify(ch.uuid, ch.value ?: ByteArray(0))
+            @Suppress("DEPRECATION")
+            onNotify(ch.uuid, ch.value ?: ByteArray(0))
         }
         // API >= 33
         override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic, value: ByteArray) {
@@ -771,7 +787,8 @@ class DkBleManager(base: Context) : DkTransport {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             g.writeDescriptor(cccd, enable)
         } else {
-            @Suppress("DEPRECATION") run { cccd.value = enable; g.writeDescriptor(cccd) }
+            @Suppress("DEPRECATION")
+            run { cccd.value = enable; g.writeDescriptor(cccd) }
         }
         return withTimeoutOrNull(4000) { step.await() } ?: false
     }
@@ -783,8 +800,11 @@ class DkBleManager(base: Context) : DkTransport {
             val f = DkFrame.decode(frameBytes)
             lastInboundMs = System.currentTimeMillis() // the car is talking = activity
             runCatching { onInboundActivity?.invoke() }
-            Logx.d("ble", "<- frame cmd=0x${f.cmdId.toString(16)} ${DkProtocol.name(f.cmdId)} body=${f.body.size}B " +
-                "hex=${f.body.take(64).joinToString("") { "%02x".format(it) }}")
+            Logx.d(
+                "ble",
+                "<- frame cmd=0x${f.cmdId.toString(16)} ${DkProtocol.name(f.cmdId)} body=${f.body.size}B " +
+                    "hex=${f.body.take(64).joinToString("") { "%02x".format(it) }}"
+            )
             inboundHandler?.invoke(f.cmdId, f.body)
         } catch (e: DkFrameException) {
             Logx.w("ble", "bad inbound frame: ${e.message} raw=${frameBytes.take(48).joinToString("") { "%02x".format(it) }}")
@@ -803,7 +823,8 @@ class DkBleManager(base: Context) : DkTransport {
             val ok = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 g.writeCharacteristic(ch, chunk, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == BluetoothGatt.GATT_SUCCESS
             } else {
-                @Suppress("DEPRECATION") run {
+                @Suppress("DEPRECATION")
+                run {
                     ch.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                     ch.value = chunk
                     g.writeCharacteristic(ch)
@@ -850,6 +871,7 @@ class DkBleManager(base: Context) : DkTransport {
         private const val HANDSHAKE_FAIL_THRESHOLD = 3
         private const val HANDSHAKE_BACKOFF_BASE_MS = 30_000L
         private const val HANDSHAKE_BACKOFF_MAX_MS = 120_000L
+
         @Volatile private var INSTANCE: DkBleManager? = null
         fun get(context: Context): DkBleManager =
             INSTANCE ?: synchronized(this) {

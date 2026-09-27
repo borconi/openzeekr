@@ -6,11 +6,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.pow
 
 /**
@@ -73,6 +73,7 @@ class ProximityController(
 
     // Smoothing + trend.
     private var gattEma: Double? = null
+
     @Volatile private var nextIntervalMs = MONITOR_MID_MS
 
     // In-car detection: how long the "at the car" condition has held.
@@ -83,6 +84,7 @@ class ProximityController(
     // Cadence-transition logging + connected-RSSI liveness bookkeeping.
     private var lastCadence = ""
     private var rssiNullStreak = 0
+
     // App-layer ping bookkeeping (approach state only).
     @Volatile private var pingInFlight = false
     private var pingFailStreak = 0
@@ -90,12 +92,14 @@ class ProximityController(
 
     // Hysteresis latch: true once the car has CONFIRMED our auto-unlock (next auto action is a lock).
     private var armedUnlocked = false
+
     // Confirmed-unlock retry loop: true while actively trying to unlock; the job is the loop itself.
     @Volatile private var needToUnlock = false
     private var unlockJob: Job? = null
     // Confirmed-lock loop (walk-away). Locking matters more than unlocking — never leave the car open —
     // so this is at least as persistent as unlock and falls back to a cloud lock if BLE won't confirm.
     private var lockJob: Job? = null
+
     // Set while the unlocked "activity watch" is idling; the car's next frame completes it (instant wake).
     @Volatile private var activityWake: CompletableDeferred<Unit>? = null
 
@@ -103,6 +107,7 @@ class ProximityController(
 
     // ---- action gate ----
     private var lastTriggerMs = 0L
+
     @Volatile private var actionInFlight = false
 
     // ---- link-loss handling ----
@@ -120,8 +125,10 @@ class ProximityController(
      *  the phone sleeps and the motion sensor is the only thing that wakes us. */
     private val _wakeLockNeeded = MutableStateFlow(false)
     val wakeLockNeeded: StateFlow<Boolean> = _wakeLockNeeded
+
     // Set while FAR + still: the loop drops the wakelock and blocks until the motion sensor wakes us.
     @Volatile private var farAsleep = false
+
     @Volatile private var motionWake: CompletableDeferred<Unit>? = null
     // NEAR easing: hold-still reference (NEAR_STILL_BAND_M) + since-when, to step 200 → 500 → 1000 ms.
     private var nearRefDist: Double? = null
@@ -161,8 +168,7 @@ class ProximityController(
                         // wakelock: this is the at-the-car case and the inbound-frame wake needs the CPU.
                         if (armedUnlocked) { _wakeLockNeeded.value = true; armedWatch(); continue }
                         val rssi = ble.pollRemoteRssi()
-                        if (rssi != null) { rssiNullStreak = 0; onSample(rssi) }
-                        else {
+                        if (rssi != null) { rssiNullStreak = 0; onSample(rssi) } else {
                             // Connected-RSSI reads are the reliable liveness signal (they succeed
                             // ~every tick on a healthy link). A run of nulls on a READY session means
                             // the link is wedged -> reconnect. (This replaces the 0x0120 app-ping: the
@@ -223,8 +229,11 @@ class ProximityController(
             // means you left. LINK_LOSS_LOCK_DELAY_MS gives a transient/contention drop time to reconnect
             // (which resets this at the top of the loop); if it can't, we lock.
             walkAwayArmed = armedUnlocked
-            Logx.d("prox", "link down (lastRssi=$lostRssi armed=$armedUnlocked) " +
-                "-> ${if (walkAwayArmed) "arming walk-away lock (lock if no reconnect in ${LINK_LOSS_LOCK_DELAY_MS}ms)" else "not armed — idle"}")
+            Logx.d(
+                "prox",
+                "link down (lastRssi=$lostRssi armed=$armedUnlocked) " +
+                    "-> ${if (walkAwayArmed) "arming walk-away lock (lock if no reconnect in ${LINK_LOSS_LOCK_DELAY_MS}ms)" else "not armed — idle"}"
+            )
             // Walk-away CLOUD backstop (ranging-independent). If we did NOT unlock the car ourselves
             // (so the armed BLE walk-away-lock path above won't run), a sustained link loss still means
             // you left - so lock it. We deliberately do NOT gate this on an RSSI "out-of-range"
@@ -240,7 +249,7 @@ class ProximityController(
             }
             gattEma = null
             inCarSinceMs = 0L; steadyRef = null; steadySinceMs = 0L; lastCadence = ""
-        rssiNullStreak = 0; pingInFlight = false; pingFailStreak = 0; lastPingMs = 0L
+            rssiNullStreak = 0; pingInFlight = false; pingFailStreak = 0; lastPingMs = 0L
             _state.value = _state.value.copy(
                 phase = Phase.PASSIVE, source = Source.NONE, zone = Zone.UNKNOWN,
                 rawRssi = null, smoothedRssi = null, distanceM = null,
@@ -289,8 +298,7 @@ class ProximityController(
         }
         // Recent car activity → full-speed RSSI track; onSample owns the walk-away-lock decision.
         val rssi = ble.pollRemoteRssi()
-        if (rssi != null) { rssiNullStreak = 0; onSample(rssi) }
-        else if (++rssiNullStreak >= RSSI_NULL_RECONNECT) { rssiNullStreak = 0; forceReconnect() }
+        if (rssi != null) { rssiNullStreak = 0; onSample(rssi) } else if (++rssiNullStreak >= RSSI_NULL_RECONNECT) { rssiNullStreak = 0; forceReconnect() }
         delay(MONITOR_FAST_MS)
     }
 
@@ -402,9 +410,12 @@ class ProximityController(
         if (approachState && !needToUnlock && ble.state.value == DkBleManager.State.SESSION_READY) maybePing()
         else pingFailStreak = 0
 
-        Logx.d("prox", "rssi=$rssi ema=$smoothed ~${"%.1f".format(dist)}m " +
-            "trend=${"%+.1f".format(trend)} zone=$zone armed=$armedUnlocked " +
-            "thr(u/l)=$unlockThresh/$lockThresh motion=${motion.state.value} next=${nextIntervalMs}ms")
+        Logx.d(
+            "prox",
+            "rssi=$rssi ema=$smoothed ~${"%.1f".format(dist)}m " +
+                "trend=${"%+.1f".format(trend)} zone=$zone armed=$armedUnlocked " +
+                "thr(u/l)=$unlockThresh/$lockThresh motion=${motion.state.value} next=${nextIntervalMs}ms"
+        )
 
         val cooling = lastTriggerMs != 0L && System.currentTimeMillis() - lastTriggerMs < ACTION_COOLDOWN_MS
         if (cooling || actionInFlight) return
@@ -506,7 +517,8 @@ class ProximityController(
             while (isActive && attempt < MAX_LOCK_ATTEMPTS) {
                 attempt++
                 if (ble.state.value != DkBleManager.State.SESSION_READY &&
-                    !awaitState(setOf(DkBleManager.State.SESSION_READY), LOCK_SESSION_WAIT_MS)) {
+                    !awaitState(setOf(DkBleManager.State.SESSION_READY), LOCK_SESSION_WAIT_MS)
+                ) {
                     // No live session this round — kick a reconnect to the known car and try the next attempt.
                     if (!ble.reconnectLast()) runCatching { ble.connect(null) }
                     continue
@@ -548,8 +560,11 @@ class ProximityController(
                     Logx.d("prox", "$reason: link back before cloud check - skip"); return@launch
                 }
                 val locked = runCatching { cloudIsLocked() }.getOrNull()
-                Logx.d("prox", "$reason: cloud lock check -> " +
-                    (locked?.let { if (it) "LOCKED" else "unlocked" } ?: "unknown"))
+                Logx.d(
+                    "prox",
+                    "$reason: cloud lock check -> " +
+                        (locked?.let { if (it) "LOCKED" else "unlocked" } ?: "unknown")
+                )
                 if (locked == true) {
                     // Decisive walk-away monitor line: the car was ALREADY locked by the time the link
                     // dropped, so the car-side auto-lock (or a prior lock) handled it and the cloud
@@ -559,8 +574,11 @@ class ProximityController(
                     return@launch
                 }
                 val ok = runCatching { cloudLock() }.getOrDefault(false)
-                Logx.d("prox", "$reason: car ${if (locked == false) "unlocked" else "state unknown"} " +
-                    "-> cloud lock ${if (ok) "ok" else "FAILED"}")
+                Logx.d(
+                    "prox",
+                    "$reason: car ${if (locked == false) "unlocked" else "state unknown"} " +
+                        "-> cloud lock ${if (ok) "ok" else "FAILED"}"
+                )
                 _state.value = _state.value.copy(
                     lastAction = "$reason · ${if (ok) "cloud-locked ✓" else "LOCK FAILED ✗"}",
                 )

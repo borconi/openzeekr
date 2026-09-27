@@ -339,7 +339,7 @@ data class SecretsConfig(
             overseasAccessKey = NativeSecrets.overseasAccessKey(),
             overseasSecretKey = NativeSecrets.overseasSecretKey(),
             inboxAuthSecret = NativeSecrets.inboxAuthSecret(),
-            // NOTE: email / password / vin / userId are intentionally NOT baked    
+            // NOTE: email / password / vin / userId are intentionally NOT baked
             // in (see build.gradle.kts). They start blank and are entered on the
             // Settings screen, then persisted only in encrypted on-device prefs.
         )

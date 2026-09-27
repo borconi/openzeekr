@@ -221,6 +221,7 @@ class MotionMonitor(context: Context) {
         private const val ATTRIBUTION_TAG = "proximity"
         private const val STEP_STILL_TIMEOUT_MS = 5_000L // no step for this long ⇒ back to STILL
         private const val AR_REQUEST_CODE = 0x2ee6
+
         @Volatile private var active: MotionMonitor? = null
         /** Route an Activity Recognition transition (from the receiver) to the live monitor. */
         internal fun deliver(activityType: Int) { active?.onActivity(activityType) }

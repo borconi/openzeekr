@@ -18,15 +18,16 @@ Usage:
 Requires the 'cryptography' package (pip install cryptography). RSA-OAEP + AES-GCM are not
 available from the Python stdlib alone.
 """
+
 import argparse
 import base64
 import sys
 
 try:
-    from cryptography.hazmat.primitives.asymmetric import padding
     from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.asymmetric import padding
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 except ImportError:
     sys.exit("This tool needs the 'cryptography' package:  pip install cryptography")
 
@@ -47,17 +48,23 @@ def _unwrap_aes_key(wrapped: bytes, private_key_pem: bytes) -> bytes:
     )
 
 
-def decrypt(blob_b64: str, private_key_pem: bytes, allow_truncated: bool = False) -> str:
+def decrypt(
+    blob_b64: str, private_key_pem: bytes, allow_truncated: bool = False
+) -> str:
     raw = base64.b64decode(blob_b64.strip())
     if raw[:2] != MAGIC:
         raise ValueError("bad magic - not an OpenZeekr log blob")
     version = raw[2]
     if version != VERSION:
-        raise ValueError(f"unsupported blob version {version} (this tool handles v{VERSION})")
+        raise ValueError(
+            f"unsupported blob version {version} (this tool handles v{VERSION})"
+        )
     wrapped_len = (raw[3] << 8) | raw[4]
     off = 5
-    wrapped = raw[off:off + wrapped_len]; off += wrapped_len
-    iv = raw[off:off + IV_LEN]; off += IV_LEN
+    wrapped = raw[off : off + wrapped_len]
+    off += wrapped_len
+    iv = raw[off : off + IV_LEN]
+    off += IV_LEN
     ct = raw[off:]
 
     aes_key = _unwrap_aes_key(wrapped, private_key_pem)
@@ -85,12 +92,25 @@ def decrypt(blob_b64: str, private_key_pem: bytes, allow_truncated: bool = False
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Decrypt an OpenZeekr encrypted log blob.")
-    ap.add_argument("--key", required=True, help="path to the RSA private key PEM (dev-held, offline)")
-    ap.add_argument("--in", dest="infile", help="file holding the base64 blob (default: stdin)")
-    ap.add_argument("--allow-truncated", action="store_true",
-                    help="if the GCM tag fails (truncated blob), recover the ciphertext we have "
-                         "UNAUTHENTICATED via AES-CTR (partial log; tail lost)")
-    ap.add_argument("blob", nargs="?", help="the base64 blob as an argument (alternative to --in/stdin)")
+    ap.add_argument(
+        "--key",
+        required=True,
+        help="path to the RSA private key PEM (dev-held, offline)",
+    )
+    ap.add_argument(
+        "--in", dest="infile", help="file holding the base64 blob (default: stdin)"
+    )
+    ap.add_argument(
+        "--allow-truncated",
+        action="store_true",
+        help="if the GCM tag fails (truncated blob), recover the ciphertext we have "
+        "UNAUTHENTICATED via AES-CTR (partial log; tail lost)",
+    )
+    ap.add_argument(
+        "blob",
+        nargs="?",
+        help="the base64 blob as an argument (alternative to --in/stdin)",
+    )
     args = ap.parse_args()
 
     if args.blob:
@@ -104,7 +124,9 @@ def main() -> None:
     with open(args.key, "rb") as f:
         private_key_pem = f.read()
 
-    sys.stdout.write(decrypt(blob, private_key_pem, allow_truncated=args.allow_truncated))
+    sys.stdout.write(
+        decrypt(blob, private_key_pem, allow_truncated=args.allow_truncated)
+    )
 
 
 if __name__ == "__main__":

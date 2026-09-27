@@ -1,49 +1,51 @@
 package com.openzeekr.app.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,13 +65,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.Intent
-import android.net.Uri
 import com.openzeekr.app.Deps
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.ble.DkProvisioning
-import com.openzeekr.app.ui.theme.Brand
 import com.openzeekr.app.net.ReleaseInfo
+import com.openzeekr.app.ui.theme.Brand
 import kotlinx.coroutines.launch
 
 private enum class Tab(val label: String, val icon: ImageVector) {
@@ -132,10 +132,12 @@ fun AppRoot(deps: Deps) {
     // again when an even newer one appears.
     val update by deps.updateAvailable.collectAsState()
     var updateDismissed by remember {
-        mutableStateOf(runCatching {
-            pushCtx.getSharedPreferences("oz_update", android.content.Context.MODE_PRIVATE)
-                .getString("dismissed_version", "") ?: ""
-        }.getOrDefault(""))
+        mutableStateOf(
+            runCatching {
+                pushCtx.getSharedPreferences("oz_update", android.content.Context.MODE_PRIVATE)
+                    .getString("dismissed_version", "") ?: ""
+            }.getOrDefault("")
+        )
     }
     val dismissUpdate: (String) -> Unit = { v ->
         updateDismissed = v
@@ -151,8 +153,7 @@ fun AppRoot(deps: Deps) {
                 rel = rel,
                 onDownload = {
                     runCatching {
-                        pushCtx.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse(rel.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        pushCtx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(rel.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }
                     dismissUpdate(rel.version)
                 },
@@ -251,11 +252,15 @@ fun AppRoot(deps: Deps) {
                                 }
                             }
                         }
-                        Icon(Icons.Filled.Edit, "Rename car", tint = Brand.faint,
-                            modifier = Modifier.size(15.dp).clickable { draftName = carName; renaming = true })
+                        Icon(
+                            Icons.Filled.Edit, "Rename car", tint = Brand.faint,
+                            modifier = Modifier.size(15.dp).clickable { draftName = carName; renaming = true }
+                        )
                     }
-                    Text(if (cfg.vin.isNotBlank()) "VIN ••••${cfg.vin.takeLast(3)}" else "Tap the pencil to name your car",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        if (cfg.vin.isNotBlank()) "VIN ••••${cfg.vin.takeLast(3)}" else "Tap the pencil to name your car",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
                 }
                 // Notifications bell with unread-count badge. A rounded pill that always shows the number
                 // (grows for 2-3 digits), ringed in the bar's surface colour so it reads cleanly over the

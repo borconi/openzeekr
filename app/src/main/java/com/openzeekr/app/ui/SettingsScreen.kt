@@ -179,8 +179,10 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("HTTP logging", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("Logs cloud requests + responses (tokens, VIN).",
-                        color = Brand.muted, fontSize = 12.sp)
+                    Text(
+                        "Logs cloud requests + responses (tokens, VIN).",
+                        color = Brand.muted, fontSize = 12.sp
+                    )
                 }
                 Switch(
                     checked = liveCfg.logHttp,
@@ -195,8 +197,10 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("BLE logging", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("Logs digital-key / proximity BLE traffic (key material).",
-                        color = Brand.muted, fontSize = 12.sp)
+                    Text(
+                        "Logs digital-key / proximity BLE traffic (key material).",
+                        color = Brand.muted, fontSize = 12.sp
+                    )
                 }
                 Switch(
                     checked = liveCfg.logBle,
@@ -248,24 +252,30 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             val ver = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "—" }
             val update by deps.updateAvailable.collectAsState()
             // Tap the version 10x to toggle developer mode (Hero lab / Remote Parking / Calibration).
-            Box(Modifier.fillMaxWidth().clickable {
-                if (!liveCfg.devMode) {
-                    verTaps++
-                    when {
-                        verTaps >= 10 -> { store.update { it.copy(devMode = true) }; verTaps = 0; status = "Developer mode ON" }
-                        verTaps >= 6 -> status = "${10 - verTaps} more taps to enable developer mode"
+            Box(
+                Modifier.fillMaxWidth().clickable {
+                    if (!liveCfg.devMode) {
+                        verTaps++
+                        when {
+                            verTaps >= 10 -> { store.update { it.copy(devMode = true) }; verTaps = 0; status = "Developer mode ON" }
+                            verTaps >= 6 -> status = "${10 - verTaps} more taps to enable developer mode"
+                        }
                     }
                 }
-            }) { InfoRow("Version", ver) }
-            if (liveCfg.devMode) Box(Modifier.fillMaxWidth().clickable {
-                store.update { it.copy(devMode = false) }; verTaps = 0; status = "Developer mode off"
-            }) { InfoRow("Developer mode", "On - tap to turn off") }
+            ) { InfoRow("Version", ver) }
+            if (liveCfg.devMode) Box(
+                Modifier.fillMaxWidth().clickable {
+                    store.update { it.copy(devMode = false) }; verTaps = 0; status = "Developer mode off"
+                }
+            ) { InfoRow("Developer mode", "On - tap to turn off") }
             InfoRow("Build", if (baked) "private (keys baked)" else "clean (bring your own keys)")
             // In-app update check against the GitHub releases (runs once on launch; button re-checks).
             update?.let { u ->
-                Box(Modifier.fillMaxWidth().clickable {
-                    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                }) { InfoRow("Update available", "${u.version}  ↓ download") }
+                Box(
+                    Modifier.fillMaxWidth().clickable {
+                        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    }
+                ) { InfoRow("Update available", "${u.version}  ↓ download") }
             }
             OutlinedButton(onClick = {
                 status = "Checking for updates…"
@@ -340,8 +350,9 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
-                    if (category == "ble") { store.update { it.copy(logBle = true) }; Logx.setBle(true) }
-                    else { store.update { it.copy(logHttp = true) }; Logx.setHttp(true) }
+                    if (category ==
+                        "ble"
+                    ) { store.update { it.copy(logBle = true) }; Logx.setBle(true) } else { store.update { it.copy(logHttp = true) }; Logx.setHttp(true) }
                     pendingLogEnable = null
                 }) { Text("Enable logging", color = Brand.crit) }
             },
@@ -407,8 +418,10 @@ private fun RegionSection(
             Field("X-PROJECT-ID", liveCfg.projectId) { v -> store.update { it.copy(projectId = v) }; onEndpointChanged() }
             Field("Country code", liveCfg.countryCode) { v -> store.update { it.copy(countryCode = v) } }
             Field("Push SNS region", liveCfg.snsRegion) { v -> store.update { it.copy(snsRegion = v) } }
-            Text("Re-selecting a region above resets all of these to that region's defaults.",
-                color = Brand.faint, fontSize = 11.sp)
+            Text(
+                "Re-selecting a region above resets all of these to that region's defaults.",
+                color = Brand.faint, fontSize = 11.sp
+            )
         }
     }
 }
@@ -429,12 +442,38 @@ private fun SecretsSection(cfg: SecretsConfig, set: ((SecretsConfig) -> SecretsC
             Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = Brand.muted)
         }
         if (expanded) {
-            Field("hmac_access_key", cfg.hmacAccessKey, secret = true, supportingText = if (cfg.hmacAccessKey.isBlank()) "Required" else null) { v -> set { it.copy(hmacAccessKey = v) } }
-            Field("hmac_secret_key", cfg.hmacSecretKey, secret = true, supportingText = if (cfg.hmacSecretKey.isBlank()) "Required" else null) { v -> set { it.copy(hmacSecretKey = v) } }
-            Field("password_public_key", cfg.passwordPublicKey, secret = true, supportingText = if (cfg.passwordPublicKey.isBlank()) "Required" else null) { v -> set { it.copy(passwordPublicKey = v) } }
-            Field("prod_secret", cfg.prodSecret, secret = true, supportingText = if (cfg.prodSecret.isBlank()) "Required" else null) { v -> set { it.copy(prodSecret = v) } }
-            Field("vin_key", cfg.vinKey, secret = true, supportingText = if (cfg.vinKey.isNotEmpty() && cfg.vinKey.length != 16) "Error: must be exactly 16 chars" else "16-character AES key") { v -> set { it.copy(vinKey = v) } }
-            Field("vin_iv", cfg.vinIv, secret = true, supportingText = if (cfg.vinIv.isNotEmpty() && cfg.vinIv.length != 16) "Error: must be exactly 16 chars" else "16-character AES IV") { v -> set { it.copy(vinIv = v) } }
+            Field("hmac_access_key", cfg.hmacAccessKey, secret = true, supportingText = if (cfg.hmacAccessKey.isBlank()) "Required" else null) { v ->
+                set {
+                    it.copy(hmacAccessKey = v)
+                }
+            }
+            Field("hmac_secret_key", cfg.hmacSecretKey, secret = true, supportingText = if (cfg.hmacSecretKey.isBlank()) "Required" else null) { v ->
+                set {
+                    it.copy(hmacSecretKey = v)
+                }
+            }
+            Field("password_public_key", cfg.passwordPublicKey, secret = true, supportingText = if (cfg.passwordPublicKey.isBlank()) "Required" else null) { v ->
+                set {
+                    it.copy(passwordPublicKey = v)
+                }
+            }
+            Field("prod_secret", cfg.prodSecret, secret = true, supportingText = if (cfg.prodSecret.isBlank()) "Required" else null) { v ->
+                set {
+                    it.copy(prodSecret = v)
+                }
+            }
+            Field(
+                "vin_key", cfg.vinKey, secret = true,
+                supportingText = if (cfg.vinKey.isNotEmpty() &&
+                    cfg.vinKey.length != 16
+                ) "Error: must be exactly 16 chars" else "16-character AES key"
+            ) { v -> set { it.copy(vinKey = v) } }
+            Field(
+                "vin_iv", cfg.vinIv, secret = true,
+                supportingText = if (cfg.vinIv.isNotEmpty() &&
+                    cfg.vinIv.length != 16
+                ) "Error: must be exactly 16 chars" else "16-character AES IV"
+            ) { v -> set { it.copy(vinIv = v) } }
             Field("xchanger_sign_secret", cfg.xchangerSignSecret, secret = true) { v -> set { it.copy(xchangerSignSecret = v) } }
             val overseasErr = if (cfg.overseasAccessKey.isBlank() != cfg.overseasSecretKey.isBlank()) "Error: both overseas keys must be set" else null
             Field("overseas_access_key (notifications)", cfg.overseasAccessKey, secret = true, supportingText = overseasErr) { v -> set { it.copy(overseasAccessKey = v) } }
@@ -558,4 +597,3 @@ private fun LogViewer() {
         }
     }
 }
-

@@ -102,8 +102,10 @@ private fun CalibrationCard(onClick: () -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             Text("Smart calibration (test)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Text("Teach the car this phone's ranging — the missing piece for passive entry / RPA localization",
-                color = Brand.muted, fontSize = 12.sp)
+            Text(
+                "Teach the car this phone's ranging — the missing piece for passive entry / RPA localization",
+                color = Brand.muted, fontSize = 12.sp
+            )
         }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Brand.muted)
     }
@@ -117,15 +119,19 @@ private fun CalibrationPanel(calib: CalibrationTestController) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text("Smart calibration (test)", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text("Teaches the car THIS phone's BLE ranging model. Without it a non-stock phone can't be " +
-            "localized, so passive entry and remote parking never converge. You walk to 4 positions once; " +
-            "the car computes a table we store and re-send on later connects.",
-            color = Brand.muted, fontSize = 12.5.sp)
+        Text(
+            "Teaches the car THIS phone's BLE ranging model. Without it a non-stock phone can't be " +
+                "localized, so passive entry and remote parking never converge. You walk to 4 positions once; " +
+                "the car computes a table we store and re-send on later connects.",
+            color = Brand.muted, fontSize = 12.5.sp
+        )
 
         if (cs.message.isNotBlank()) {
-            Text(cs.message,
+            Text(
+                cs.message,
                 color = if (cs.phase == CalibrationTestController.Phase.ERROR) Brand.crit else Brand.accent,
-                fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                fontSize = 13.sp, fontWeight = FontWeight.Medium
+            )
         }
         // While walking, the current step prompt is in cs.message; offer the advance button - but lock it
         // out and show a countdown while the car is measuring, so the user can't spam-tap mid-sample.
@@ -159,9 +165,11 @@ private fun CalibrationPanel(calib: CalibrationTestController) {
         }
         GhostButton("Cancel", Modifier.fillMaxWidth(), tint = Brand.crit) { calib.cancel() }
 
-        Text("⚠️ Diagnostic. Watch `logcat -s dk,carprox`. If 0x0190 gets a 0x0191 reply the car engages " +
-            "calibration for our key; total silence = a real car-side ranging gate. Keep the area clear.",
-            color = Brand.faint, fontSize = 11.sp)
+        Text(
+            "⚠️ Diagnostic. Watch `logcat -s dk,carprox`. If 0x0190 gets a 0x0191 reply the car engages " +
+                "calibration for our key; total silence = a real car-side ranging gate. Keep the area clear.",
+            color = Brand.faint, fontSize = 11.sp
+        )
     }
 }
 
@@ -193,8 +201,10 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
         // any command downstream gets a non-0x100a response. RPA is absent from stock Android
         // (iOS/DK3.0/UWB-gated), so this is exploratory. ⚠️ Keep clear space around the car.
         GhostButton("Blind probe (debug) — watch logcat", Modifier.fillMaxWidth(), tint = Brand.energy) { rpa.blindProbe() }
-        Text("Fires all park/move opcodes once, ignoring the car's gate. Only run with clear space around the car — if the car accepts an autonomous command it can move.",
-            color = Brand.faint, fontSize = 11.sp)
+        Text(
+            "Fires all park/move opcodes once, ignoring the car's gate. Only run with clear space around the car — if the car accepts an autonomous command it can move.",
+            color = Brand.faint, fontSize = 11.sp
+        )
 
         SectionHeader("Park in")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -221,8 +231,10 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
         }
 
         SectionHeader("Hold to move")
-        Text("Press and hold; release stops instantly (the car halts the moment the 500 ms heartbeat drops).",
-            color = Brand.muted, fontSize = 12.sp)
+        Text(
+            "Press and hold; release stops instantly (the car halts the moment the 500 ms heartbeat drops).",
+            color = Brand.muted, fontSize = 12.sp
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             HoldPad("Forward", Icons.Filled.ArrowUpward, Modifier.weight(1f), onHold = { rpa.holdMove(true) }, onRelease = { rpa.releaseMove() })
             HoldPad("Backward", Icons.Filled.ArrowDownward, Modifier.weight(1f), onHold = { rpa.holdMove(false) }, onRelease = { rpa.releaseMove() })

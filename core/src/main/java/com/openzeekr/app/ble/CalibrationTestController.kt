@@ -158,8 +158,12 @@ class CalibrationTestController(
                 // Measuring: lock out Continue and run a 10s countdown so the user holds still and can't
                 // spam-tap. The car samples RSSI for up to ~10s before it sends 0x0193 (at-car: ~8.1s); we
                 // wait 15s so we don't drop the real reply. The countdown ends early when the car answers.
-                setState { it.copy(measuring = true, secondsLeft = 10,
-                    message = "Measuring position ${i + 1}/$steps - hold still…") }
+                setState {
+                    it.copy(
+                        measuring = true, secondsLeft = 10,
+                        message = "Measuring position ${i + 1}/$steps - hold still…"
+                    )
+                }
                 val ticker = launch { for (s in 9 downTo 0) { delay(1000); setState { it.copy(secondsLeft = s) } } }
                 val locErr = session.calibLoc((i + 1).toByte(), 15_000)
                 ticker.cancel()
@@ -171,8 +175,10 @@ class CalibrationTestController(
             setState { it.copy(step = 0, message = "Waiting for the car to compute the table (0x0194)…") }
             val result = session.calibAwaitTable(30_000)
             if (result == null || result.first.size < 200) {
-                finishErr("The car did not return a full calibration table (0x0194) yet - the per-position " +
-                    "type bytes or step count may need adjusting. Check the BLE log for what came back."); return@launch
+                finishErr(
+                    "The car did not return a full calibration table (0x0194) yet - the per-position " +
+                        "type bytes or step count may need adjusting. Check the BLE log for what came back."
+                ); return@launch
             }
             val (table, hash) = result
             runCatching { tableFile.writeBytes(table); if (hash.isNotEmpty()) hashFile.writeBytes(hash) }
@@ -181,9 +187,13 @@ class CalibrationTestController(
             val peErr = session.calibSetPeMode(1)
             session.calibSendModel(1)
             runCatching { session.sendCustomCommand(DkProtocol.CUST_TYPE_WALK_AWAY_LOCK, true) }
-            setState { it.copy(phase = Phase.DONE, busy = false, hasTable = true, step = 0,
-                message = "Calibration captured (${table.size}B) + finalised (PE errCode=$peErr). Now walk away " +
-                    "to test auto-lock, or try Remote Parking.") }
+            setState {
+                it.copy(
+                    phase = Phase.DONE, busy = false, hasTable = true, step = 0,
+                    message = "Calibration captured (${table.size}B) + finalised (PE errCode=$peErr). Now walk away " +
+                        "to test auto-lock, or try Remote Parking."
+                )
+            }
             Logx.d("carprox", "self-cal captured ${table.size}B + finalised (PE=$peErr)")
         }
     }
@@ -206,16 +216,29 @@ class CalibrationTestController(
             if (!ensureSession()) return@launch
             val session = realSession() ?: return@launch
             val total = to - from + 1
-            setState { it.copy(phase = Phase.RUNNING, busy = true, step = 0, totalSteps = total,
-                message = "Sweeping 0x0190 type 0x%02x..0x%02x…".format(from, to)) }
+            setState {
+                it.copy(
+                    phase = Phase.RUNNING, busy = true, step = 0, totalSteps = total,
+                    message = "Sweeping 0x0190 type 0x%02x..0x%02x…".format(from, to)
+                )
+            }
             Logx.d("carprox", "=== 0x0190 type sweep 0x%02x..0x%02x (probe=${probeTimeoutMs}ms) ===".format(from, to))
             val answered = mutableListOf<Pair<Int, Int>>()   // (type, errCode)
             for (t in from..to) {
-                setState { it.copy(step = t - from + 1,
-                    message = "0x0190 type=0x%02x (%d/%d)…".format(t, t - from + 1, total)) }
+                setState {
+                    it.copy(
+                        step = t - from + 1,
+                        message = "0x0190 type=0x%02x (%d/%d)…".format(t, t - from + 1, total)
+                    )
+                }
                 val err = session.calibStart(t.toByte(), probeTimeoutMs)
-                Logx.d("carprox", "sweep 0x0190 type=0x%02x -> %s".format(t,
-                    if (err >= 0) "0x0191 errCode=$err (ANSWERED)" else "silent"))
+                Logx.d(
+                    "carprox",
+                    "sweep 0x0190 type=0x%02x -> %s".format(
+                        t,
+                        if (err >= 0) "0x0191 errCode=$err (ANSWERED)" else "silent"
+                    )
+                )
                 if (err >= 0) answered.add(t to err)
                 delay(500)   // let the car settle between attempts
             }
@@ -248,8 +271,12 @@ class CalibrationTestController(
             if (!ensureSession()) return@launch
             val session = realSession() ?: return@launch
             val total = to - from + 1
-            setState { it.copy(phase = Phase.RUNNING, busy = true, step = 0, totalSteps = total,
-                message = "Stand at position 1 and hold still - sweeping 0x0192 loc type…") }
+            setState {
+                it.copy(
+                    phase = Phase.RUNNING, busy = true, step = 0, totalSteps = total,
+                    message = "Stand at position 1 and hold still - sweeping 0x0192 loc type…"
+                )
+            }
             // Stock reset (unlock/lock) + single 0x0190 start so the car is in measurement mode.
             runCatching { session.control(DkProtocol.CTRL_UNLOCK, 3000L) }; delay(2000)
             runCatching { session.control(DkProtocol.CTRL_LOCK, 3000L) }; delay(500)
@@ -257,14 +284,23 @@ class CalibrationTestController(
             Logx.d("carprox", "=== 0x0192 loc-type sweep 0x%02x..0x%02x (after reset + single 0x0190) ===".format(from, to))
             val accepted = mutableListOf<Pair<Int, Int>>()   // (type, errCode)
             for (t in from..to) {
-                setState { it.copy(step = t - from + 1,
-                    measuring = true, secondsLeft = 10,
-                    message = "0x0192 loc type=0x%02x (%d/%d) - hold still…".format(t, t - from + 1, total)) }
+                setState {
+                    it.copy(
+                        step = t - from + 1,
+                        measuring = true, secondsLeft = 10,
+                        message = "0x0192 loc type=0x%02x (%d/%d) - hold still…".format(t, t - from + 1, total)
+                    )
+                }
                 val ticker = launch { for (s in 9 downTo 0) { delay(1000); setState { it.copy(secondsLeft = s) } } }
                 val err = session.calibLoc(t.toByte(), probeTimeoutMs)
                 ticker.cancel(); setState { it.copy(measuring = false, secondsLeft = 0) }
-                Logx.d("carprox", "sweep 0x0192 loc type=0x%02x -> %s".format(t,
-                    if (err >= 0) "0x0193 errCode=$err" else "silent"))
+                Logx.d(
+                    "carprox",
+                    "sweep 0x0192 loc type=0x%02x -> %s".format(
+                        t,
+                        if (err >= 0) "0x0193 errCode=$err" else "silent"
+                    )
+                )
                 if (err == 0) accepted.add(t to err)
                 delay(400)
             }
@@ -299,8 +335,12 @@ class CalibrationTestController(
             val peErr = session.calibSetPeMode(1)
             delay(200)
             runCatching { session.sendCustomCommand(DkProtocol.CUST_TYPE_WALK_AWAY_LOCK, true) }
-            setState { it.copy(phase = Phase.DONE, busy = false,
-                message = "Replayed ${table.size}B table + walk-away enable (PE errCode=$peErr). Walk away to test.") }
+            setState {
+                it.copy(
+                    phase = Phase.DONE, busy = false,
+                    message = "Replayed ${table.size}B table + walk-away enable (PE errCode=$peErr). Walk away to test."
+                )
+            }
         }
     }
 
@@ -317,8 +357,12 @@ class CalibrationTestController(
             setState { it.copy(phase = Phase.RUNNING, busy = true, message = "$label over BLE (0x0110)…") }
             val res = runCatching { session.control(ctrl, 3000L) }.getOrElse { ControlResult.WRITE_FAILED }
             val ok = res == ControlResult.CONFIRMED
-            setState { it.copy(phase = if (ok) Phase.DONE else Phase.ERROR, busy = false,
-                message = "$label -> $res") }
+            setState {
+                it.copy(
+                    phase = if (ok) Phase.DONE else Phase.ERROR, busy = false,
+                    message = "$label -> $res"
+                )
+            }
             Logx.d("carprox", "test $label -> $res")
         }
     }
@@ -347,8 +391,10 @@ class CalibrationTestController(
             while (s != DkBleManager.State.SESSION_READY) { delay(300); s = ble.state.value }
             true
         } ?: false
-        if (!ready) finishErr("Could not establish a DK session (state=${ble.state.value}, ${ble.lastError ?: "no error"}). " +
-            "Stand next to the car and make sure Bluetooth is on.")
+        if (!ready) finishErr(
+            "Could not establish a DK session (state=${ble.state.value}, ${ble.lastError ?: "no error"}). " +
+                "Stand next to the car and make sure Bluetooth is on."
+        )
         return ready
     }
 

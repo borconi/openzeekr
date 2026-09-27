@@ -38,3 +38,7 @@ keystore.properties
 
 # Watch hero car cutout (copyrighted render, supply locally)
 /wear/src/main/assets/cars/
+
+# Personal AI-agent overrides (the shared config is AGENTS.md, CLAUDE.md, .claude/settings.json).
+CLAUDE.local.md
+.claude/settings.local.json

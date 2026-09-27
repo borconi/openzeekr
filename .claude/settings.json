@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew verify)",
+      "Bash(./gradlew verify *)",
+      "Bash(./gradlew verifyBuild *)",
+      "Bash(./gradlew verifyTest *)",
+      "Bash(./gradlew verifyLint *)",
+      "Bash(./gradlew --continue verify)",
+      "Bash(./gradlew :core:testDebugUnitTest *)",
+      "Bash(./gradlew testDebugUnitTest *)",
+      "Bash(./gradlew assembleDebug *)",
+      "Bash(./gradlew lintDebug *)",
+      "Bash(./gradlew tasks *)",
+      "Bash(trunk check)",
+      "Bash(trunk check *)",
+      "Bash(trunk fmt *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)"
+    ],
+    "deny": [
+      "Read(**/secrets.properties)",
+      "Read(**/secrets.json)",
+      "Read(**/zeekr_secrets.json)",
+      "Read(**/keystore.properties)",
+      "Read(**/*.jks)",
+      "Read(**/*.keystore)",
+      "Read(**/secrets_firebase.xml)",
+      "Read(./core/src/main/cpp/secrets_generated.h)",
+      "Read(./tools/log-decrypt/private_key.pem)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
+    ]
+  }
+}

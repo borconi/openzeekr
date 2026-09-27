@@ -31,12 +31,14 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropsFile.exists()) create("release") {
-            storeFile = file(keystoreProps.getProperty("storeFile"))
-            storePassword = keystoreProps.getProperty("storePassword")
-            keyAlias = keystoreProps.getProperty("keyAlias")
-            keyPassword = keystoreProps.getProperty("keyPassword")
-            keystoreProps.getProperty("storeType")?.let { storeType = it } // e.g. PKCS12 for a .p12
+        if (keystorePropsFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+                keystoreProps.getProperty("storeType")?.let { storeType = it } // e.g. PKCS12 for a .p12
+            }
         }
     }
 
@@ -56,6 +58,13 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
+    lint {
+        // Same policy in :app, :core and :wear. See "Lint policy" in the root build.gradle.kts.
+        abortOnError = true
+        warningsAsErrors = false
+        baseline = file("lint-baseline.xml")
+        disable += "GradleDependency"
+    }
     packaging {
         // BouncyCastle (via :core) ships these duplicate metadata entries.
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"

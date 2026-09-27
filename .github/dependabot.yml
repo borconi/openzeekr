@@ -1,0 +1,48 @@
+version: 2
+updates:
+  # Keep the CI workflow's actions current (e.g. Node-24 action majors,
+  # setup-android). Groups minor/patch bumps into one PR to reduce noise.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        update-types:
+          - minor
+          - patch
+
+  # Gradle/Android dependencies. Versions are declared inline per module, and the AGP /
+  # Kotlin plugin versions live in the ROOT build.gradle.kts — hence "/" as well as the
+  # module directories.
+  - package-ecosystem: gradle
+    directories:
+      - /
+      - /app
+      - /core
+      - /wear
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      androidx:
+        patterns:
+          - androidx.*
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # The Kotlin plugin and the Compose compiler extension are version-locked
+      # (Kotlin 1.9.24 <-> kotlinCompilerExtensionVersion 1.5.14, set in app/ and
+      # wear/build.gradle.kts). A lone Kotlin bump breaks the Compose build, so these
+      # are upgraded together by hand, following the Compose/Kotlin compatibility map.
+      - dependency-name: org.jetbrains.kotlin:*
+      - dependency-name: org.jetbrains.kotlin.android
+      - dependency-name: org.jetbrains.kotlin.plugin.serialization
+      # AGP majors change the whole build contract (and the minimum JDK); upgrade
+      # deliberately, not by bot.
+      - dependency-name: com.android.application
+        update-types: [version-update:semver-major]
+      - dependency-name: com.android.library
+        update-types: [version-update:semver-major]

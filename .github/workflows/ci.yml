@@ -1,0 +1,105 @@
+name: CI
+
+# Runs exactly the checks a contributor runs locally:
+#   ./gradlew verify        (Linux/macOS)
+#   gradlew.bat verify      (Windows)
+#   trunk check
+# The Gradle tasks are defined once in the root build.gradle.kts, so "passes locally"
+# and "passes CI" mean the same thing.
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Gradle verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux also builds release (R8) — see the last step.
+          - os: ubuntu-latest
+            gradlew: ./gradlew
+            tasks: verify
+          # Windows runs the debug gate only, to keep CI time reasonable. Its job is to
+          # prove the build works on Windows at all (path handling, gradlew.bat).
+          - os: windows-latest
+            gradlew: .\gradlew.bat
+            tasks: verifyBuild verifyTest verifyLint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # `packages: ''` skips the action's default install of the obsolete `tools`
+      # package (removed from the SDK repo; sdkmanager would exit 1).
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ""
+
+      # Same packages docs/DEVELOPMENT.md lists. The NDK + CMake build :core's libozsecrets.so;
+      # the NDK version must match openzeekr.ndkVersion in gradle.properties.
+      - name: Install SDK packages
+        run: sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      # A clean checkout has no secrets.properties / keystore.properties / firebase config.
+      # The build MUST still succeed with every secret blank (the app then starts
+      # unconfigured) — that guarantee is what this job protects. On Linux `verify` also
+      # runs verifyRelease, which exercises R8: a missing ProGuard keep rule breaks only
+      # the release build, so nothing else would catch it.
+      # --continue reports every failing step, not just the first.
+      - name: Build, unit test, Android Lint (plus release/R8 on Linux)
+        run: ${{ matrix.gradlew }} --continue ${{ matrix.tasks }}
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: reports-${{ matrix.os }}
+          path: |
+            **/build/reports/**
+            **/build/test-results/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+  static-analysis:
+    name: Trunk static analysis & security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # trufflehog (via Trunk) diffs against the base ref; full history lets it
+          # scan the whole range on PRs and pushes.
+          fetch-depth: 0
+
+      # Runs every linter/scanner in .trunk/trunk.yaml (ktlint, trufflehog, checkov,
+      # markdownlint, yamllint, shellcheck, prettier, ...) — the same as `trunk check`
+      # locally.
+      #
+      # SCOPE: trunk-action checks the files CHANGED against the base ref, not the whole
+      # tree. That keeps PR feedback focused, but it means a pre-existing issue in an
+      # untouched file does not fail CI. Use `trunk check --all` locally for a full sweep.
+      - name: Trunk Check
+        uses: trunk-io/trunk-action@v1

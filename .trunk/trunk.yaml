@@ -1,0 +1,60 @@
+# This file controls the behavior of Trunk: https://docs.trunk.io/cli
+# To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
+version: 0.1
+cli:
+  version: 1.25.0
+# Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
+plugins:
+  sources:
+    - id: trunk
+      ref: v1.11.0
+      uri: https://github.com/trunk-io/plugins
+# Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
+runtimes:
+  enabled:
+    - java@13.0.11
+    - node@22.16.0
+    - python@3.14.4
+# This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
+lint:
+  # Vendored / generated files we do not own. Without this, shfmt reformats the Gradle
+  # wrapper script (~190 lines) and the formatters rewrite machine-generated files,
+  # producing diffs that are pure noise and can break the wrapper.
+  ignore:
+    - linters: [ALL]
+      paths:
+        - gradlew
+        - gradlew.bat
+        - gradle/wrapper/**
+        - "**/lint-baseline.xml"
+        - .trunk/configs/**
+    # Source artwork and its exports. Lossless re-encoding by oxipng/svgo would add
+    # binary churn to unrelated PRs, so leave the maintainer's assets byte-exact.
+    - linters: [oxipng, svgo]
+      paths:
+        - branding/**
+        - "**/res/drawable*/**"
+        - "**/res/mipmap*/**"
+  enabled:
+    - taplo@0.10.0
+    - yamllint@1.38.0
+    - bandit@1.9.4
+    - black@26.5.1
+    - checkov@3.3.19
+    - git-diff-check
+    - isort@9.0.1
+    - ktlint@1.8.0
+    - markdownlint@0.49.1
+    - oxipng@10.2.1
+    - prettier@3.9.9
+    - ruff@0.16.9
+    - shellcheck@0.11.0
+    - shfmt@3.14.1
+    - svgo@4.1.0
+    - trufflehog@3.97.9
+actions:
+  enabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-fmt-pre-commit
+    - trunk-upgrade-available

@@ -10,11 +10,13 @@ import okio.Buffer
 import java.util.UUID
 
 /**
- * Detects the TSP "account logged in elsewhere" rejection — HTTP 401 whose body carries
- * code `079021` (the single-online-device slot was taken by another app/device, e.g. the
- * stock Zeekr app on the same account). On detection it clears the access token (so the UI
- * reflects the signed-out state) and raises [SessionSignal.loggedInElsewhere] so the UI can
- * explain why. Peeks the body (never consumes it), so the real call still sees its response.
+ * Detects the two TSP 401 session rejections and signs out so the app stops hammering the gateway with
+ * a dead token (it drops to the signed-out flow; the UI explains why). Peeks the body (never consumes it),
+ * so the real call still sees its response.
+ *  - `079021` "account logged in elsewhere" — the single online-device slot was taken by another app/device
+ *    (e.g. the stock Zeekr app). -> [SessionSignal.loggedInElsewhere]
+ *  - `079012` "Token expired" — the bearer aged out; without this the app retried forever with the expired
+ *    token and showed nothing. -> [SessionSignal.sessionExpired] (GitHub #22)
  */
 class KickoutInterceptor(private val store: ConfigStore) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -25,6 +27,10 @@ class KickoutInterceptor(private val store: ConfigStore) : Interceptor {
                 Logx.w("session", "079021 account logged in elsewhere — signing out")
                 if (store.current().accessToken.isNotBlank()) store.update { it.copy(accessToken = "") }
                 SessionSignal.loggedInElsewhere.value = true
+            } else if (body?.contains("079012") == true) {
+                Logx.w("session", "079012 token expired — clearing session, prompting re-login")
+                if (store.current().accessToken.isNotBlank()) store.update { it.copy(accessToken = "") }
+                SessionSignal.sessionExpired.value = true
             }
         }
         return resp

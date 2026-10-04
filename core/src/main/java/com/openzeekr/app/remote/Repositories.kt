@@ -344,6 +344,16 @@ class OtaRepository(private val store: ConfigStore, private val client: ApiClien
                     vehicleVin = vin,
                 ),
             )
+            // Server can answer HTTP 200 with success=false (data null) - e.g. a SHARED (non-owner)
+            // account: code 3000013 "human-vehicle relationship cannot be operated". Don't parse null
+            // into an empty status (that showed a silent "Current version: Unknown"); surface it. (#23)
+            if (!resp.success) {
+                throw IllegalStateException(
+                    if (resp.code == "3000013" || resp.msg?.contains("relationship", ignoreCase = true) == true)
+                        "Software updates are managed by the car's owner account - not available on a shared key."
+                    else resp.msg?.takeIf { it.isNotBlank() } ?: "the update check was rejected by the server",
+                )
+            }
             com.openzeekr.app.net.model.Ota.parse(resp.data)
         }
     }

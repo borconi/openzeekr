@@ -13,6 +13,9 @@ import kotlinx.serialization.json.contentOrNull
 data class BaseResponse<T>(
     val code: String? = null,
     val message: String? = null,
+    // Zeekr responses carry the human-readable text in `msg` (not `message`); expose it so callers can
+    // surface a server rejection (e.g. OTA on a shared account: success=false, msg="...relationship...").
+    @SerialName("msg") val msg: String? = null,
     val success: Boolean = false,
     val sessionId: String? = null,
     val data: T? = null,

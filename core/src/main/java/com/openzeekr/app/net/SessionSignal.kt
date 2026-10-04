@@ -14,4 +14,12 @@ object SessionSignal {
      * Reset it to false once the notice has been shown.
      */
     val loggedInElsewhere = MutableStateFlow(false)
+
+    /**
+     * Flips true when the TSP gateway rejects a call with HTTP 401 + code `079012 "Token expired"`.
+     * [KickoutInterceptor] also clears the token so the app drops to the signed-out flow instead of
+     * retrying forever with the dead token; the UI shows a "session expired, sign in again" notice.
+     * Reset to false once the notice has been shown. (GitHub #22)
+     */
+    val sessionExpired = MutableStateFlow(false)
 }

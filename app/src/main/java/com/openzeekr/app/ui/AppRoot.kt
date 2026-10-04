@@ -119,6 +119,14 @@ fun AppRoot(deps: Deps) {
             com.openzeekr.app.net.SessionSignal.loggedInElsewhere.value = false
         }
     }
+    // Token aged out (079012). The token is already cleared, so we're on the signed-out flow — explain why. (#22)
+    val sessionExpired by com.openzeekr.app.net.SessionSignal.sessionExpired.collectAsState()
+    LaunchedEffect(sessionExpired) {
+        if (sessionExpired) {
+            snackbar("Session expired — please sign in again.")
+            com.openzeekr.app.net.SessionSignal.sessionExpired.value = false
+        }
+    }
 
     // The moment a key is provisioned, push it to any paired watch so it's armed without the
     // user opening the watch app (the watch caches it; it also pulls on open as a fallback).

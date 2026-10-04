@@ -87,7 +87,6 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot(deps: Deps) {
-    val tabs = remember { Tab.entries.toTypedArray() }
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val snackbar: (String) -> Unit = { msg -> scope.launch { snackbarHost.showSnackbar(msg) } }
@@ -96,6 +95,9 @@ fun AppRoot(deps: Deps) {
     // key yet -> Key provisioning; once provisioned -> Controls, and the foreground
     // key service runs to keep BLE connected.
     val cfg by deps.config.config.collectAsState()
+    // Software updates (OTA) are an OWNER-ONLY privilege - a shared (non-owner) account can't check or
+    // start them (the server rejects with 3000013), so don't show the Updates tab to shared users at all. (#23)
+    val tabs = Tab.entries.filter { it != Tab.UPDATES || cfg.isOwner }
     val prov by deps.provisioning.state.collectAsState()
     val loggedIn = cfg.accessToken.isNotBlank()
     val provisioned = remember(prov.step) { deps.dkIdentity.isProvisioned } ||
@@ -207,14 +209,18 @@ fun AppRoot(deps: Deps) {
         return
     }
 
-    var tab by remember { mutableIntStateOf(Tab.SETTINGS.ordinal) }
+    // Track the selected tab by enum (not index) so filtering the tab list (owner-only Updates) can't
+    // shift indices out from under us.
+    var selectedTab by remember { mutableStateOf(Tab.SETTINGS) }
     LaunchedEffect(loggedIn, provisioned) {
-        tab = when {
-            !loggedIn -> Tab.SETTINGS.ordinal
-            !provisioned -> Tab.KEY.ordinal
-            else -> Tab.VEHICLE.ordinal
+        selectedTab = when {
+            !loggedIn -> Tab.SETTINGS
+            !provisioned -> Tab.KEY
+            else -> Tab.VEHICLE
         }
     }
+    // If the current tab stops being visible (e.g. Updates while on a shared account), fall back.
+    LaunchedEffect(tabs) { if (selectedTab !in tabs) selectedTab = Tab.VEHICLE }
 
     Scaffold(
         topBar = {
@@ -320,12 +326,12 @@ fun AppRoot(deps: Deps) {
                         Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 4.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        tabs.forEachIndexed { i, t ->
-                            val selected = tab == i
+                        tabs.forEach { t ->
+                            val selected = selectedTab == t
                             val tint = if (selected) Brand.accent else Brand.muted
                             Column(
                                 Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                                    .clickable { tab = i }.padding(vertical = 6.dp, horizontal = 2.dp),
+                                    .clickable { selectedTab = t }.padding(vertical = 6.dp, horizontal = 2.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(3.dp),
                             ) {
@@ -346,7 +352,7 @@ fun AppRoot(deps: Deps) {
         snackbarHost = { SnackbarHost(snackbarHost) },
     ) { pad ->
         val m = Modifier.padding(pad)
-        when (tabs[tab]) {
+        when (selectedTab) {
             Tab.VEHICLE -> VehicleScreen(deps, snackbar, m)
             Tab.PARKING -> ParkingScreen(deps, m)
             Tab.SECURITY -> SecurityScreen(deps, snackbar, m)

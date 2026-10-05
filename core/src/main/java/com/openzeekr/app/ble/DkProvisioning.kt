@@ -152,11 +152,27 @@ class DkProvisioning(
                 _state.value = State(Step.BIND)
                 Logx.d("provision", "step 3 create-owner-blu-key (owner=$owner, empty key-list) …")
                 val cr = createOwnerBluKeyWithRetry(deviceId, sig)
-                val od = cr.data ?: error("create key failed: ${cr.code} ${cr.msg}" +
-                    if (!owner) " (this account is not the registered owner of the car - if the " +
-                        "cloud blocks non-owner minting, its error code shows here)" else "")
-                dkId = od.dkId; bookId = od.bookId
-                Logx.d("provision", "step 3 key created dkId=$dkId")
+                val od = cr.data
+                if (od != null) {
+                    dkId = od.dkId; bookId = od.bookId
+                    Logx.d("provision", "step 3 key created dkId=$dkId")
+                } else if (cr.code == "036902") {
+                    // "The digital key has been activated on the device" — the key ALREADY EXISTS, so
+                    // this is not a failure. It happens when the gateway 429'd our first create's
+                    // RESPONSE while the upstream actually created the key, so the backoff-retry collides
+                    // with the now-existing key (exactly the 429 -> retry -> 036902 seen in the wild), or
+                    // from a prior provisioning run. Re-read key-list and adopt the existing key.
+                    Logx.w("provision", "create-owner-blu-key 036902 (already activated) — re-reading key-list to adopt the existing key")
+                    val kl2 = api.keyList(KeyListReq(deviceId = deviceId, dkType = 2, signature = sig()))
+                    val e2 = (kl2.data?.firstOrNull { it.dkType == 2 } ?: kl2.data?.firstOrNull())
+                        ?: error("create reported the key is already activated (036902) but key-list is still empty — wait a few seconds and provision again")
+                    dkId = e2.dkId; bookId = e2.bookId; shareStatus = e2.shareStatus
+                    Logx.d("provision", "step 3 adopted existing key dkId=$dkId (dkStatus=${e2.dkStatus ?: -1})")
+                } else {
+                    error("create key failed: ${cr.code} ${cr.msg}" +
+                        if (!owner) " (this account is not the registered owner of the car - if the " +
+                            "cloud blocks non-owner minting, its error code shows here)" else "")
+                }
             } else {
                 dkId = entry.dkId; bookId = entry.bookId; shareStatus = entry.shareStatus
                 val ds = entry.dkStatus ?: -1

@@ -111,7 +111,7 @@ data class SecretsConfig(
     // ---- device headers (plain, server-logged, none attested) ----
     val appId: String = "ZEEKRCNCH001M0001",
     val clientId: String = "",
-    val deviceModel: String = "Pixel 8",
+    val deviceModel: String = "Pixel 7",
     val deviceBrand: String = "google",
     val deviceManufacture: String = "Google",
     /** Our own stable device id. Generated once by ConfigStore if blank. */

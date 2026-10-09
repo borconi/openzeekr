@@ -261,11 +261,11 @@ class AccountLogin(private val store: ConfigStore) {
             // 5. bearer login (TSP) -> accessToken
             Logx.d("login", "step 5/6 bearer_login (TSP) …")
             // The device-session fields MUST be in the stock format "brand-model-sdkInt-release"
-            // (e.g. "google-Pixel 6a-30-11"). The backend registers/evicts device sessions by
+            // (e.g. "google-Pixel 7-36-16"). The backend registers/evicts device sessions by
             // loginDeviceId; a non-standard value is not treated as a real device (so it neither
             // claims the active-device slot nor logs other devices out). We present as the same
-            // Pixel 6a identity we already spoof to xchanger, so the whole login is one device.
-            val loginDeviceId = "${ZeekrConst.XCHANGER_DEVICE_MANUFACTURE}-${ZeekrConst.XCHANGER_DEVICE_MODEL}-30-${ZeekrConst.XCHANGER_AGENT_VERSION}"
+            // Pixel 7 identity we already spoof to xchanger, so the whole login is one device.
+            val loginDeviceId = "${ZeekrConst.XCHANGER_DEVICE_MANUFACTURE}-${ZeekrConst.XCHANGER_DEVICE_MODEL}-${ZeekrConst.XCHANGER_SDK_INT}-${ZeekrConst.XCHANGER_AGENT_VERSION}"
             val bearerData = tspPost("$tsp${ZeekrConst.BEARERLOGIN_URL}", buildJsonObject {
                 put("identifier", tspCode); put("identityType", 10)
                 put("loginDeviceId", loginDeviceId)

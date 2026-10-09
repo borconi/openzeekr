@@ -134,8 +134,32 @@ class DkProvisioning(
             Logx.d("provision", "step 2 key-list code=${kl.code} entries=${kl.data?.size ?: 0}")
             if (!ok(kl.code)) error("key-list: ${kl.code} ${kl.msg}" +
                 if (kl.code == "061203") " (signature vs enrolled cert / userId mismatch)" else "")
-            val entry = if (owner) (kl.data?.firstOrNull { it.dkType == 2 } ?: kl.data?.firstOrNull())
-                        else kl.data?.firstOrNull()
+            // 2b. Repair a stuck/broken key BEFORE picking one to adopt. A key minted under a phone
+            //     model the car no longer supports (our case: Pixel 6a on a Zeekr 7GT) is stranded
+            //     server-side and never activates; in key-list it shows dkStatus 6 (half-created,
+            //     never advances) or 11 (broken). Captured live 2026-10-09 (stock 3.0.7 +
+            //     ms-tsp-dkbs-geely): the ONLY fix is remove-one-key then a FRESH create-owner-blu-key
+            //     under a supported model (openzeekr now runs as Pixel 7) — re-creating the SAME dkId
+            //     just returns 6 again, so the delete is mandatory. We remove only OUR OWN bound key
+            //     (deviceId match), then re-read key-list so the mint path below sees an empty slot.
+            //     See [[dk-lifecycle-api-recipe]].
+            val broken = kl.data?.firstOrNull { (it.dkStatus == 6 || it.dkStatus == 11) && it.deviceId == deviceId }
+            val list = if (broken != null) {
+                Logx.w("provision", "step 2b BROKEN key dkId=${broken.dkId} dkStatus=${broken.dkStatus} " +
+                    "(minted on an unsupported phone model) — remove-one-key + re-mint")
+                _state.value = State(Step.BIND)
+                runCatching {
+                    val rm = api.removeOneKey(RemoveKeyReq(deviceId = deviceId, dkId = broken.dkId, signature = sig()))
+                    Logx.d("provision", "step 2b remove-one-key -> ${rm.code}")
+                }.onFailure { Logx.w("provision", "step 2b remove-one-key failed: ${it.message} (re-minting anyway)") }
+                kotlinx.coroutines.delay(1500)   // let the gateway clear the record before re-minting
+                val kl2 = api.keyList(KeyListReq(deviceId = deviceId, dkType = 2, signature = sig()))
+                Logx.d("provision", "step 2b key-list after remove: entries=${kl2.data?.size ?: 0}")
+                kl2.data
+            } else kl.data
+
+            val entry = if (owner) (list?.firstOrNull { it.dkType == 2 } ?: list?.firstOrNull())
+                        else list?.firstOrNull()
 
             // 3. bind THIS device to a dkId
             val dkId: String
@@ -218,8 +242,8 @@ class DkProvisioning(
             for (attempt in 1..6) {
                 val ki = api.keyInfo(
                     deviceId = deviceId, dkId = dkId, signature = sig(),
-                    // Match stock EXACTLY: mobileBrand=google, mobileModel=Pixel 6a (we were
-                    // sending "Pixel 9", which made phonecoef return the generic "Other/other").
+                    // Send a real, known Pixel brand/model (ZeekrConst) so phonecoef resolves a
+                    // concrete calibration profile instead of the generic "Other/other" fallback.
                     mobileBrand = com.openzeekr.app.net.ZeekrConst.XCHANGER_DEVICE_MANUFACTURE,
                     mobileModel = com.openzeekr.app.net.ZeekrConst.XCHANGER_DEVICE_MODEL,
                 )
@@ -238,7 +262,7 @@ class DkProvisioning(
             //    coefficients keyed by mobileBrand+mobileModel. key-info (DkInfoBean) usually already
             //    carries coefBigParam/coefSmallParam/mobileCode, but if it came back blank we fall back
             //    to these so the car can still range this phone for walk-away auto-lock. Best-effort;
-            //    stock sends ONLY mobileBrand + mobileModel (Pixel 6a), NO coefHash — match it.
+            //    stock sends ONLY mobileBrand + mobileModel, NO coefHash — match that shape.
             val demarcate = runCatching {
                 val pc = api.phoneCoef(
                     com.openzeekr.app.net.ZeekrConst.XCHANGER_DEVICE_MANUFACTURE,

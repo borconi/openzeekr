@@ -3,6 +3,40 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.1] - 2026-10-09
+
+### Fixed
+- **Digital Key works again on current phones - and repairs keys the old version stranded.**
+  Zeekr recently dropped some older phones (including the Pixel 6a) from the list of models allowed
+  to hold a Digital Key on the 7GT. Any key OpenZeekr had created under the old phone identity was
+  left stuck on Zeekr's servers in a half-created state that could never activate and that retrying
+  could not fix. OpenZeekr now presents a currently-supported phone identity, so Digital Keys
+  provision normally again.
+- **Automatic broken-key repair.** When setup finds one of these stranded keys bound to your device,
+  OpenZeekr now deletes it and creates a fresh one automatically - instead of trying, and failing, to
+  reuse it. No manual delete-and-retry needed. Repair only ever touches a stuck key that belongs to
+  your own device.
+- **Digital Key setup no longer fails after a server rate-limit.** If Zeekr's gateway throttled the
+  key-creation request while the key was in fact created, setup used to stop with an error. It now
+  recognizes that the key already exists and carries on.
+- **Software updates on shared accounts.** Checking for and installing updates is an owner-only
+  action on Zeekr's side. Shared (non-owner) accounts used to see a confusing "Current version:
+  Unknown"; the Updates tab is now hidden for shared accounts, with a clear "managed by the car's
+  owner account" message as a safety net.
+- **Session expiry is handled cleanly.** When your sign-in expires, OpenZeekr now drops you to the
+  sign-in screen with "Session expired - please sign in again" instead of silently retrying with a
+  dead token.
+
+### Changed
+- **Reported device identity updated to a modern Pixel (Pixel 7 / Android 16).** This is only what
+  Zeekr's backend sees when checking Digital Key eligibility and looking up calibration; it changes
+  nothing about your actual phone.
+
+### Developer tooling
+- A dev-only (developer mode) **Cancel update** button to abort an update assignment that froze
+  mid-install and is blocking remote control. The request is validated live, but a deeply stuck
+  assignment may still need Zeekr or a dealer to clear it server-side.
+
 ## [0.2] - 2026-10-02
 
 ### Added

@@ -52,10 +52,11 @@ class ProximityService : Service() {
     // is connected but FAR + still, where the step detector wakes us the instant you start walking.
     private var wakeLock: android.os.PowerManager.WakeLock? = null
 
-    // One-shot probe for the "app started right next to the car" case: FIRST_MATCH is edge-triggered
-    // and may not fire for a car already in range when the offload scan is armed, so we do a single
-    // foreground connect attempt the first time we go idle-with-offload.
-    private var didInitialProbe = false
+    // Probe before (re)arming the offload scan: FIRST_MATCH is edge-triggered and won't fire for a car
+    // that's ALREADY in range when the scan is armed (app started next to the car, or the scan was
+    // disarmed by a session/watch handover/BT toggle/controller error while still parked beside it), so
+    // we do a single foreground connect attempt each time we go from unarmed to idle-with-offload.
+    private var probedBeforeArm = false
     // When we last held a live/engaged link. Used to keep reconnecting aggressively (foreground) for a
     // short window after a drop while you're moving — the walk-up case — vs. the slow offloaded scan.
     private var lastEngagedMs = 0L
@@ -187,11 +188,14 @@ class ProximityService : Service() {
                         if (offload && !aggressive) {
                             // Zero-CPU idle: the offloaded scan watches for the car and wakes us via
                             // BleScanReceiver. manageWakeLock releases the wakelock (nothing to hold for).
-                            if (!didInitialProbe) {
-                                // First idle tick: the car may already be in range (app launched next
-                                // to it), where FIRST_MATCH won't fire — do one foreground probe.
-                                didInitialProbe = true
-                                Logx.d("svc", "keep-alive: initial presence probe (already-at-car case)")
+                            if (deps.ble.presenceArmed) {
+                                // Armed and watching: whenever it's next disarmed, probe before re-arming.
+                                probedBeforeArm = false
+                            } else if (!probedBeforeArm) {
+                                // About to arm: the car may already be in range, where FIRST_MATCH won't
+                                // fire — do one foreground probe first.
+                                probedBeforeArm = true
+                                Logx.d("svc", "keep-alive: presence probe before arming (already-at-car case)")
                                 runCatching { deps.ble.connect(null) }
                             } else {
                                 deps.ble.armPresenceScan()

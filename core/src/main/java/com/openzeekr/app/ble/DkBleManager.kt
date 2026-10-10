@@ -113,15 +113,6 @@ class DkBleManager(base: Context) : DkTransport {
         }.onFailure { Logx.w("ble", "bt state receiver register failed: ${it.message}") }
     }
 
-    // Wear OS BLE: Samsung's watch stack advertises hardware scan-batching as supported but often
-    // never flushes it (no onBatchScanResults, no onScanFailed) — the scan just silently finds
-    // nothing. So on a watch we default to IMMEDIATE (unbatched) delivery. The phone keeps batched
-    // low-power delivery for the background keep-alive. (Verified 2026-09-15: phone connects from a
-    // spot where the watch's batched scan matched zero devices.)
-    private val isWear: Boolean by lazy {
-        appContext.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_WATCH)
-    }
-
     // ---- session (stable instance; reads the credential at establish() time) ----
     @Volatile private var credential: DkCredential? = null
 
@@ -268,18 +259,18 @@ class DkBleManager(base: Context) : DkTransport {
         // on API 31+) — surface it as an error state instead. The UI requests the
         // permission before calling this, but guard defensively.
         try {
-            if (deviceMac != null) {
+            // Never getRemoteDevice(mac): the car advertises a Resolvable Private Address, which that
+            // treats as PUBLIC (connectGatt times out, status=147), and the handshake also needs the
+            // broadcast-random that only comes from an advert. So a MAC only selects the cached device
+            // (correct address type + its rnd); anything else goes through the scan.
+            val cached = lastDevice
+            if (deviceMac != null && cached != null && cached.address.equals(deviceMac, ignoreCase = true)) {
+                advBroadcastRnd = lastRnd
                 _state.value = State.CONNECTING
-                connectDevice(a.getRemoteDevice(deviceMac))
+                connectDevice(cached)
             } else {
-                // IMMEDIATE (unbatched) delivery, always. Batched delivery (setReportDelay>0) does
-                // NOT flush to a dozing app process when the screen is off — even with a filter that
-                // makes the scan screen-off-legal and even holding a wakelock — so the batched
-                // foreground re-scan matched nothing screen-off (confirmed 2026-09-15: offloaded
-                // FIRST_MATCH fired, but the follow-up batched connect timed out at 20s every time).
-                // Batching was only ever to avoid a per-advert log firehose, and the 0xFDFD/0x06FE
-                // FILTER already solves that (only the car matches). So: immediate everywhere.
-                startScan(a, useBatching = false)
+                if (deviceMac != null) Logx.d("ble", "connect($deviceMac): not the cached device - scanning instead")
+                startScan(a)
             }
         } catch (e: SecurityException) {
             fail("missing Bluetooth permission (grant BLUETOOTH_SCAN/CONNECT): ${e.message}")
@@ -353,7 +344,7 @@ class DkBleManager(base: Context) : DkTransport {
     }
 
     @SuppressLint("MissingPermission")
-    private fun startScan(a: BluetoothAdapter, useBatching: Boolean = true) {
+    private fun startScan(a: BluetoothAdapter) {
         val scanner = a.bluetoothLeScanner ?: run { fail("no LE scanner"); return }
         _state.value = State.SCANNING
         seenAdvertisers.clear()
@@ -361,13 +352,14 @@ class DkBleManager(base: Context) : DkTransport {
         advBroadcastRnd = null
         // No device ScanFilter on the foreground connect: the car doesn't advertise the DK
         // service UUID and its name format can vary, so filtering risks missing it — matching
-        // in-callback is faster/more reliable. To avoid the per-packet log firehose (the
-        // framework logs one line per advertisement), request BATCHED delivery: results arrive
-        // in periodic groups via onBatchScanResults instead of a continuous onScanResult stream.
-        // If the device can't offload batching we fall back to immediate delivery (onScanFailed).
+        // in-callback is faster/more reliable.
+        // IMMEDIATE (unbatched) delivery, always. Batched delivery (setReportDelay>0) does NOT flush
+        // to a dozing app process when the screen is off — even holding a wakelock — so a batched
+        // re-scan matched nothing screen-off (confirmed 2026-09-15: offloaded FIRST_MATCH fired, but
+        // the follow-up batched connect timed out at 20s every time). Samsung's Wear OS stack likewise
+        // claims batching support but never flushes it.
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .apply { if (useBatching) setReportDelay(REPORT_DELAY_MS) }
             .build()
         val target = UUID.fromString(DkProtocol.SERVICE_UUID)
         val advTarget = UUID.fromString(DK_ADV_SERVICE_UUID)  // the 16-bit UUID the car ADVERTISES
@@ -375,7 +367,7 @@ class DkBleManager(base: Context) : DkTransport {
         // Handle one advertisement; returns true once it matched the car and started connecting.
         fun handleAdvert(result: ScanResult): Boolean {
             // Once we've matched and left the scanning state, ignore every further advert. The
-            // batched scanner can deliver the car in several callbacks before stopScan takes
+            // scanner can deliver the car in several callbacks before stopScan takes
             // effect; without this guard we'd call connectGatt twice → two GATT clients to the
             // same device → status 133 (the connection never establishes). See onScanResult.
             if (_state.value != State.SCANNING) return true
@@ -443,14 +435,11 @@ class DkBleManager(base: Context) : DkTransport {
             }
             override fun onScanFailed(errorCode: Int) {
                 stopScanInternal(scanner)
-                if (useBatching && errorCode == ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED) {
-                    Logx.d("ble", "batched scan unsupported — retrying with immediate delivery")
-                    startScan(a, useBatching = false)
-                } else fail("scan failed: $errorCode")
+                fail("scan failed: $errorCode")
             }
         }
         scanCb = cb
-        Logx.d("ble", "scanning (UNFILTERED, ${if (useBatching) "batched ${REPORT_DELAY_MS}ms" else "immediate"}) " +
+        Logx.d("ble", "scanning (UNFILTERED, immediate) " +
             "- match by name *zeekr*, adv-uuid 0xFDFD, DK service ${DkProtocol.SERVICE_UUID}, svcData or mfr 0x06FE. " +
             "Every advertiser is logged so a car with different adv identifiers is still visible.")
         // Foreground connect: scan UNFILTERED and match in software (see handleAdvert). The hardware
@@ -566,6 +555,17 @@ class DkBleManager(base: Context) : DkTransport {
         runCatching { scanner?.stopScan(presencePendingIntent()) }
         presenceArmed = false
         Logx.d("ble", "presence scan DISARMED")
+    }
+
+    /**
+     * The controller reported an error through the presence PendingIntent: the offloaded scan is gone.
+     * Clear [presenceArmed] (otherwise [armPresenceScan] would no-op forever) and stop the dead
+     * registration so keep-alive can re-arm cleanly.
+     */
+    fun onPresenceScanDropped() {
+        if (!presenceArmed) return
+        disarmPresenceScan()
+        Logx.w("ble", "presence scan dropped by controller - will re-arm")
     }
 
     /** Broadcast PendingIntent the offloaded scanner fires; delivered to [BleScanReceiver]. */
@@ -1006,9 +1006,6 @@ class DkBleManager(base: Context) : DkTransport {
          *  build an equal PendingIntent, so the request code + intent action are fixed). */
         private const val PRESENCE_REQUEST_CODE = 0x2ee5  // "ZEE(kr)"
         private const val SCAN_TIMEOUT_MS = 20_000L
-        /** Batch window for foreground scan results — groups adverts so the framework doesn't
-         *  log (and wake us for) every single advertisement packet. Sub-second, still snappy. */
-        private const val REPORT_DELAY_MS = 500L
         // Fast recovery from an unexpected mid-setup drop (status 19): retry reconnectLast this many
         // times, waiting this long between (long enough for the car to release its side, short enough
         // to beat the ~20 s offloaded presence scan). Exhausted → fall back to the scan path.

@@ -25,7 +25,8 @@ class BleScanReceiver : BroadcastReceiver() {
         val errorCode = intent.getIntExtra(BluetoothLeScanner.EXTRA_ERROR_CODE, -1)
         if (errorCode != -1) {
             Logx.e("ble", "presence scan error via PendingIntent: $errorCode (controller dropped the offload)")
-            // The offloaded scan is gone; let the service notice (state stays IDLE) and re-arm.
+            // The offloaded scan is gone: clear the armed flag so keep-alive re-arms it.
+            DkBleManager.get(context).onPresenceScanDropped()
             ProximityService.notifyPresenceLost(context)
             return
         }

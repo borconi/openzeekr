@@ -114,7 +114,7 @@ either restricts or doesn't offer at all:
 
 ## 🔑 Getting your own keys (required — none are shipped)
 
-OpenZeekr **never** ships any account secret. To talk to the cloud you supply
+OpenZeekr **never** contains any account secret. To talk to the cloud you supply
 **your own** keys, extracted from **your own** app install. There are six values,
 in two groups:
 
@@ -130,20 +130,12 @@ Frida) by observing the standard crypto primitives it initializes
 (`javax.crypto.Mac` / `SecretKeySpec` / `IvParameterSpec`). See the projects above
 for the current recipe per app version.
 
-Then put them into the app at runtime:
+Then put them into the app (nothing is compiled in):
 
 - **Settings** screen → paste each value, or
 - **Import JSON** in the same shape as [`secrets.example.json`](secrets.example.json).
 
 They're stored in `EncryptedSharedPreferences` on-device only.
-
-**Or bake them into a local build.** Copy
-[`secrets.properties.example`](secrets.properties.example) to `secrets.properties` in the
-repo root (gitignored) and fill in the same values, using the upper-case keys
-(`HMAC_ACCESS_KEY`, `PROD_SECRET`, …; prefix `SEA_`/`EM_` for per-region signing sets). They
-are compiled into the native library (`libozsecrets.so`; `PASSWORD_PUBLIC_KEY` goes into
-`BuildConfig`), so the app starts pre-configured. Blank or missing values leave the app
-unconfigured as usual. **An APK built this way contains your keys — don't distribute it.**
 
 ```jsonc
 // secrets.example.json — fill with YOUR OWN extracted values
@@ -156,15 +148,8 @@ unconfigured as usual. **An APK built this way contains your keys — don't dist
 **Optional — notifications inbox.** The message inbox lives on a *different* backend
 (the overseas-app Azure gateway) with its own HMAC AK/SK auth. To enable it, supply
 `overseas_access_key` + `overseas_secret_key` — the native `getNativeApplicationId()` /
-`getNativeSecret()` values for **your own** region, read from your app's `libenv.so`
-(class `com.zeekr.env.ServerUtils`; Frida-hook those two methods and use the pair whose
-`getNativeHost()` matches your region's gateway). Leave them blank and everything else
-works; only the bell/inbox stays off.
-
-> The inbox request (`/overseas-app/...`) is authenticated by the AK/SK X-HMAC signature
-> **plus** the login-issued bearer, so the AK/SK pair above is all you need — there is no
-> separate client-minted inbox token for AU/SEA. (Verified against stock 1.5.3 on the
-> `gateway-pub-hw-em-sg` gateway, 2026-10-09.)
+`getNativeSecret()` values from **your own** app's `libenv.so` (Frida-hook those, EU/PROD).
+Leave them blank and everything else works; only the bell/inbox stays off.
 
 ## Proximity unlock / walk-away lock
 

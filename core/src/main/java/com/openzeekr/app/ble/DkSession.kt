@@ -37,12 +37,19 @@ interface DkSession {
     suspend fun control(ctrl: Byte, timeoutMs: Long): ControlResult = ControlResult.WRITE_FAILED
 
     /**
-     * Non-actuating liveness probe: send a `0x0120 CMD_A2V_TRANS` ("generic trans data") and wait
-     * up to [timeoutMs] for ANY frame back from the car. A proper `0x0121` reply, an unsolicited
-     * status push, or even a NAK all prove the app-layer link is alive — only total silence means
-     * it's wedged. Returns true if any frame arrived. Never actuates anything on the car.
+     * Non-actuating SESSION liveness probe: send `0x0110` with a sub-opcode the car answers but never
+     * acts on, and return true only if a `0x0111` that DECRYPTS UNDER THIS SESSION'S GCM KEY comes back
+     * within [timeoutMs]. That proves the car still holds this session and processed our frame - the
+     * exact path an unlock takes. Unrelated pushes (0x0121 status, 0x0182 ranging) do NOT count.
      */
     suspend fun ping(timeoutMs: Long): Boolean
+
+    /** Epoch-ms the current session finished its handshake (0 when not established). */
+    val establishedAtMs: Long get() = 0L
+
+    /** Epoch-ms the car last PROVED it holds this session: handshake done, or an authenticated `0x0111`
+     *  answer to our ping/control. 0 when not established. */
+    val lastVerifiedMs: Long get() = 0L
 
     /**
      * DEBUG probe: send a single `0x0110 CMD_A2V_CONTROL` frame carrying an arbitrary sub-opcode

@@ -123,6 +123,8 @@ class Deps(context: Context) {
                 ?.additionalVehicleStatus?.drivingSafetyStatus?.centralLockingStatus
                 ?.let { it == "1" }
         },
+        // Remote parking owns the link while a maneuver is live - proximity stands down.
+        rpaBusy = { rpa.isBusy },
     )
     /** Call after the base URL / sign algo changes so the HTTP client rebuilds. */
     fun onEndpointChanged() = apiClient.rebuild()

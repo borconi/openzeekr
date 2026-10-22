@@ -3,6 +3,51 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.2] - 2026-10-22
+
+### Added
+- **Wear OS watch: battery, climate and charging, not just lock/unlock.** The watch app now shows a
+  dashboard-style charge gauge around the screen - live battery percentage and range, coloured by
+  level (green when high, through yellow and orange to red when low) and filling bottom-left to
+  bottom-right as a car gauge does.
+- **Climate from your wrist.** Set a target temperature with - / + and turn the A/C on or off with a
+  single switch that follows the car's actual state.
+- **Charging from your wrist.** Open or close the charge port, and once the port is open and the
+  cable is plugged in, start or stop charging - each button reflecting what the car is doing.
+- **Lock as a slide switch.** Lock and unlock are now one switch that shows whether the car is
+  locked, and flips as soon as you act.
+- **The watch keeps working when the car is offline.** Lock and unlock run over the watch's own
+  Bluetooth key and stay available even when the car has been off the network for days; climate and
+  charging (which need the cloud) grey out until the car is reachable again, instead of looking
+  available and silently failing. The watch sends those through your phone, so no account or keys
+  ever live on the watch.
+
+### Fixed
+- **Charging speed shows during DC fast charging.** On a DC charger the app showed "Charging" with
+  no kW figure, because the DC charger's current and voltage were never read from the car's status.
+- **Background detection recovers if the phone's Bluetooth drops it.** If the phone's Bluetooth chip
+  stopped the background search for the car, OpenZeekr never restarted it until the app was
+  restarted. It now re-arms itself. (Thanks to clydebarrow, PR #25.)
+- **Unlock on approach works with the phone locked (Samsung and others, #21).** When the phone had
+  been locked for a while, reconnecting to the car could silently wait until you woke the screen, so
+  the car only unlocked once you unlocked your phone. Reconnecting now works with the screen off,
+  including when you were using the phone and then put it in your pocket.- **Faster, more reliable reconnects.** OpenZeekr now connects straight away when the phone's
+  Bluetooth spots the car, without a second search. It stops trying an old car address once the car
+  has changed it, and gives up on a stalled connection attempt after 12 seconds instead of waiting
+  much longer.
+- **The key connection is checked while you walk up, not at the door.** Approach unlock now confirms
+  the car still accepts the key session as you approach, and refreshes it early if not, instead of
+  failing and reconnecting when you reach the handle.
+
+### Changed
+- **Proximity now follows your walking.** When you start walking, OpenZeekr listens for the car at
+  full speed (so it is noticed within about a second, phone in your pocket), easing off after five
+  minutes of walking and stopping completely 30 seconds after you stop. While you stand still it does
+  nothing at all, so it uses no battery; walking with the car in range, it keeps the connection ready
+  to unlock as you arrive and to lock as you leave.
+- **Debug logs keep 10 times more history** (5000 lines), so a log sent after a problem covers the
+  whole walk away and back. Use "Share" to send it; long logs are too big to copy.
+
 ## [0.2.1] - 2026-10-09
 
 ### Fixed

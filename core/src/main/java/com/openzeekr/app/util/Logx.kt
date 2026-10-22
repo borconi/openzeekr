@@ -32,7 +32,10 @@ import java.util.Locale
  */
 object Logx {
     private const val TAG = "openzeekr"
-    private const val MAX = 500
+    /** Ring-buffer size. 5000 lines (~15-20 min of active proximity tracing, far longer idle) so a
+     *  tester's log spans a real walk-away/pocket/return cycle. Shared as a file (see LogShare), which
+     *  has no size cap; an encrypted 5000-line log is ~1 MB. */
+    private const val MAX = 5000
 
     private val _lines = MutableStateFlow<List<String>>(emptyList())
     val lines: StateFlow<List<String>> = _lines.asStateFlow()

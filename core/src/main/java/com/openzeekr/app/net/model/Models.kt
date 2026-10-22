@@ -1337,10 +1337,12 @@ data class ElectricStatusVo(
             return if (v >= AC_3PHASE_MIN_V) 3 else 1
         }
 
-    /** DC pile power (W) when a DC session reports live values, else null. */
+    /** DC pile power (W) when a DC session reports live values, else null. Only the charger-pile pair:
+     *  it's charge-specific, whereas a generic HV current (dcIAct etc.) could be non-zero while driving
+     *  and flip [chargingActive] on. Magnitude, in case a firmware reports the current signed. */
     private fun dcPower(): Double? {
-        val a = dcChargePileIAct?.toDoubleOrNull() ?: return null
-        val v = dcChargePileUAct?.toDoubleOrNull() ?: return null
+        val a = dcChargePileIAct?.toDoubleOrNull()?.let { kotlin.math.abs(it) } ?: return null
+        val v = dcChargePileUAct?.toDoubleOrNull()?.let { kotlin.math.abs(it) } ?: return null
         return if (a > 0.0 && v > 0.0) a * v else null
     }
 
@@ -1497,6 +1499,11 @@ object VehicleStatus {
                             chargeIAct = e.str("chargeIAct"),
                             chargeUAct = e.str("chargeUAct"),
                             acSettingCurrent = e.str("acSettingCurrent"),
+                            // DC fast-charge power source. These were declared on ElectricStatusVo but never
+                            // read here, so dcPower() was always null and a DC session showed "Charging" with
+                            // no kW (the AC chargeIAct/UAct it fell back to are 0 on DC).
+                            dcChargePileIAct = e.str("dcChargePileIAct"),
+                            dcChargePileUAct = e.str("dcChargePileUAct"),
                             distanceToEmptyOnBatteryOnly = e.str("distanceToEmptyOnBatteryOnly"),
                             hvBatteryPreHeatingActive = e.boolOf("hvBatteryPreHeatingActive"),
                             averPowerConsumption = e.str("averPowerConsumption"),

@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayInputStream
 import java.security.KeyPair
@@ -67,9 +69,21 @@ class RealDkSession(
     /** Fire-and-forget scope for the transport ACK (onRawInbound is not a coroutine). */
     private val ackScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // One-shot waiter for [ping]: completed with the opcode of the NEXT inbound frame (before decrypt),
-    // so ANY reply — proper 0x0121, an unsolicited push, or a NAK — resolves the liveness probe.
-    @Volatile private var pingWaiter: CompletableDeferred<Int>? = null
+    @Volatile override var establishedAtMs: Long = 0L
+        private set
+    @Volatile override var lastVerifiedMs: Long = 0L
+        private set
+
+    // [ping] and [control] both await the car's 0x0111 via pending[0x0111]; serialise them so one can't
+    // steal (or clobber) the other's receipt.
+    private val controlExchange = Mutex()
+    // nSeq of the last frame [send] wrote - lets us log whether the car's 0x0111 echoes it.
+    @Volatile private var lastSentNSeq = 0
+    // Last car-initiated push that DECRYPTED under this session's key: 0x0182 (RANGING_KEEPALIVE, ~2-5 s)
+    // and 0x0121 (VSTATUS_SYNC). Candidate zero-airtime liveness signal - logged beside every liveness
+    // verdict so logs show whether these pushes stop when the session goes stale (not yet acted on).
+    @Volatile private var lastAuth182Ms = 0L
+    @Volatile private var lastAuth121Ms = 0L
 
     // How long [control] waits for the optional 0x0112 result after the 0x0111 receipt ack.
     private val RESULT_WINDOW_MS = 600L
@@ -243,6 +257,7 @@ class RealDkSession(
         }.onFailure { Logx.w("dk", "coef upload: ${it.message}") }
 
         isEstablished = true
+        establishedAtMs = System.currentTimeMillis(); lastVerifiedMs = establishedAtMs
         // Start the positioning beacon CONTINUOUSLY at session-up and leave it running - stock's capture
         // (2026-09-25) shows one advertising burst near session-up, timeout 0, for the whole session (NOT
         // per-position). Stopped in reset()/close().
@@ -319,29 +334,56 @@ class RealDkSession(
         return send(cmd, payload)
     }
 
-    override suspend fun ping(timeoutMs: Long): Boolean {
+    override suspend fun ping(timeoutMs: Long): Boolean = controlExchange.withLock {
         if (!isEstablished || !cryptoReady) return false
-        val waiter = CompletableDeferred<Int>()
-        pingWaiter = waiter
+        // 0x0110 carrying the RPA-start sub-opcode (0x0A): the car answers 0x0111 with receipt code
+        // 0x1040 cmdNotSupport and never actuates (at-car probe 2026-09-17). We await THAT 0x0111 via
+        // pending[], which only completes AFTER a successful GCM decrypt under this session's key - so a
+        // stray 0x0121/0x0182 push or an undecryptable frame can't pass for "alive" (the old waiter took
+        // ANY inbound opcode, pre-decrypt, which a 2-5 s 0x0182 ranging push satisfied on its own).
+        val recv = CompletableDeferred<ByteArray>()
+        pending[DkProtocol.CMD_V2A_CMD_RECEIVED] = recv
+        val sentAt = System.currentTimeMillis()
         return try {
-            // Liveness via a CONTROL frame the car ALWAYS acks but never acts on: 0x0110 carrying the
-            // RPA-start sub-opcode (0x0A). The car replies 0x0111 (received)/0x0112 (result) and
-            // REJECTS it (RPA gated behind DK3.0, EEC 0x100a) — nothing actuates. A bare 0x0120 gets NO
-            // reply at all (car ignores it), so 0x0110 is the working probe. ANY frame back = the
-            // app-layer link (the exact path unlock uses) is alive.
-            val ok = send(DkProtocol.CMD_A2V_CONTROL, byteArrayOf(DkProtocol.CTRL_RPA_START))
-            if (!ok) { Logx.w("dk", "ping: 0x0110 write failed"); return false }
-            val reply = withTimeoutOrNull(timeoutMs) { waiter.await() }
-            Logx.d("dk", "ping 0x0110/0x0a -> ${reply?.let { hex(it) } ?: "no reply in ${timeoutMs}ms"}")
-            reply != null
+            if (!send(DkProtocol.CMD_A2V_CONTROL, byteArrayOf(DkProtocol.CTRL_RPA_START))) {
+                Logx.w("dk", "liveness: ping 0x0110 write failed (${livenessContext()})"); return false
+            }
+            val sentSeq = lastSentNSeq
+            val body = withTimeoutOrNull(timeoutMs) { recv.await() }
+            if (body == null) {
+                Logx.w("dk", "liveness: ping NO authenticated 0x0111 in ${timeoutMs}ms (${livenessContext()})")
+                false
+            } else {
+                Logx.d("dk", "liveness: ping ok in ${System.currentTimeMillis() - sentAt}ms ${receiptSummary(body, sentSeq)} " +
+                    "(${livenessContext()})")
+                lastVerifiedMs = System.currentTimeMillis()
+                true
+            }
         } catch (e: Exception) {
-            Logx.w("dk", "ping error: ${e.message}"); false
+            Logx.w("dk", "liveness: ping error: ${e.message}"); false
         } finally {
-            pingWaiter = null
+            pending.remove(DkProtocol.CMD_V2A_CMD_RECEIVED)
         }
     }
 
-    override suspend fun control(ctrl: Byte, timeoutMs: Long): ControlResult {
+    /** "session age / last verified" context for liveness log lines - what we need to measure the car's
+     *  idle timeout and to see whether a passed ping ever precedes a failed unlock. */
+    private fun livenessContext(): String {
+        val now = System.currentTimeMillis()
+        val age = if (establishedAtMs > 0) "${(now - establishedAtMs) / 1000}s" else "?"
+        val ver = if (lastVerifiedMs > 0) "${(now - lastVerifiedMs) / 1000}s ago" else "never"
+        fun ago(t: Long) = if (t > 0) "${(now - t) / 1000}s ago" else "none"
+        return "session age $age, last verified $ver, auth 0x0182 ${ago(lastAuth182Ms)}, auth 0x0121 ${ago(lastAuth121Ms)}"
+    }
+
+    /** The car's 0x0111 receipt: whether it echoes our nSeq, and its tail (carries the receipt code). */
+    private fun receiptSummary(body: ByteArray, sentSeq: Int): String {
+        val seq = if (body.size >= 2) ((body[0].toInt() and 0xFF) shl 8) or (body[1].toInt() and 0xFF) else -1
+        return "receipt nSeq=%04x(%s) tail=%s".format(seq, if (seq == sentSeq) "echo" else "sent %04x".format(sentSeq),
+            hexOf(afterHeader(body)))
+    }
+
+    override suspend fun control(ctrl: Byte, timeoutMs: Long): ControlResult = controlExchange.withLock {
         if (!isEstablished || !cryptoReady) return ControlResult.WRITE_FAILED
         val recv = CompletableDeferred<ByteArray>()
         val result = CompletableDeferred<ByteArray>()
@@ -351,11 +393,18 @@ class RealDkSession(
             if (!send(DkProtocol.CMD_A2V_CONTROL, byteArrayOf(ctrl))) {
                 Logx.w("dk", "control 0x%02x: write failed".format(ctrl)); return ControlResult.WRITE_FAILED
             }
+            val sentSeq = lastSentNSeq
             // The car acks receipt with 0x0111; no 0x0111 => it never got the frame (wedged link).
-            if (withTimeoutOrNull(timeoutMs) { recv.await() } == null) {
+            val recvBody = withTimeoutOrNull(timeoutMs) { recv.await() }
+            if (recvBody == null) {
                 Logx.w("dk", "control 0x%02x: no 0x0111 within ${timeoutMs}ms -> NO_RESPONSE".format(ctrl))
+                // The decisive data point for "is ping a valid liveness test": a NO_RESPONSE shortly
+                // after a passed ping means the car answers pings on a session it no longer honours.
+                Logx.w("dk", "liveness: control 0x%02x NO_RESPONSE (${livenessContext()})".format(ctrl))
                 return ControlResult.NO_RESPONSE
             }
+            lastVerifiedMs = System.currentTimeMillis()
+            Logx.d("dk", "control 0x%02x: 0x0111 ${receiptSummary(recvBody, sentSeq)}".format(ctrl))
             // A 0x0112 result may follow; a non-zero errCode = the car rejected it. (Observed
             // successful unlocks send only 0x0111, so absence of 0x0112 counts as CONFIRMED.)
             val resBody = withTimeoutOrNull(RESULT_WINDOW_MS) { result.await() }
@@ -419,6 +468,7 @@ class RealDkSession(
      */
     fun reset() {
         isEstablished = false; cryptoReady = false; cmacKeyCache = null
+        establishedAtMs = 0L; lastVerifiedMs = 0L; lastAuth182Ms = 0L; lastAuth121Ms = 0L
         // Stop the positioning beacon - the session is gone, so the advert must go with it.
         runCatching { transport.stopPositioningBeacon() }
         // Complete (don't bare-cancel) each in-flight waiter with a typed error. A bare .cancel()
@@ -577,6 +627,7 @@ class RealDkSession(
     /** Build (auto nSeq/ts, 6-byte CMAC trailer for RPA, GCM if needed) and write; no wait. */
     private suspend fun send(cmdId: Int, tail: ByteArray): Boolean {
         val nSeq = DkPayload.nextSeq(); val ts = DkPayload.timestamp()
+        lastSentNSeq = nSeq
         // RPA frames append AES-CMAC(cmacKey, ts(4 BE) ‖ tail)[0:6] inside the GCM plaintext.
         val fullTail = if (DkProtocol.needsCmac(cmdId)) tail + DkCrypto.aesCmac6(cmacKey(), tsBytes(ts) + tail) else tail
         val plain = DkPayload.wrap(nSeq, ts, fullTail)
@@ -633,8 +684,6 @@ class RealDkSession(
 
     /** Called by the transport for each reassembled+CRC-checked inbound frame. */
     private fun onRawInbound(cmdId: Int, rawBody: ByteArray) {
-        // Liveness: ANY frame (even one we can't decrypt, e.g. a NAK) proves the car is talking.
-        pingWaiter?.let { it.complete(cmdId); pingWaiter = null }
         val body = try {
             if (cryptoReady && DkProtocol.isEncrypted(cmdId)) DkCrypto.gcmDecrypt(sKey, iv, rawBody) else rawBody
         } catch (e: Exception) {
@@ -649,6 +698,7 @@ class RealDkSession(
         // because the car reads us as "outside/weak" (a ranging issue) or despite good ranging (a gate).
         if (cmdId == 0x182 && cryptoReady) {
             val rng = runCatching { DkCrypto.gcmDecrypt(sKey, iv, rawBody) }.getOrNull()
+            if (rng != null) lastAuth182Ms = System.currentTimeMillis()
             Logx.d("dk", "0x182 ranging: plaintext=${rng?.let { hexOf(it) } ?: "(GCM decrypt failed - different key?)"} raw=${hexOf(rawBody)}")
         }
         // Diagnostic tap (active only during a probeControl window): see every frame the car returns.
@@ -658,6 +708,7 @@ class RealDkSession(
         // 0x0194 (calib table) - full BLE capture 2026-09-23. Fire it HERE, before the pending completion
         // below returns early for awaited frames (0x0193): without the ACK the car stalls and never emits
         // the 0x0194 table (this is a real gap in our calibration flow, not just cosmetic parity).
+        if (cmdId == DkProtocol.CMD_V2A_VSTATUS_SYNC && cryptoReady) lastAuth121Ms = System.currentTimeMillis()
         if (cmdId == DkProtocol.CMD_V2A_VSTATUS_SYNC ||
             cmdId == DkProtocol.CMD_V2A_CALIBRATION_LOC_RSP ||
             cmdId == DkProtocol.CMD_V2A_RECEIVE_CALIBRATION ||

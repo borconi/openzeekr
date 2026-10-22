@@ -105,9 +105,9 @@ fun SetupScreen(
     }
     fun hasBlePerms() = blePerms.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.all { it }) { ble.resetHandshakeBackoff(); ble.connect(null) } else snackbar("Bluetooth permission denied — enable it in system settings")
+        if (result.values.all { it }) { ble.resetHandshakeBackoff(); ble.connect(null, diagnostic = true) } else snackbar("Bluetooth permission denied — enable it in system settings")
     }
-    fun connect() { if (hasBlePerms()) ble.connect(null) else permLauncher.launch(blePerms) }
+    fun connect() { if (hasBlePerms()) ble.connect(null, diagnostic = true) else permLauncher.launch(blePerms) }
     fun provision() {
         scope.launch {
             provisioning.provision(owner)

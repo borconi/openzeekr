@@ -22,6 +22,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.PowerManager
 import android.util.Log
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.CompletableDeferred
@@ -111,15 +112,6 @@ class DkBleManager(base: Context) : DkTransport {
             else
                 appContext.registerReceiver(btStateReceiver, filter)
         }.onFailure { Logx.w("ble", "bt state receiver register failed: ${it.message}") }
-    }
-
-    // Wear OS BLE: Samsung's watch stack advertises hardware scan-batching as supported but often
-    // never flushes it (no onBatchScanResults, no onScanFailed) — the scan just silently finds
-    // nothing. So on a watch we default to IMMEDIATE (unbatched) delivery. The phone keeps batched
-    // low-power delivery for the background keep-alive. (Verified 2026-09-15: phone connects from a
-    // spot where the watch's batched scan matched zero devices.)
-    private val isWear: Boolean by lazy {
-        appContext.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_WATCH)
     }
 
     // ---- session (stable instance; reads the credential at establish() time) ----
@@ -223,9 +215,14 @@ class DkBleManager(base: Context) : DkTransport {
     private val rndByMac = mutableMapOf<String, ByteArray>()
 
     // Last successfully-matched device + its broadcast-random, cached so a forced reconnect can go
-    // straight back to the car we just dropped (see [reconnectLast]) instead of re-scanning.
-    private var lastDevice: BluetoothDevice? = null
-    private var lastRnd: ByteArray? = null
+    // straight back to the car we just dropped (see [reconnectLast]) instead of re-scanning. Also
+    // seeded from the offloaded presence match itself ([primeFromPresence]) - written from the
+    // receiver/binder threads, hence volatile.
+    @Volatile private var lastDevice: BluetoothDevice? = null
+    @Volatile private var lastRnd: ByteArray? = null
+    // When the cache was last refreshed from a live advert, and whether the connect in flight came from it.
+    @Volatile private var lastMatchMs = 0L
+    @Volatile private var connectingFromCache = false
 
     // ---------------- connect ----------------
 
@@ -246,8 +243,14 @@ class DkBleManager(base: Context) : DkTransport {
     /** Clear the handshake-failure backoff so an explicit user connect isn't delayed. */
     fun resetHandshakeBackoff() { handshakeFailStreak = 0; handshakeBackoffUntilMs = 0L }
 
+    /**
+     * Connect to the car: the cached device for a matching [deviceMac], else a scan. [diagnostic] = the
+     * user started this from the app's own screen: the scan then runs UNFILTERED (while the screen is on)
+     * and logs every advertiser, to diagnose a car with unexpected identifiers. Every background caller
+     * leaves it false and gets the hardware-filtered scan, which Android never parks screen-off.
+     */
     @SuppressLint("MissingPermission")
-    fun connect(deviceMac: String?) {
+    fun connect(deviceMac: String?, diagnostic: Boolean = false) {
         if (inHandshakeBackoff()) return
         // Idempotent: a second connect() while we're already scanning/connecting/connected
         // would start a *new* scan on the shared scanner — which resets state to SCANNING and
@@ -268,19 +271,15 @@ class DkBleManager(base: Context) : DkTransport {
         // on API 31+) — surface it as an error state instead. The UI requests the
         // permission before calling this, but guard defensively.
         try {
-            if (deviceMac != null) {
-                _state.value = State.CONNECTING
-                connectDevice(a.getRemoteDevice(deviceMac))
-            } else {
-                // IMMEDIATE (unbatched) delivery, always. Batched delivery (setReportDelay>0) does
-                // NOT flush to a dozing app process when the screen is off — even with a filter that
-                // makes the scan screen-off-legal and even holding a wakelock — so the batched
-                // foreground re-scan matched nothing screen-off (confirmed 2026-09-15: offloaded
-                // FIRST_MATCH fired, but the follow-up batched connect timed out at 20s every time).
-                // Batching was only ever to avoid a per-advert log firehose, and the 0xFDFD/0x06FE
-                // FILTER already solves that (only the car matches). So: immediate everywhere.
-                startScan(a, useBatching = false)
-            }
+            // Never getRemoteDevice(mac): the car advertises a Resolvable Private Address, which that
+            // treats as PUBLIC (connectGatt times out, status=147), and the handshake also needs the
+            // broadcast-random that only comes from an advert. So a MAC only selects the cached device
+            // (correct address type + its rnd, subject to reconnectLast's age check); anything else
+            // goes through the scan. (From PR #25, clydebarrow.)
+            val cachedMatch = deviceMac != null && lastDevice?.address.equals(deviceMac, ignoreCase = true)
+            if (cachedMatch && reconnectLast()) return
+            if (deviceMac != null) Logx.d("ble", "connect($deviceMac): not a usable cached device - scanning instead")
+            startScan(a, diagnostic)
         } catch (e: SecurityException) {
             fail("missing Bluetooth permission (grant BLUETOOTH_SCAN/CONNECT): ${e.message}")
         }
@@ -305,9 +304,18 @@ class DkBleManager(base: Context) : DkTransport {
             }
             else -> {}
         }
+        // The car's address + broadcast-random rotate together (RPA). An old cache is likely stale: a
+        // direct connect then hangs until the watchdog, or connects and stalls at 0x0101 on a wrong rnd.
+        // A scan finds the advertising car in ~1 s with both fresh, so prefer it past this age.
+        val age = System.currentTimeMillis() - lastMatchMs
+        if (age > CACHE_MAX_AGE_MS) {
+            Logx.d("ble", "reconnectLast: cached device is ${age / 1000}s old (RPA may have rotated) - scanning instead")
+            return false
+        }
         val a = adapter ?: return false
         if (!a.isEnabled) return false
         lastError = null
+        connectingFromCache = true
         advBroadcastRnd = lastRnd
         Logx.d("ble", "reconnectLast -> ${dev.address} (no scan, rnd=${lastRnd?.joinToString("") { "%02x".format(it) } ?: "?"})")
         _state.value = State.CONNECTING
@@ -348,26 +356,55 @@ class DkBleManager(base: Context) : DkTransport {
         }
         // Prefer the scan-free path: the cached BluetoothDevice keeps the RANDOM address type (a raw
         // getRemoteDevice(mac) is treated as PUBLIC and times out) and its broadcast-random still
-        // derives the DK connect-confirm. Fall back to a fresh scan-connect if there's no cached device.
+        // derives the DK connect-confirm. BleScanReceiver has normally just refreshed that cache from
+        // the offloaded match ([primeFromPresence]), so it's the car's CURRENT address even after a
+        // process restart or an RPA rotation. Fall back to a fresh scan-connect if there's nothing cached.
         if (!reconnectLast()) runCatching { connect(null) }
     }
 
+    /**
+     * Seed the scan-free reconnect from the OFFLOADED presence match itself. The PendingIntent delivers
+     * full [ScanResult]s - a live [BluetoothDevice] (correct RANDOM address type, current RPA) plus the
+     * raw advert carrying the broadcast-random - so [engageFromPresence] can connect straight away with
+     * no follow-up scan. That matters screen-off: the follow-up scan is exactly what Samsung/AOSP starve,
+     * and the in-memory cache it would otherwise rely on is gone after a process restart or stale after
+     * the car rotates its RPA while you're away. Ignored while a link is live (FIRST_MATCH only fires
+     * while armed, i.e. idle, but never clobber the device of a session in progress).
+     * Returns true if a device + broadcast-random was captured.
+     */
+    fun primeFromPresence(results: List<ScanResult>): Boolean {
+        when (_state.value) {
+            State.CONNECTING, State.CONNECTED, State.SESSION_READY -> return false
+            else -> {}
+        }
+        // Strongest advertiser that carries the DK mfr-data block (identity is still verified by the
+        // DK handshake, same as the scan path's first-match-with-rnd).
+        val (r, rnd) = results.sortedByDescending { it.rssi }
+            .firstNotNullOfOrNull { res -> parseBroadcastRnd(res.scanRecord?.bytes)?.let { res to it } }
+            ?: run {
+                Logx.d("ble", "presence: offloaded result has no broadcastRnd (${results.size} result(s)) - will use cache/scan")
+                return false
+            }
+        lastDevice = r.device; lastRnd = rnd; lastMatchMs = System.currentTimeMillis()
+        Logx.d("ble", "presence: primed ${r.device.address} rssi=${r.rssi} " +
+            "rnd=${rnd.joinToString("") { "%02x".format(it) }} from offloaded result (no scan needed)")
+        return true
+    }
+
     @SuppressLint("MissingPermission")
-    private fun startScan(a: BluetoothAdapter, useBatching: Boolean = true) {
+    private fun startScan(a: BluetoothAdapter, diagnostic: Boolean) {
         val scanner = a.bluetoothLeScanner ?: run { fail("no LE scanner"); return }
         _state.value = State.SCANNING
         seenAdvertisers.clear()
         rndByMac.clear()
         advBroadcastRnd = null
-        // No device ScanFilter on the foreground connect: the car doesn't advertise the DK
-        // service UUID and its name format can vary, so filtering risks missing it — matching
-        // in-callback is faster/more reliable. To avoid the per-packet log firehose (the
-        // framework logs one line per advertisement), request BATCHED delivery: results arrive
-        // in periodic groups via onBatchScanResults instead of a continuous onScanResult stream.
-        // If the device can't offload batching we fall back to immediate delivery (onScanFailed).
+        // IMMEDIATE (unbatched) delivery, always. Batched delivery (setReportDelay>0) does NOT flush
+        // to a dozing app process when the screen is off - even holding a wakelock - so a batched
+        // re-scan matched nothing screen-off (confirmed 2026-09-15: offloaded FIRST_MATCH fired, but
+        // the follow-up batched connect timed out at 20s every time). Samsung's Wear OS stack likewise
+        // claims batching support but never flushes it.
         val settings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .apply { if (useBatching) setReportDelay(REPORT_DELAY_MS) }
             .build()
         val target = UUID.fromString(DkProtocol.SERVICE_UUID)
         val advTarget = UUID.fromString(DK_ADV_SERVICE_UUID)  // the 16-bit UUID the car ADVERTISES
@@ -375,7 +412,7 @@ class DkBleManager(base: Context) : DkTransport {
         // Handle one advertisement; returns true once it matched the car and started connecting.
         fun handleAdvert(result: ScanResult): Boolean {
             // Once we've matched and left the scanning state, ignore every further advert. The
-            // batched scanner can deliver the car in several callbacks before stopScan takes
+            // scanner can deliver the car in several callbacks before stopScan takes
             // effect; without this guard we'd call connectGatt twice → two GATT clients to the
             // same device → status 133 (the connection never establishes). See onScanResult.
             if (_state.value != State.SCANNING) return true
@@ -427,6 +464,7 @@ class DkBleManager(base: Context) : DkTransport {
                 }
                 advBroadcastRnd = rnd
                 lastDevice = dev; lastRnd = rnd   // cache for a scan-free forced reconnect
+                lastMatchMs = System.currentTimeMillis(); connectingFromCache = false
                 Logx.d("ble", "match by $why rnd=${rnd.joinToString("") { "%02x".format(it) }} -> connecting $addr")
                 stopScanInternal(scanner)
                 _state.value = State.CONNECTING
@@ -436,6 +474,17 @@ class DkBleManager(base: Context) : DkTransport {
             return false
         }
 
+        // FILTERED by default. AOSP refuses to run an UNFILTERED scan while the screen is off: it logs
+        // "Cannot start unfiltered scan in screen-off. This scan will be resumed later" and parks the client
+        // until the screen turns ON - issue #21 to the letter (the car only unlocked once the user woke the
+        // phone). Keying this off the screen state at START wasn't enough: a background probe that began
+        // with the screen on (phone in hand) and was then pocketed got parked mid-scan (tester log
+        // 2026-10-11). So only a [diagnostic] connect the user started from the app's own screen scans
+        // unfiltered (+ the advertiser log for a car with unexpected identifiers), and only while the
+        // screen is on.
+        val screenOn = (appContext.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isInteractive != false
+        val filters = if (diagnostic && screenOn) null else carScanFilters()
+
         val cb = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) { handleAdvert(result) }
             override fun onBatchScanResults(results: MutableList<ScanResult>) {
@@ -443,21 +492,18 @@ class DkBleManager(base: Context) : DkTransport {
             }
             override fun onScanFailed(errorCode: Int) {
                 stopScanInternal(scanner)
-                if (useBatching && errorCode == ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED) {
-                    Logx.d("ble", "batched scan unsupported — retrying with immediate delivery")
-                    startScan(a, useBatching = false)
-                } else fail("scan failed: $errorCode")
+                fail("scan failed: $errorCode")
             }
         }
         scanCb = cb
-        Logx.d("ble", "scanning (UNFILTERED, ${if (useBatching) "batched ${REPORT_DELAY_MS}ms" else "immediate"}) " +
-            "- match by name *zeekr*, adv-uuid 0xFDFD, DK service ${DkProtocol.SERVICE_UUID}, svcData or mfr 0x06FE. " +
-            "Every advertiser is logged so a car with different adv identifiers is still visible.")
-        // Foreground connect: scan UNFILTERED and match in software (see handleAdvert). The hardware
-        // 0xFDFD/0x06FE ScanFilter is kept ONLY for the offloaded background presence scan; on the
-        // foreground connect it risked hiding (and never logging) a car whose region/firmware
-        // advertises different identifiers - the "no DK device matched, nothing in the advert log" case.
-        scanner.startScan(null, settings, cb)
+        Logx.d("ble", "scanning (${if (filters == null) "UNFILTERED, diagnostic" else
+            "FILTERED 0xFDFD/0x06FE, ${if (diagnostic) "screen off" else "background"}"}, immediate) " +
+            "- match by name *zeekr*, adv-uuid 0xFDFD, DK service ${DkProtocol.SERVICE_UUID}, svcData or mfr 0x06FE." +
+            if (filters == null) " Every advertiser is logged so a car with different adv identifiers is still visible." else "")
+        // Diagnostic: scan UNFILTERED and match in software (see handleAdvert) - a hardware filter risked
+        // hiding (and never logging) a car whose region/firmware advertises different identifiers, the
+        // "no DK device matched, nothing in the advert log" case. Everything else: filtered (see above).
+        scanner.startScan(filters, settings, cb)
         scanJob = scope.launch {
             delay(SCAN_TIMEOUT_MS)
             if (_state.value == State.SCANNING) {
@@ -520,6 +566,48 @@ class DkBleManager(base: Context) : DkTransport {
         private set
 
     /**
+     * How hard the presence scan listens. Screen-off Android downgrades LOW_POWER to 512 ms every 10.24 s
+     * (AOSP ScanManager.updateScanModeScreenOff) - far too slow to notice the car on a walk-up with the
+     * phone pocketed - while it keeps LOW_LATENCY and keeps BALANCED at 183/730 ms for an app with a
+     * foreground service. AGGRESSIVE matching reports "found" after fewer/weaker sightings.
+     */
+    enum class PresenceMode(val scanMode: Int, val matchMode: Int) {
+        /** Always-on fallback when walking can't be detected (no motion sensor / approach off). */
+        BACKGROUND(ScanSettings.SCAN_MODE_LOW_POWER, ScanSettings.MATCH_MODE_STICKY),
+        /** Walking: listen continuously, so the car is found within ~1 s of coming in range. */
+        WALKING(ScanSettings.SCAN_MODE_LOW_LATENCY, ScanSettings.MATCH_MODE_AGGRESSIVE),
+        /** Still walking after 5 min: 25 % duty, still a few-second detection. */
+        LONG_WALK(ScanSettings.SCAN_MODE_BALANCED, ScanSettings.MATCH_MODE_AGGRESSIVE),
+    }
+
+    /** Mode of the registered presence scan, null when not armed. */
+    @Volatile var presenceMode: PresenceMode? = null
+        private set
+
+    /**
+     * The car is in range per the offloaded presence scan: set on its FIRST_MATCH, cleared on its
+     * MATCH_LOST (and whenever the scan is (re)armed or dropped - a new registration knows nothing until
+     * its own FIRST_MATCH). This is the window the walk/idle reconnect logic is allowed to run in (motion
+     * probe, aggressive reconnect, CPU held while moving). After MATCH_LOST nothing reconnects or scans:
+     * we just wait for the next FIRST_MATCH. Purely advert-driven - a live session doesn't set it, and a
+     * MATCH_LOST during a session (car may stop advertising while connected) never touches the link.
+     */
+    @Volatile var carInRange: Boolean = false
+        private set
+
+    /** Presence FIRST_MATCH: the car's advert is in range. */
+    fun onPresenceFound() {
+        if (!carInRange) Logx.d("ble", "presence: car IN RANGE - walk/idle reconnect logic active")
+        carInRange = true
+    }
+
+    /** Presence MATCH_LOST: the car's advert is gone. */
+    fun onPresenceLost() {
+        if (carInRange) Logx.d("ble", "presence: car OUT OF RANGE - reconnect logic paused until next FIRST_MATCH")
+        carInRange = false
+    }
+
+    /**
      * Arm a HARDWARE-OFFLOADED presence scan: the Bluetooth controller watches for the car's
      * advert (same [carScanFilters]) with the CPU asleep and wakes us via [BleScanReceiver] on
      * FIRST_MATCH / MATCH_LOST. This is the zero-CPU idle path — no wakelock, no continuous
@@ -527,22 +615,32 @@ class DkBleManager(base: Context) : DkTransport {
      * the car enters range (again only after a MATCH_LOST), so callers must ALSO do a one-shot
      * foreground probe for the already-in-range case (started right next to the car).
      *
-     * Idempotent. Returns true if armed (or already armed).
+     * Lifecycle is owned by ProximityService: armed for the duration of a walk ([PresenceMode.WALKING],
+     * then [PresenceMode.LONG_WALK]) and stopped completely after 30 s still; or armed permanently in
+     * [PresenceMode.BACKGROUND] when walking can't be detected. It stays armed while a session is up, so
+     * MATCH_LOST can still arrive (stopping it on a match, as we used to, made MATCH_LOST impossible).
+     *
+     * Idempotent for the same [mode]. Arming in a different mode while armed re-registers WITHOUT resetting
+     * [carInRange] (same walk, same knowledge; the new registration re-reports the car if it's still
+     * there). A fresh arm resets it: in range only once that registration's FIRST_MATCH says so.
+     * Returns true if armed (or already armed in [mode]).
      */
     @SuppressLint("MissingPermission")
-    fun armPresenceScan(): Boolean {
-        if (presenceArmed) return true
+    fun armPresenceScan(mode: PresenceMode = PresenceMode.BACKGROUND): Boolean {
+        if (presenceArmed && presenceMode == mode) return true
         val scanner = adapter?.bluetoothLeScanner ?: return false
         if (adapter?.isEnabled != true) return false
+        val switching = presenceArmed
+        if (switching) runCatching { scanner.stopScan(presencePendingIntent()) }
         val settings = ScanSettings.Builder()
-            // LOW_POWER + hardware match: the controller does the watching, not the CPU.
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
+            // Hardware match: the controller does the watching, not the CPU; mode sets its duty cycle.
+            .setScanMode(mode.scanMode)
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    // Edge-triggered: notify once when found, once when lost (STICKY = must be seen a
-                    // few times before "found"/"lost" to debounce flapping at the range edge).
+                    // Edge-triggered: notify once when found, once when lost. STICKY needs more/stronger
+                    // sightings (debounces the range edge); AGGRESSIVE reports sooner.
                     setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH or ScanSettings.CALLBACK_TYPE_MATCH_LOST)
-                    setMatchMode(ScanSettings.MATCH_MODE_STICKY)
+                    setMatchMode(mode.matchMode)
                     setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
                 }
             }
@@ -550,22 +648,39 @@ class DkBleManager(base: Context) : DkTransport {
         val res = runCatching { scanner.startScan(carScanFilters(), settings, presencePendingIntent()) }
         return if (res.getOrDefault(-1) == 0) {
             presenceArmed = true
-            Logx.d("ble", "presence scan ARMED (offloaded 0xFDFD/0x06FE, FIRST_MATCH/MATCH_LOST, CPU may sleep)")
+            presenceMode = mode
+            if (!switching) carInRange = false   // fresh registration: in range only once ITS FIRST_MATCH says so
+            Logx.d("ble", "presence scan ${if (switching) "-> $mode" else "ARMED $mode"} " +
+                "(offloaded 0xFDFD/0x06FE, FIRST_MATCH/MATCH_LOST, CPU may sleep)")
             true
         } else {
-            Logx.e("ble", "presence scan arm failed (${res.exceptionOrNull()?.message ?: "startScan!=0"})")
+            presenceArmed = false; presenceMode = null; carInRange = false
+            Logx.e("ble", "presence scan arm ($mode) failed (${res.exceptionOrNull()?.message ?: "startScan!=0"})")
             false
         }
     }
 
-    /** Stop the hardware-offloaded presence scan (e.g. once we're engaged with a live session). */
+    /** Stop the hardware-offloaded presence scan (walk over, Bluetooth off, controller error, shutdown). */
     @SuppressLint("MissingPermission")
     fun disarmPresenceScan() {
         if (!presenceArmed) return
         val scanner = adapter?.bluetoothLeScanner
         runCatching { scanner?.stopScan(presencePendingIntent()) }
         presenceArmed = false
+        presenceMode = null
+        carInRange = false   // no registration = no presence knowledge
         Logx.d("ble", "presence scan DISARMED")
+    }
+
+    /**
+     * The controller reported an error through the presence PendingIntent: the offloaded scan is gone.
+     * Clear [presenceArmed] (otherwise [armPresenceScan] would no-op forever) and stop the dead
+     * registration so keep-alive can re-arm cleanly. (From PR #25, clydebarrow.)
+     */
+    fun onPresenceScanDropped() {
+        if (!presenceArmed) return
+        disarmPresenceScan()
+        Logx.w("ble", "presence scan dropped by controller - will re-arm")
     }
 
     /** Broadcast PendingIntent the offloaded scanner fires; delivered to [BleScanReceiver]. */
@@ -593,7 +708,37 @@ class DkBleManager(base: Context) : DkTransport {
         }
         deliberate = false // a fresh connect attempt; a drop from here is unexpected → eligible for retry
         Logx.d("ble", "connectGatt ${device.address}")
-        gatt = device.connectGatt(appContext, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+        val g = device.connectGatt(appContext, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+        gatt = g
+        // Watchdog: a direct connect to an address the car no longer uses (rotated RPA) never calls
+        // back until the stack's own timeout (~30 s, longer on some vendors) - long enough that you're
+        // standing at a locked door. Abandon it sooner, drop the stale cached device, and let keep-alive
+        // re-acquire the car's current address (offloaded FIRST_MATCH or a filtered scan).
+        scope.launch {
+            delay(CONNECT_TIMEOUT_MS)
+            if (gatt === g && _state.value == State.CONNECTING) {
+                runCatching { g.disconnect(); g.close() }   // close(): no further callbacks for this client
+                gatt = null
+                onConnectFailed("connect to ${device.address} timed out after ${CONNECT_TIMEOUT_MS / 1000}s")
+            }
+        }
+    }
+
+    /**
+     * A connect never reached CONNECTED. The address is suspect (rotated RPA), so drop the cache. If the
+     * attempt came FROM the cache, re-acquire immediately with a scan (fresh address + rnd) rather than
+     * idling until the next keep-alive tick. A connect straight off a fresh scan match just fails normally
+     * (keep-alive retries) so a car that won't accept connections can't drive a scan-start storm into
+     * Android's 5-scans-per-30s throttle.
+     */
+    private fun onConnectFailed(reason: String) {
+        lastDevice = null; lastRnd = null
+        if (connectingFromCache) {
+            connectingFromCache = false
+            Logx.w("ble", "$reason (cached device) - dropping it and re-acquiring with a scan")
+            _state.value = State.IDLE   // connect() requires a resting state
+            scope.launch { connect(null) }
+        } else fail(reason)
     }
 
     /** Abort any in-flight notify-enable/handshake setup: cancel the coroutine and unblock its
@@ -664,10 +809,18 @@ class DkBleManager(base: Context) : DkTransport {
                 reasm1.reset(); reasm2.reset()
                 lastRemoteRssi = null; rssiReadPending = false
                 val wasReady = _state.value == State.SESSION_READY
+                // Never got to CONNECTED: the connect itself failed (133/147 timeout), typically because
+                // the cached address is a rotated RPA. Retrying the same device just burns another
+                // ~30 s per attempt, so drop it and let keep-alive re-acquire the current address.
+                val connectFailed = _state.value == State.CONNECTING
                 runCatching { g.close() }
                 gatt = null
                 when {
                     wasReady -> _state.value = State.IDLE   // ready-link drop: liveness/keep-alive decides
+                    connectFailed && !deliberate -> {
+                        setupRetries = 0
+                        onConnectFailed("connect failed (status=$status)")
+                    }
                     // Unexpected mid-setup drop (status 19, car/stack contention) with a known device:
                     // retry FAST via reconnectLast instead of the ~20 s offloaded presence scan.
                     !deliberate && lastDevice != null && setupRetries < MAX_SETUP_RETRIES -> {
@@ -767,6 +920,9 @@ class DkBleManager(base: Context) : DkTransport {
             // growing window so a car that won't complete the DK handshake can't cause an endless
             // connect/stall/drop/reconnect thrash. A user-initiated connect clears this (resetHandshakeBackoff).
             handshakeFailStreak++
+            // A cached reconnect whose broadcast-random went stale connects fine but stalls at 0x0101
+            // (no 0x0102). Drop the cache so the next attempt scans for the car's current advert.
+            if (connectingFromCache) { lastDevice = null; lastRnd = null; connectingFromCache = false }
             if (handshakeFailStreak >= HANDSHAKE_FAIL_THRESHOLD) {
                 val backoff = (HANDSHAKE_BACKOFF_BASE_MS shl (handshakeFailStreak - HANDSHAKE_FAIL_THRESHOLD))
                     .coerceAtMost(HANDSHAKE_BACKOFF_MAX_MS)
@@ -1006,9 +1162,12 @@ class DkBleManager(base: Context) : DkTransport {
          *  build an equal PendingIntent, so the request code + intent action are fixed). */
         private const val PRESENCE_REQUEST_CODE = 0x2ee5  // "ZEE(kr)"
         private const val SCAN_TIMEOUT_MS = 20_000L
-        /** Batch window for foreground scan results — groups adverts so the framework doesn't
-         *  log (and wake us for) every single advertisement packet. Sub-second, still snappy. */
-        private const val REPORT_DELAY_MS = 500L
+        /** Give up on a direct connectGatt that hasn't called back. An in-range, advertising car
+         *  connects in ~1-2 s; silence this long means a stale (rotated) address. */
+        private const val CONNECT_TIMEOUT_MS = 12_000L
+        /** Past this age the cached device/rnd is treated as stale (the car's RPA, and with it the
+         *  broadcast-random, has probably rotated - BLE's default is 15 min) and reconnects scan instead. */
+        private const val CACHE_MAX_AGE_MS = 10 * 60_000L
         // Fast recovery from an unexpected mid-setup drop (status 19): retry reconnectLast this many
         // times, waiting this long between (long enough for the car to release its side, short enough
         // to beat the ~20 s offloaded presence scan). Exhausted → fall back to the scan path.

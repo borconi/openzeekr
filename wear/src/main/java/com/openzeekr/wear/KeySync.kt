@@ -33,6 +33,8 @@ class KeySyncService : WearableListenerService() {
                 PhoneLink.onStatus(connected = m?.get("connected") == "1", prox = m?.get("prox") == "1")
             }
             WearKeyProtocol.PATH_PAUSED -> PhoneLink.onPaused()
+            WearKeyProtocol.PATH_SNAPSHOT -> PhoneLink.onSnapshot(String(event.data, Charsets.UTF_8))
+            WearKeyProtocol.PATH_CONTROL_ACK -> PhoneLink.onControlAck(String(event.data, Charsets.UTF_8))
         }
     }
 

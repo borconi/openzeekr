@@ -1,6 +1,7 @@
 package com.openzeekr.app.ble.rpa
 
 import com.openzeekr.app.ble.DkOpcodes
+import com.openzeekr.app.ble.DkProtocol
 import com.openzeekr.app.ble.DkSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -49,6 +50,20 @@ class RpaController(
     private var reqModeJob: Job? = null
     /** Current move direction (rspaControl), echoed as the challenge-answer gesture. */
     @Volatile private var gesture: Byte = 0
+    /** Last RPA frame either way (our 0x0113/0x0116, the car's 0x0114/0x0115/0x0117/0x0118). */
+    @Volatile private var lastRpaTrafficMs = 0L
+
+    /**
+     * True while a remote-parking session is genuinely live: an active phase AND RPA frames flowing in
+     * the last [RPA_IDLE_MS] (the car streams 0x0117 SYNC every 500 ms during a session). Proximity uses
+     * this to stand down - a liveness reconnect, a link reset or an auto lock/unlock mid-maneuver would
+     * drop or contend the link the maneuver depends on. The traffic bound means a phase left stale in the
+     * UI (screen closed mid-session) can't disable proximity forever.
+     */
+    val isBusy: Boolean get() =
+        _state.value.phase in BUSY_PHASES && System.currentTimeMillis() - lastRpaTrafficMs < RPA_IDLE_MS
+
+    private fun markTraffic() { lastRpaTrafficMs = System.currentTimeMillis() }
 
     init {
         session.onInbound { cmd, payload -> handleInbound(cmd, payload) }
@@ -115,6 +130,7 @@ class RpaController(
                         blk.joinToString("") { "%02x".format(it) } +
                         " (phoneStatus=%02x)".format(blk[3]))
                     session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ, blk)
+                    markTraffic()
                 } // ignore NAK/0x100a — keep polling until the car sends 0x0117 SYNC
                 delay(REQ_MODE_POLL_MS)
             }
@@ -185,7 +201,7 @@ class RpaController(
                     block(RpaReq.CMD_RPA_OUT_MODE_SET, outMode = direction))
                 session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ,
                     block(RpaReq.CMD_RPA_START_PARKING_OUT))
-            }.onSuccess { _state.value = _state.value.copy(phase = Phase.PARKING_OUT) }
+            }.onSuccess { markTraffic(); _state.value = _state.value.copy(phase = Phase.PARKING_OUT) }
                 .onFailure { fail(it) }
         }
     }
@@ -204,6 +220,7 @@ class RpaController(
                 runCatching {
                     session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ,
                         block(rpaCtrl = RpaReq.CMD_NONE, rspaCtrl = rspa))
+                    markTraffic()
                 }.onFailure { fail(it); return@launch }
                 delay(RpaConst.HEARTBEAT_MS)
             }
@@ -251,12 +268,16 @@ class RpaController(
             val blk = block(ctrl)
             com.openzeekr.app.util.Logx.d("dk", "RPA cmd -> ctrl=0x%02x block=%s".format(ctrl, blk.joinToString("") { "%02x".format(it) }))
             runCatching { session.sendFrame(DkOpcodes.CMD_A2V_RPA_REQ, blk) }
-                .onSuccess { _state.value = _state.value.copy(phase = phase) }
+                .onSuccess { markTraffic(); _state.value = _state.value.copy(phase = phase) }
                 .onFailure { fail(it) }
         }
     }
 
     private fun handleInbound(cmd: Int, payload: ByteArray) {
+        when (cmd) {
+            DkOpcodes.CMD_V2A_RPA_STATUS, DkOpcodes.CMD_V2A_RPA_CHALLENGE,
+            DkOpcodes.CMD_V2A_RPA_SYNC, DkProtocol.CMD_V2A_RPA_SYNC2 -> markTraffic()
+        }
         when (cmd) {
             DkOpcodes.CMD_V2A_RPA_SYNC -> {
                 // The car has opened the RPA session — stop polling REQ_MODE and go READY.
@@ -297,7 +318,12 @@ class RpaController(
                     }
                 }
             }
-            else -> {
+            // ONLY the car's RPA telemetry carries an RPA status byte. This handler is the session's sole
+            // inbound sink, so it also sees 0x0121 status, 0x0152, 0x0159 and the ~2-5 s 0x0182 keepalive
+            // (passed through as raw ciphertext). A bare `else` read their first byte as a status: about
+            // 3/256 per 0x0182 matched COMPLETED/OUT_OF_DISTANCE/SUSPEND and stopped the hold-to-move
+            // heartbeat or flipped the UI to DONE mid-maneuver.
+            DkOpcodes.CMD_V2A_RPA_STATUS, DkProtocol.CMD_V2A_RPA_SYNC2 -> {
                 val status = payload.firstOrNull()
                 _state.value = _state.value.copy(lastStatus = status)
                 if (status == RpaConst.RPA_OUT_OF_DISTANCE || status == RpaConst.RPA_SUSPEND) stopHeartbeat()
@@ -329,5 +355,9 @@ class RpaController(
         const val REQ_MODE_POLL_MS = 1000L
         /** Give up "connecting" after this long with no 0x0117 SYNC from the car. */
         const val CONNECT_TIMEOUT_MS = 20_000L
+        /** [isBusy] lapses after this long without RPA traffic (the car's SYNC stream is 500 ms). */
+        const val RPA_IDLE_MS = 5_000L
+        val BUSY_PHASES = setOf(Phase.CONNECTING, Phase.READY, Phase.PARKING_IN, Phase.PARKING_OUT,
+            Phase.MOVING, Phase.PAUSED)
     }
 }

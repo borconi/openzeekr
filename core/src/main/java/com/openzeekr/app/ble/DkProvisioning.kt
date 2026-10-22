@@ -369,6 +369,23 @@ class DkProvisioning(
     }
 
     /**
+     * DEV probe: fetch the CCC / Apple-Wallet owner pairing password for the current VIN - the exact
+     * call stock's getCCCPairCode makes (GET .../digital-key-center/pairing-code, no params; the car
+     * is selected by the X-VIN header). Returns only the phonePassword (e.g. "04613138"). NOTE: the
+     * wallet.apple.com/setup/carkey-pairing URL and its supportedRadioTechnologies (BT,NFC vs UWB)
+     * are built by Apple from Zeekr's CCC vehicle registration, not from this call - so this proves
+     * what password the car hands out, not which radios are available. Redeem on an iPhone.
+     */
+    suspend fun fetchCccPairingCode(): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val r = api.pairingCode()
+            if (!ok(r.code)) error("pairing-code: ${r.code} ${r.msg}")
+            r.data?.phonePassword?.takeIf { it.isNotBlank() }
+                ?: error("pairing-code returned no phonePassword (code=${r.code})")
+        }
+    }
+
+    /**
      * Read the current per-key passive-entry state (approach-unlock / walk-away-lock) the car reports on
      * OUR key-list entry, so the UI switches can reflect what the car actually has set - the same values
      * stock's DK-management switches read. Returns (approachUnlock, walkAwayLock) or null if unreadable
@@ -465,9 +482,18 @@ interface DkApi {
         @Query("mobileModel") mobileModel: String,
         @Query("coefHash") coefHash: String?,   // null => omitted (stock sends no coefHash)
     ): DkResp<DemarcateData>
+
+    /** DEV/CCC probe - the exact call stock's getCCCPairCode makes: GET pairing-code with NO
+     *  params. The car is selected by the X-VIN header the signed client injects. Returns ONLY
+     *  phonePassword (e.g. "04613138"). The wallet.apple.com/setup/carkey-pairing URL and its
+     *  supportedRadioTechnologies are assembled by Apple from Zeekr's CCC vehicle registration,
+     *  NOT by this call - so the radio set is a fixed property of the car, not something we send. */
+    @GET("$DKC/pairing-code")
+    suspend fun pairingCode(): DkResp<PairCodeData>
 }
 
 @Serializable data class DkStatusData(val dkStatus: Int? = null)
+@Serializable data class PairCodeData(val phonePassword: String? = null)
 
 @Serializable data class RepushReq(val deviceId: String, val dkId: String, val signature: String)
 @Serializable data class RemoveKeyReq(val deviceId: String, val dkId: String, val signature: String)

@@ -10,6 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 
@@ -51,6 +52,10 @@ class ProximityController(
     /** Cloud lock-state probe (GET vehicle status → centralLockingStatus). true=locked, false=unlocked,
      *  null=unknown/failed. Used by the out-of-range cloud backstop so we only spend a lock when needed. */
     private val cloudIsLocked: suspend () -> Boolean? = { null },
+    /** True while a remote-parking maneuver owns the link ([com.openzeekr.app.ble.rpa.RpaController.isBusy]).
+     *  We stand down completely: a liveness reconnect / link reset would abort the maneuver, and the car
+     *  rejects central lock mid-RPA (owner, 2026-09-20), which would then trigger a reset of its own. */
+    private val rpaBusy: () -> Boolean = { false },
 ) {
     enum class Zone { UNKNOWN, FAR, NEAR }
     enum class Phase { PASSIVE, CONNECTING, MONITORING }
@@ -83,10 +88,12 @@ class ProximityController(
     // Cadence-transition logging + connected-RSSI liveness bookkeeping.
     private var lastCadence = ""
     private var rssiNullStreak = 0
-    // App-layer ping bookkeeping (approach state only).
-    @Volatile private var pingInFlight = false
-    private var pingFailStreak = 0
-    private var lastPingMs = 0L
+    // Session-verification probe in flight (see [ensureVerified]).
+    @Volatile private var verifyInFlight = false
+    // STILL-idle bookkeeping (see the monitor loop): idling now, and whether a link was up since start, so
+    // a drop that happens while still gets exactly one onSessionDown pass (arms the walk-away lock).
+    private var stillIdling = false
+    private var sessionWasUp = false
 
     // Hysteresis latch: true once the car has CONFIRMED our auto-unlock (next auto action is a lock).
     private var armedUnlocked = false
@@ -131,9 +138,6 @@ class ProximityController(
     // NEAR easing: hold-still reference (NEAR_STILL_BAND_M) + since-when, to step 200 → 500 → 1000 ms.
     private var nearRefDist: Double? = null
     private var nearStillSinceMs = 0L
-    // FAR approach wakelock backstop: give up (sleep) if we don't get within ~5× the walk-time estimate.
-    private var farApproachDeadline = 0L
-    private var farApproachRefDist = Double.MAX_VALUE
 
     // ---------------- lifecycle ----------------
 
@@ -141,7 +145,7 @@ class ProximityController(
         if (_state.value.running) return
         gattEma = null; nextIntervalMs = MONITOR_MID_MS
         inCarSinceMs = 0L; steadyRef = null; steadySinceMs = 0L; lastCadence = ""
-        rssiNullStreak = 0; pingInFlight = false; pingFailStreak = 0; lastPingMs = 0L
+        rssiNullStreak = 0; verifyInFlight = false
         linkLostAtMs = 0L; walkAwayArmed = false; lostReceding = false; lostRssi = null; cloudNetFired = false
         // Keep armedUnlocked as-is across start/stop toggles within a session isn't meaningful;
         // reset so a fresh monitor starts from a known state.
@@ -149,7 +153,7 @@ class ProximityController(
         needToUnlock = false; unlockJob?.cancel(); unlockJob = null
         arrivalActed = false
         farAsleep = false; nearRefDist = null; nearStillSinceMs = 0L
-        farApproachDeadline = 0L; farApproachRefDist = Double.MAX_VALUE
+        stillIdling = false; sessionWasUp = false
         _wakeLockNeeded.value = true   // hold until the first sample decides (bring-up needs the CPU)
         _state.value = State(running = true, phase = Phase.PASSIVE, zone = Zone.UNKNOWN)
         ble.onInboundActivity = { activityWake?.complete(Unit) } // wake the unlocked idle-wait instantly
@@ -157,8 +161,38 @@ class ProximityController(
         motion.start()
         Logx.d("prox", "monitor start (distance+trend hysteresis; rides keep-alive session)")
         monitorJob = scope.launch {
+            var standingDown = false
             while (isActive) {
                 farAsleep = false   // onSample sets it true only for FAR + still; cleared each tick
+                if (rpaBusy()) {
+                    // Remote parking owns the link: no RSSI polls, verify pings, reconnects or auto
+                    // lock/unlock until it's done. Keep the CPU up (the maneuver's 500 ms heartbeat needs it).
+                    if (!standingDown) { standingDown = true; Logx.d("prox", "remote parking active - proximity standing down") }
+                    _wakeLockNeeded.value = true
+                    delay(MONITOR_MID_MS)
+                    continue
+                }
+                if (standingDown) {
+                    // Resume from a clean slate: the RSSI history spans the maneuver (the car moved), so a
+                    // stale trend/zone must not fire a lock or unlock on the first sample back.
+                    standingDown = false; gattEma = null; rssiNullStreak = 0
+                    Logx.d("prox", "remote parking finished - proximity resuming")
+                }
+                // STILL = do nothing: no RSSI polling, no liveness pings, no reconnects, no wakelock -
+                // whether NEAR, FAR, armed or not. You can't arrive at or walk away from the car without
+                // walking, so nothing is lost; the next step wakes us (wake-up step detector). Exceptions,
+                // so the car is never left open: a lock/unlock already in flight, a pending walk-away lock,
+                // and a link that JUST dropped (one pass of onSessionDown arms the walk-away/cloud lock).
+                val linkUp = ble.state.value == DkBleManager.State.SESSION_READY ||
+                    ble.state.value == DkBleManager.State.CONNECTED
+                if (linkUp) sessionWasUp = true
+                val freshDrop = !linkUp && sessionWasUp && linkLostAtMs == 0L
+                if (!freshDrop && stillIdle()) { idleUntilWalking(linkUp); continue }
+                if (stillIdling) {
+                    stillIdling = false
+                    _wakeLockNeeded.value = true   // walking again: bring-up needs the CPU; onSample re-decides
+                    Logx.d("prox", "walking - tracking resumed")
+                }
                 when (ble.state.value) {
                     DkBleManager.State.SESSION_READY, DkBleManager.State.CONNECTED -> {
                         if (linkLostAtMs != 0L) { linkLostAtMs = 0L; walkAwayArmed = false; cloudNetFired = false }
@@ -169,10 +203,10 @@ class ProximityController(
                         val rssi = ble.pollRemoteRssi()
                         if (rssi != null) { rssiNullStreak = 0; onSample(rssi) }
                         else {
-                            // Connected-RSSI reads are the reliable liveness signal (they succeed
-                            // ~every tick on a healthy link). A run of nulls on a READY session means
-                            // the link is wedged -> reconnect. (This replaces the 0x0120 app-ping: the
-                            // car doesn't answer a bare 0x0120, so that probe only ever false-failed.)
+                            // A run of null RSSI reads on a READY session means the LOCAL GATT client
+                            // is wedged -> reconnect. NB a successful read proves nothing about the car:
+                            // HCI Read RSSI is answered by our own controller from the last packet, so
+                            // whether the car still honours the session is checked by [ensureVerified].
                             rssiNullStreak++
                             Logx.d("prox", "connected but RSSI read null (#$rssiNullStreak)")
                             if (ble.state.value == DkBleManager.State.SESSION_READY && rssiNullStreak >= RSSI_NULL_RECONNECT) {
@@ -187,6 +221,34 @@ class ProximityController(
                 if (farAsleep) sleepUntilMotion() else delay(nextIntervalMs)
             }
         }
+    }
+
+    /** Not walking (STILL, or UNKNOWN = no step since start) with a real motion source, and nothing
+     *  safety-relevant in flight (see the loop). */
+    private fun stillIdle(): Boolean =
+        motion.hasSource && motion.state.value != MotionMonitor.Motion.MOVING &&
+            !walkAwayArmed && lockJob?.isActive != true && unlockJob?.isActive != true
+
+    /**
+     * STILL idle: release the wakelock and block until you walk ([onMovingEdge] completes [motionWake]),
+     * or - while a link is up - until it drops, so the walk-away / cloud lock still arms without you
+     * moving. A long safety timeout just re-checks (no wakelock is taken for it).
+     */
+    private suspend fun idleUntilWalking(linkUp: Boolean) {
+        if (!stillIdling) {
+            stillIdling = true
+            Logx.d("prox", "still - idle (no polling, pings or wakelock) until you walk" +
+                if (linkUp) " or the link drops" else "")
+        }
+        _wakeLockNeeded.value = false
+        val wake = CompletableDeferred<Unit>()
+        motionWake = wake
+        val linkWatch = if (linkUp) scope.launch {
+            ble.state.first { it != DkBleManager.State.SESSION_READY && it != DkBleManager.State.CONNECTED }
+            wake.complete(Unit)
+        } else null
+        try { withTimeoutOrNull(STILL_IDLE_SAFETY_MS) { wake.await() } }
+        finally { motionWake = null; linkWatch?.cancel() }
     }
 
     /**
@@ -213,7 +275,7 @@ class ProximityController(
         motion.stop()
         gattEma = null; linkLostAtMs = 0L; walkAwayArmed = false; cloudNetFired = false
         inCarSinceMs = 0L; steadyRef = null; steadySinceMs = 0L; lastCadence = ""
-        rssiNullStreak = 0; pingInFlight = false; pingFailStreak = 0; lastPingMs = 0L
+        rssiNullStreak = 0; verifyInFlight = false
         farAsleep = false; nearRefDist = null; _wakeLockNeeded.value = false
         _state.value = _state.value.copy(running = false, phase = Phase.PASSIVE, zone = Zone.UNKNOWN)
     }
@@ -246,7 +308,7 @@ class ProximityController(
             }
             gattEma = null
             inCarSinceMs = 0L; steadyRef = null; steadySinceMs = 0L; lastCadence = ""
-        rssiNullStreak = 0; pingInFlight = false; pingFailStreak = 0; lastPingMs = 0L
+        rssiNullStreak = 0; verifyInFlight = false
             _state.value = _state.value.copy(
                 phase = Phase.PASSIVE, source = Source.NONE, zone = Zone.UNKNOWN,
                 rawRssi = null, smoothedRssi = null, distanceM = null,
@@ -262,8 +324,12 @@ class ProximityController(
         // while a walk-away lock is pending OR while you're MOVING — a drop while walking up needs the CPU
         // held so keepConnected's aggressive foreground reconnect can run before you reach the car.
         // Otherwise let go — the offloaded presence scan owns the wakelock from here (parked-still).
+        // The moving hold only applies inside the presence window (car's advert seen, no MATCH_LOST since):
+        // after MATCH_LOST nothing is going to reconnect, so holding the CPU for it is pure drain.
         farAsleep = false
-        _wakeLockNeeded.value = walkAwayArmed || motion.state.value == MotionMonitor.Motion.MOVING
+        val inPresenceWindow = !store.current().presenceOffloadEnabled || ble.carInRange
+        _wakeLockNeeded.value = walkAwayArmed ||
+            (motion.state.value == MotionMonitor.Motion.MOVING && inPresenceWindow)
         nextIntervalMs = MONITOR_MID_MS
     }
 
@@ -342,18 +408,17 @@ class ProximityController(
         val steady = now - steadySinceMs >= STEADY_HOLD_MS
 
         val near = dist < NEAR_DIST_M
-        // Two-state cadence + wakelock machine (the design the user specified):
+        // Two-state cadence + wakelock machine. We only get here while WALKING (or with no motion sensor):
+        // STILL is handled by the loop's idleUntilWalking - no polling, no wakelock, whatever the zone.
         //   NEAR (< 6 m, engaged): wakelock HELD. Poll eases 200 → 500 → 1000 ms the longer you hold
-        //     still (still = distance within NEAR_STILL_BAND_M); any real move resets it to 200 ms.
-        //   FAR (≥ 6 m): with a motion sensor we RELEASE the wakelock and sleep until the sensor reports
-        //     movement (the loop's sleepUntilMotion); while it says MOVING we poll at dist / walking-speed
-        //     and hold the wakelock for at most ~5× the walk-time (withinApproachBackstop) — stop on the
-        //     way and the sensor goes STILL, so we drop the wakelock and sleep again. With NO sensor we
-        //     can't sleep safely, so we fall back to blind walk-time polling with the wakelock held.
+        //     the same distance (within NEAR_STILL_BAND_M); any real move resets it to 200 ms.
+        //   FAR (≥ 6 m) + walking: wakelock HELD for the whole walk, polling at dist / walking-speed
+        //     (capped) - walking with the car in range is exactly when an unlock or a walk-away lock is
+        //     about to be needed. With NO sensor we can't tell walking from still, so we fall back to
+        //     blind walk-time polling with the wakelock held (degraded path).
         if (near) {
             _wakeLockNeeded.value = true
             farAsleep = false
-            farApproachDeadline = 0L; farApproachRefDist = Double.MAX_VALUE
             val nref = nearRefDist
             if (nref == null || kotlin.math.abs(dist - nref) > NEAR_STILL_BAND_M) { nearRefDist = dist; nearStillSinceMs = now }
             val stillFor = now - nearStillSinceMs
@@ -371,25 +436,21 @@ class ProximityController(
                     _wakeLockNeeded.value = true; farAsleep = false
                     nextIntervalMs = if (steady) MONITOR_STILL_NOSENSOR_MS else blindInterval(dist)
                 }
-                motion.state.value == MotionMonitor.Motion.MOVING && withinApproachBackstop(now, dist) -> {
-                    // Sensor says you're walking (still within the walk-time backstop): approach. Poll at
-                    // dist / walking-speed but CAPPED at MONITOR_APPROACH_MAX_MS — the raw formula (e.g.
-                    // ~18 s at 25 m) is way too coarse to track the RSSI rising through NEAR or to notice
-                    // the marginal link dropping at range (both cost a missed unlock).
+                motion.state.value == MotionMonitor.Motion.MOVING -> {
+                    // Walking with the car in range: approach / walk-away. Poll at dist / walking-speed but
+                    // CAPPED at MONITOR_APPROACH_MAX_MS — the raw formula (e.g. ~18 s at 25 m) is way too
+                    // coarse to track the RSSI rising through NEAR or to notice the marginal link dropping
+                    // at range (both cost a missed unlock).
                     _wakeLockNeeded.value = true; farAsleep = false
                     nextIntervalMs = (dist / WALK_SPEED_MPS * 1000.0).toLong()
                         .coerceIn(MONITOR_BLIND_MIN_MS, MONITOR_APPROACH_MAX_MS)
                 }
                 else -> {
-                    // Sensor says still (or the backstop expired): drop the wakelock and sleep until it fires.
+                    // Sensor not yet reporting (UNKNOWN): drop the wakelock and sleep until it fires.
                     _wakeLockNeeded.value = false; farAsleep = true
-                    farApproachDeadline = 0L; farApproachRefDist = Double.MAX_VALUE
                 }
             }
         }
-        // Liveness ping only while actively closing in on foot (fast NEAR cadence).
-        val approachState = near && nextIntervalMs == MONITOR_FAST_MS
-
         val cadence = when {
             near     -> "near-${nextIntervalMs}ms"
             farAsleep -> "far-sleep"
@@ -399,15 +460,6 @@ class ProximityController(
             lastCadence = cadence
             Logx.d("prox", "cadence -> $cadence (~${"%.1f".format(dist)}m rssi=$smoothed motion=${motion.state.value} wl=${_wakeLockNeeded.value})")
         }
-
-        // Approach-only liveness ping (0x0110): keep the control path verified while you close in, so
-        // the imminent unlock is instant. Never in the in-car/still/far states — and ONLY once the DK
-        // session is fully up: pinging during the connect/handshake window just "fails" (not
-        // established) and would force-reconnect in a loop, never letting the handshake finish.
-        // ...but NOT while the confirmed-unlock loop is running — it already exercises the control
-        // path directly (and both hammering 0x0110 + both triggering reconnects would collide).
-        if (approachState && !needToUnlock && ble.state.value == DkBleManager.State.SESSION_READY) maybePing()
-        else pingFailStreak = 0
 
         Logx.d("prox", "rssi=$rssi ema=$smoothed ~${"%.1f".format(dist)}m " +
             "trend=${"%+.1f".format(trend)} zone=$zone armed=$armedUnlocked " +
@@ -433,6 +485,12 @@ class ProximityController(
             startUnlockLoop()
             return
         }
+        // Verify the session BEFORE it's needed: whenever an unlock may be coming (NEAR, or walking with
+        // the link up), make sure the car has proved it still honours this session within the last
+        // VERIFY_FRESH_MS. A stale session is then found and refreshed while you're still walking up,
+        // instead of costing NO_RESPONSE + reconnect + handshake at the door. Placed AFTER the unlock
+        // decision so a probe never queues ahead of the unlock frame on the sample that fires it.
+        if (!armedUnlocked && (near || motion.state.value == MotionMonitor.Motion.MOVING)) ensureVerified(lastCadence)
         // Re-arm the arrival latch once we're clearly FAR, so a walk-away then walk-back unlocks again.
         if (smoothed <= lockThresh) arrivalActed = false
         // WALK-AWAY cancels a pending unlock loop — only once we cross to FAR (≤ lockThresh). The NEAR/FAR
@@ -596,6 +654,7 @@ class ProximityController(
 
     /** Tear the link down and re-establish it (reuse the KNOWN device, no rescan), for the unlock loop. */
     private suspend fun resetLink() {
+        if (rpaBusy()) { Logx.d("prox", "link reset skipped - remote parking active"); return }
         Logx.d("prox", "unlock: resetting the BLE link")
         runCatching { ble.disconnect() }
         awaitState(setOf(DkBleManager.State.IDLE, DkBleManager.State.ERROR), RESET_SETTLE_MS)
@@ -613,20 +672,33 @@ class ProximityController(
         return ble.state.value in targets
     }
 
-    /** Approach-only liveness ping: send a non-actuating 0x0110 (the car always acks with 0x0111 and
-     *  rejects the RPA byte) at most once per PING_INTERVAL_MS. ANY reply clears the streak;
-     *  PING_FAIL_STREAK silent pings in a row means the control path is wedged → reconnect. */
-    private fun maybePing() {
-        val now = System.currentTimeMillis()
-        if (pingInFlight || now - lastPingMs < PING_INTERVAL_MS) return
-        lastPingMs = now; pingInFlight = true
+    /**
+     * Make sure the car has PROVED within [VERIFY_FRESH_MS] that it still honours this session (handshake,
+     * a confirmed control, or an authenticated ping - see [DkSession.lastVerifiedMs]); otherwise probe it.
+     * Two misses in a row (one lost notification isn't a dead session) -> refresh the session now. Only on
+     * a READY session (a probe during the handshake just "fails" and would loop reconnects), and never while
+     * an unlock/lock is in flight (they exercise the same path and would collide with our reconnect).
+     */
+    private fun ensureVerified(reason: String) {
+        if (verifyInFlight || needToUnlock || actionInFlight || reconnecting || lockJob?.isActive == true || rpaBusy()) return
+        if (ble.state.value != DkBleManager.State.SESSION_READY) return
+        val since = System.currentTimeMillis() - ble.session.lastVerifiedMs
+        if (since < VERIFY_FRESH_MS) return
+        verifyInFlight = true
         scope.launch {
-            val ok = runCatching { ble.session.ping(PING_TIMEOUT_MS) }.getOrDefault(false)
-            pingInFlight = false
-            if (ok) { pingFailStreak = 0; return@launch }
-            pingFailStreak++
-            Logx.w("prox", "liveness ping failed (streak=$pingFailStreak/$PING_FAIL_STREAK)")
-            if (pingFailStreak >= PING_FAIL_STREAK) { pingFailStreak = 0; forceReconnect() }
+            try {
+                var ok = false
+                for (attempt in 1..VERIFY_ATTEMPTS) {
+                    if (ble.state.value != DkBleManager.State.SESSION_READY || needToUnlock) return@launch
+                    ok = runCatching { ble.session.ping(VERIFY_TIMEOUT_MS) }.getOrDefault(false)
+                    if (ok) break
+                }
+                if (!ok && ble.state.value == DkBleManager.State.SESSION_READY && !needToUnlock) {
+                    Logx.w("prox", "liveness: session failed verification ($reason, unverified ${since / 1000}s) " +
+                        "- refreshing before you reach the car")
+                    forceReconnect()
+                }
+            } finally { verifyInFlight = false }
         }
     }
 
@@ -636,7 +708,7 @@ class ProximityController(
      *  an unlock's own reset retry, and guarded so only one reconnect runs at a time. */
     @Volatile private var reconnecting = false
     private fun forceReconnect() {
-        if (actionInFlight || reconnecting) return
+        if (actionInFlight || reconnecting || rpaBusy()) return
         reconnecting = true
         Logx.w("prox", "forcing reconnect to the known car (no rescan)")
         scope.launch {
@@ -656,19 +728,6 @@ class ProximityController(
      *  when nearly on top of the car nor doze past a BLE-range walk. */
     private fun blindInterval(dist: Double): Long =
         (dist / WALK_SPEED_MPS * 1000.0).toLong().coerceIn(MONITOR_BLIND_MIN_MS, MONITOR_STILL_NOSENSOR_MS)
-
-    /** True while a FAR approach may keep the wakelock: we hold it for at most ~5× the walk-time estimate
-     *  from the closest distance seen. Making inward progress (dist drops past the still band) re-arms the
-     *  deadline from the new distance, so a genuine long walk isn't cut off; a stall beyond the window
-     *  returns false → the caller treats it as still and sleeps. */
-    private fun withinApproachBackstop(now: Long, dist: Double): Boolean {
-        if (farApproachDeadline == 0L || dist < farApproachRefDist - NEAR_STILL_BAND_M) {
-            farApproachRefDist = dist
-            farApproachDeadline = now + (5.0 * dist / WALK_SPEED_MPS * 1000.0).toLong()
-                .coerceIn(APPROACH_BACKSTOP_MIN_MS, APPROACH_BACKSTOP_MAX_MS)
-        }
-        return now < farApproachDeadline
-    }
 
     // ---------------- action gate ----------------
 
@@ -704,9 +763,8 @@ class ProximityController(
         private const val MONITOR_BLIND_MIN_MS = 2_000L  // clamp floor: don't hammer when almost at the car
         private const val MONITOR_APPROACH_MAX_MS = 3_000L // ceiling WHILE MOVING: track the walk + catch drops
         private const val MONITOR_STILL_NOSENSOR_MS = 30_000L // clamp ceiling / no-sensor idle
-        private const val APPROACH_BACKSTOP_MIN_MS = 30_000L  // temp-wakelock min lifetime for an approach
-        private const val APPROACH_BACKSTOP_MAX_MS = 300_000L // …and max, so a stall can't leak it
         private const val FAR_SLEEP_SAFETY_MS = 60_000L  // loose re-check if the sensor never fires
+        private const val STILL_IDLE_SAFETY_MS = 10 * 60_000L // STILL idle: re-check this rarely (no wakelock)
         // RSSI-steadiness fallback — only used on devices with NO motion sensor at all (can't sleep, so we
         // poll; steady RSSI just dials the no-sensor cadence back to the 30 s ceiling).
         private const val STEADY_BAND_DB = 4
@@ -714,12 +772,12 @@ class ProximityController(
         // Liveness: consecutive null connected-RSSI reads on a READY session before we force a
         // reconnect. At the 200 ms approach cadence that's ~1 s of a wedged link.
         private const val RSSI_NULL_RECONNECT = 5
-        // App-layer liveness ping (0x0110/0x0A) — ONLY while actively approaching (state 3), never
-        // while parked/idle. The car always acks 0x0110 with 0x0111 and rejects the RPA byte, so it
-        // never actuates. PING_FAIL_STREAK silent pings in a row = control path wedged → reconnect.
-        private const val PING_INTERVAL_MS = 1_000L
-        private const val PING_TIMEOUT_MS = 700L
-        private const val PING_FAIL_STREAK = 2
+        // Session verification (ensureVerified): while an unlock may be coming, the car must have proved
+        // it holds the session within VERIFY_FRESH_MS; else ping (0x0110/0x0A, authenticated 0x0111),
+        // up to VERIFY_ATTEMPTS times, then refresh. Fresh window keeps it to ~1 probe per 15 s.
+        private const val VERIFY_FRESH_MS = 15_000L
+        private const val VERIFY_TIMEOUT_MS = 1_000L
+        private const val VERIFY_ATTEMPTS = 2
         private const val JUMP_DB = 4
         private const val TREND_DEADBAND = 0.6      // dB of smoothed change to count as moving
         private const val ALPHA_FAST = 0.6

@@ -70,6 +70,7 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val store = deps.config
     val liveCfg by store.config.collectAsState()
     var cfg by remember { mutableStateOf(store.current()) }
@@ -228,6 +229,29 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
                 }
             }, modifier = Modifier.fillMaxWidth()) {
                 Text("Ping vehicle (debug)")
+            }
+            // CCC / Apple-Wallet pairing probe: fetch the owner pairing password for this VIN (the
+            // exact getCCCPairCode call the stock app makes) and build the wallet.apple.com link.
+            // The radio set (BT,NFC vs UWB) is Apple's, decided from Zeekr's CCC vehicle registration
+            // - NOT from this call - so BT,NFC is this car's registered ceiling and the UWB variant is
+            // only a probe. The BT,NFC URL is copied to the clipboard; redeem it on an iPhone.
+            OutlinedButton(onClick = {
+                status = "Fetching CCC pairing code…"
+                scope.launch {
+                    deps.provisioning.fetchCccPairingCode()
+                        .onSuccess { pw ->
+                            val btnfc = "http://wallet.apple.com/setup/carkey-pairing?brand=ZKR1&supportedRadioTechnologies=BT,NFC#$pw"
+                            val uwb = "http://wallet.apple.com/setup/carkey-pairing?brand=ZKR1&supportedRadioTechnologies=BT,NFC,UWB#$pw"
+                            runCatching { clipboard.setText(AnnotatedString(btnfc)) }
+                            Logx.d("ccc", "pairing phonePassword=$pw")
+                            Logx.d("ccc", "wallet URL (BT,NFC registered): $btnfc")
+                            Logx.d("ccc", "wallet URL (UWB probe): $uwb")
+                            status = "CCC pairing code: $pw\n(BT,NFC wallet URL copied - open on an iPhone)\n\nBT,NFC: $btnfc\n\nUWB probe: $uwb"
+                        }
+                        .onFailure { status = "CCC pairing code failed: ${it.message}" }
+                }
+            }, modifier = Modifier.fillMaxWidth()) {
+                Text("CCC pairing code (Apple Wallet)")
             }
         }
 
@@ -527,6 +551,9 @@ private fun Field(label: String, value: String, secret: Boolean = false, support
     )
 }
 
+/** Largest encrypted log the Copy button will put on the clipboard (well under the ~1 MB binder limit). */
+private const val CLIPBOARD_MAX_CHARS = 200_000
+
 /** Live on-device log (Logx ring buffer). */
 @Composable
 private fun LogViewer() {
@@ -552,7 +579,11 @@ private fun LogViewer() {
                 // Clipboard copy kept as a fallback for short logs; warns that long logs truncate.
                 OutlinedButton(onClick = {
                     val blob = com.openzeekr.app.util.LogCrypto.encryptToBase64(Logx.dump())
-                    if (blob != null) {
+                    if (blob != null && blob.length > CLIPBOARD_MAX_CHARS) {
+                        // A 5000-line log encrypts to ~1 MB: past the binder limit, so setText would
+                        // crash (TransactionTooLargeException), and no paste target keeps it intact anyway.
+                        copyMsg = "This log is too long to copy - use \"Share\" to send it as a file."
+                    } else if (blob != null) {
                         clipboard.setText(AnnotatedString(blob))
                         copyMsg = if (blob.length > 19_000)
                             "Copied, but this log is long - the clipboard/paste may cut it off and " +

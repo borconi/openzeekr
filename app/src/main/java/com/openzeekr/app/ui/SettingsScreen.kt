@@ -75,6 +75,7 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
     val liveCfg by store.config.collectAsState()
     var cfg by remember { mutableStateOf(store.current()) }
     var status by remember { mutableStateOf("") }
+    var signingIn by remember { mutableStateOf(false) }
     var showHeroLab by remember { mutableStateOf(false) }
     var confirmSignOut by remember { mutableStateOf(false) }
     // Which log category is pending a sensitive-data confirmation: "http", "ble", or null.
@@ -85,6 +86,26 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
     fun set(update: (SecretsConfig) -> SecretsConfig) { cfg = update(cfg) }
     val loggedIn = liveCfg.accessToken.isNotBlank()
     val baked = SecretsConfig.SECRETS_BAKED
+
+    fun signIn() {
+        if (signingIn || cfg.email.isBlank() || cfg.password.isBlank()) return
+        signingIn = true; status = "Signing in…"
+        scope.launch {
+            try {
+                store.replace(cfg).fold(
+                    onSuccess = {
+                        status = when (val r = deps.auth.login()) {
+                            is CallResult.Ok -> { cfg = store.current(); "Signed in ✓" }
+                            is CallResult.Err -> "Sign-in failed: ${r.message}"
+                        }
+                    },
+                    onFailure = { status = "Save failed: ${it.message}" }
+                )
+            } finally {
+                signingIn = false
+            }
+        }
+    }
 
     if (showHeroLab) { HeroLabScreen(modifier, onBack = { showHeroLab = false }); return }
 
@@ -123,22 +144,14 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             }
 
             if (!loggedIn) {
-                Field("Email", cfg.email) { v -> set { it.copy(email = v) } }
-                Field("Password", cfg.password, secret = true) { v -> set { it.copy(password = v) } }
-                PrimaryButton("Sign in", Modifier.fillMaxWidth()) {
-                    scope.launch {
-                        status = "Signing in…"
-                        store.replace(cfg).fold(
-                            onSuccess = {
-                                status = when (val r = deps.auth.login()) {
-                                    is CallResult.Ok -> { cfg = store.current(); "Signed in ✓" }
-                                    is CallResult.Err -> "Sign-in failed: ${r.message}"
-                                }
-                            },
-                            onFailure = { status = "Save failed: ${it.message}" }
-                        )
-                    }
-                }
+                LoginField(cfg.email, { v -> set { it.copy(email = v) } }, LoginFieldKind.Email, Modifier.fillMaxWidth())
+                LoginField(cfg.password, { v -> set { it.copy(password = v) } }, LoginFieldKind.Password,
+                    Modifier.fillMaxWidth(), onDone = ::signIn)
+                PrimaryButton(
+                    if (signingIn) "Signing in…" else "Sign in", Modifier.fillMaxWidth(),
+                    enabled = !signingIn && cfg.email.isNotBlank() && cfg.password.isNotBlank(),
+                    onClick = ::signIn,
+                )
             } else {
                 // Check for cars other owners have shared with us and raise the accept dialog. Also a
                 // manual fallback if the auto-check missed one (e.g. invite arrived mid-session).

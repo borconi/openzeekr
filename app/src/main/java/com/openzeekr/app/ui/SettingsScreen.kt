@@ -123,8 +123,8 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             }
 
             if (!loggedIn) {
-                Field("Email", cfg.email) { v -> set { it.copy(email = v) } }
-                Field("Password", cfg.password, secret = true) { v -> set { it.copy(password = v) } }
+                LoginField(cfg.email, { v -> set { it.copy(email = v) } })
+                LoginField(cfg.password, { v -> set { it.copy(password = v) } }, isPassword = true)
                 PrimaryButton("Sign in", Modifier.fillMaxWidth()) {
                     scope.launch {
                         status = "Signing in…"

@@ -1,6 +1,6 @@
 package com.openzeekr.app.ui
 
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -22,9 +22,12 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalAutofill
 import androidx.compose.ui.platform.LocalAutofillTree
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+
+internal enum class LoginFieldKind { Email, Password }
 
 /** Compose 1.7 requires explicit autofill nodes for account credentials. */
 @OptIn(ExperimentalComposeUiApi::class)
@@ -32,12 +35,15 @@ import androidx.compose.ui.text.input.VisualTransformation
 internal fun LoginField(
     value: String,
     onValueChange: (String) -> Unit,
-    isPassword: Boolean = false,
+    kind: LoginFieldKind,
+    modifier: Modifier = Modifier,
+    onDone: () -> Unit = {},
 ) {
+    val isPassword = kind == LoginFieldKind.Password
     val autofill = LocalAutofill.current
     val autofillTree = LocalAutofillTree.current
     val onFill by rememberUpdatedState(onValueChange)
-    val node = remember(isPassword) {
+    val node = remember(kind) {
         AutofillNode(
             autofillTypes = if (isPassword) listOf(AutofillType.Password)
                 else listOf(AutofillType.Username, AutofillType.EmailAddress),
@@ -60,8 +66,12 @@ internal fun LoginField(
         label = { Text(if (isPassword) "Password" else "Email") },
         singleLine = true,
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Email),
-        modifier = Modifier.fillMaxWidth()
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Email,
+            imeAction = if (isPassword) ImeAction.Done else ImeAction.Next,
+        ),
+        keyboardActions = KeyboardActions(onDone = { onDone(); defaultKeyboardAction(ImeAction.Done) }),
+        modifier = modifier
             .onGloballyPositioned {
                 val firstPlacement = node.boundingBox == null
                 node.boundingBox = it.boundsInWindow().translate(it.positionOnScreen() - it.positionInWindow())

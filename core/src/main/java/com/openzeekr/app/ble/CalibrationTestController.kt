@@ -86,7 +86,7 @@ class CalibrationTestController(
      *  4 charger      = "inside the cabin" reference (don't-lock / allow-drive threshold).
      */
     val stepPrompts: List<String> = listOf(
-        "1/4  Phone flat on the DRIVER's DOOR HANDLE. Then tap Continue.",
+        "1/4  Hold your phone right next to the DRIVER'S DOOR HANDLE. Tap Continue, then keep it still while measuring.",
         "2/4  Outside, ~6 m out on the DRIVER'S SIDE of the car (left for LHD, right for RHD). Then tap Continue.",
         "3/4  Outside, ~6 m behind the REAR of the car. Then tap Continue.",
         "4/4  Inside the car, phone on the WIRELESS CHARGING pad. Then tap Continue.",

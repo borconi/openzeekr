@@ -260,10 +260,15 @@ class ProximityService : Service() {
         }.collect { (m, offload) ->
             when {
                 !offload -> { stopWalk(); want(null) }
-                !deps.motion.hasSource -> {
+                // A motion source that merely EXISTS isn't enough: non-wake-up motion/step detectors
+                // (Galaxy Z Fold8, Pixel 10a - issue #21) never fire with the screen off, so the
+                // walk-gated scan would never re-arm in Doze. Treat "no WAKE-UP source" like "no
+                // source": keep the offloaded presence scan always on (controller-level, wakes on
+                // FIRST_MATCH regardless of motion/screen).
+                !deps.motion.hasWakeUpSource -> {
                     stopWalk()
                     if (wantedPresenceMode != DkBleManager.PresenceMode.BACKGROUND) {
-                        Logx.d("svc", "walk: no motion source — always-on background presence scan")
+                        Logx.d("svc", "walk: no WAKE-UP motion source (screen-off motion can't re-arm) — always-on background presence scan")
                         want(DkBleManager.PresenceMode.BACKGROUND)
                     }
                 }

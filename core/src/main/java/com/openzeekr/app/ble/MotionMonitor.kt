@@ -74,6 +74,19 @@ class MotionMonitor(context: Context) {
         private set
     val hasSource: Boolean get() = source != Source.NONE
 
+    /**
+     * True only if a motion source can wake the AP **while the screen is off / in Doze** - i.e. a
+     * WAKE-UP sensor. Some phones (confirmed: Galaxy Z Fold8, Pixel 10a - issue #21) expose the
+     * motion/step detectors as NON-wake-up: they exist (so [hasSource] is true) but never fire with
+     * the screen off, so they can't re-arm the walk-gated presence scan and approach-unlock dies
+     * until you wake the screen. When this is false, the caller must keep an always-on offloaded
+     * presence scan instead of gating it on "walking".
+     */
+    val hasWakeUpSource: Boolean get() =
+        motionDetect?.isWakeUpSensor == true ||
+            stationaryDetect?.isWakeUpSensor == true ||
+            stepDetector?.isWakeUpSensor == true
+
     /** Invoked once on each STILL→MOVING edge (any source). Lets the caller cancel a long idle sleep. */
     @Volatile var onMovingEdge: (() -> Unit)? = null
 

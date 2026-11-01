@@ -68,6 +68,16 @@ class ForceUnlockActivity : ComponentActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val timeout = Runnable { Logx.d("forceunlock", "window elapsed - revealing lock screen"); finishAndClear() }
+    // Face unlock (and other biometrics) can dismiss the keyguard WITHOUT a reliable ACTION_USER_PRESENT
+    // while our activity is shown over it, so poll the lock state and finish the instant it unlocks - the
+    // activity must not linger on an unlocked phone / block what's behind.
+    private val lockPoll = object : Runnable {
+        override fun run() {
+            if (fired) return
+            if (!isStillLocked()) { Logx.d("forceunlock", "device unlocked (face/biometric) - closing"); finishAndClear(); return }
+            handler.postDelayed(this, LOCK_POLL_MS)
+        }
+    }
 
     /** Close the moment the phone is unlocked or the screen goes off (the three-intent model). */
     private val stopReceiver = object : BroadcastReceiver() {
@@ -110,6 +120,7 @@ class ForceUnlockActivity : ComponentActivity() {
 
         setContent { Ui(status.value, onUnlockPhone = ::unlockPhone) }
         handler.postDelayed(timeout, LISTEN_WINDOW_MS)
+        handler.postDelayed(lockPoll, LOCK_POLL_MS)   // finish the instant face/biometric unlock succeeds
         Logx.d("forceunlock", "listening ${LISTEN_WINDOW_MS / 1000}s for a double-volume gesture")
     }
 
@@ -254,6 +265,8 @@ class ForceUnlockActivity : ComponentActivity() {
         const val LISTEN_WINDOW_MS = ForceUnlockManager.LISTEN_WINDOW_MS
         /** Two presses of the same volume key within this = a double-tap. */
         private const val DOUBLE_TAP_MS = 500L
+        /** How often to re-check the lock state so face/biometric unlock closes us promptly. */
+        private const val LOCK_POLL_MS = 300L
         /** Keep the "Unlocking/Locking" feedback up briefly before revealing the lock screen. */
         private const val FEEDBACK_MS = 1_200L
         /** Belt-and-braces CPU wakelock around the connect + actuate. */

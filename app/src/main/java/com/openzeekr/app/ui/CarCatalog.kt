@@ -66,6 +66,8 @@ object CarCatalog {
             PaintColor("Onyx Black", c(0x111111), "Metallic"),
             PaintColor("Tech Grey", c(0x868686), "Metallic"),
             PaintColor("Brookblue", c(0x677FA3), "Two-tone"),
+            // AU 7X "Brook Blue/Silver Roof" - vehicle-config API returns this exact name (reported by calvinbui, PR #32)
+            PaintColor("Shadow Blue (including silver roof)", c(0x677FA3), "Two-tone"),
         ), bodyAsset = "cars/7x_body.png", detailsAsset = "cars/7x_details.png"),
         // 7GT: the six factory finishes with hexes calibrated against the studio renders (see the
         // luminance-recolour matrices), plus Mystic Lilac (the reference car). The hero generates the

@@ -655,9 +655,13 @@ data class InboxMessage(
     val imageUrl: String?,
     val timeMs: Long?,
     val read: Boolean,
+    /** Descriptive types, kept separately because category can be an opaque customTypeId. */
+    val categoryHints: List<String> = emptyList(),
 )
 
 object Inbox {
+    private val groupTypes = setOf("VEHICLE", "OTA", "AFTER_SALES", "ZEEKR")
+
     /** Tolerant parse of the (shape-varying) inbox `data` into a message list. */
     fun parse(data: JsonElement?): List<InboxMessage> =
         listNode(data).mapNotNull { (it as? JsonObject)?.let(::message) }
@@ -672,42 +676,50 @@ object Inbox {
      */
     fun parseHome(data: JsonElement?): List<InboxMessage> {
         val out = LinkedHashMap<String, InboxMessage>()
-        fun walk(node: JsonElement?) {
+        fun walk(node: JsonElement?, inheritedHints: List<String>) {
             when (node) {
-                is JsonArray -> node.forEach(::walk)
+                is JsonArray -> node.forEach { walk(it, inheritedHints) }
                 is JsonObject -> {
+                    val ownHints = categoryHints(node)
                     val hasId = node["id"] is JsonPrimitive
                     val looksLikeMsg = hasId && (node["title"] is JsonPrimitive || node["detail"] is JsonPrimitive)
                     if (looksLikeMsg) {
-                        val m = message(node)
+                        val m = message(node).copy(categoryHints = (ownHints + inheritedHints).distinct())
                         (m.id ?: "${m.title}:${m.timeMs}").let { key -> out.putIfAbsent(key, m) }
                     }
-                    node.values.forEach(::walk) // still descend (a group object also holds noticeDTO)
+                    // Subtypes describe this message only; descendants inherit known group types.
+                    val hints = (groupHints(ownHints) + inheritedHints).distinct()
+                    node.values.forEach { walk(it, hints) } // a group object also holds noticeDTO
                 }
                 else -> {}
             }
         }
-        walk(data)
+        walk(data, emptyList())
         return out.values.sortedByDescending { it.timeMs ?: 0L }
     }
 
-    /** Distinct category ids (`customTypeId`) found in the `/home` groups. The paged `/inbox` list
-     *  is filtered by one of these — one per group (VEHICLE/OTA/AFTER_SALES/ZEEKR). */
-    fun homeCategories(data: JsonElement?): List<String> {
-        val ids = LinkedHashSet<String>()
-        fun walk(n: JsonElement?) {
+    /** Category ids (`customTypeId`) and their descriptive hints from `/home`. Retain the group
+     *  context when fetching each paged `/inbox` list: individual messages may only carry an id. */
+    fun homeCategories(data: JsonElement?): Map<String, List<String>> {
+        val categories = LinkedHashMap<String, List<String>>()
+        fun walk(n: JsonElement?, inheritedHints: List<String>) {
             when (n) {
-                is JsonArray -> n.forEach(::walk)
+                is JsonArray -> n.forEach { walk(it, inheritedHints) }
                 is JsonObject -> {
+                    // Only propagate known GROUP types to the paged query. A latest-message preview
+                    // can carry a subtype (e.g. charging) that doesn't apply to the rest of its group.
+                    val hints = (groupHints(categoryHints(n)) + inheritedHints).distinct()
                     (n["customTypeId"] as? JsonPrimitive)?.contentOrNull
-                        ?.takeIf { it.isNotBlank() && it != "null" }?.let { ids += it }
-                    n.values.forEach(::walk)
+                        ?.takeIf { it.isNotBlank() && it != "null" }?.let { id ->
+                            categories.putIfAbsent(id, hints)
+                        }
+                    n.values.forEach { walk(it, hints) }
                 }
                 else -> {}
             }
         }
-        walk(data)
-        return ids.toList()
+        walk(data, emptyList())
+        return categories
     }
 
     /**
@@ -756,8 +768,17 @@ object Inbox {
             imageUrl = s("attachment", "imageUrl", "image", "iconUrl", "picUrl"),
             timeMs = ts?.let { it.toLongOrNull() ?: parseIso(it) },
             read = readFlag,
+            categoryHints = categoryHints(o),
         )
     }
+
+    private fun categoryHints(o: JsonObject): List<String> =
+        listOf("bizType", "category", "type", "groupType").mapNotNull { key ->
+            (o[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        }
+
+    private fun groupHints(hints: List<String>): List<String> =
+        hints.filter { it.uppercase(java.util.Locale.ROOT) in groupTypes }
 
     /** Find the message array wherever it lives in the response wrapper. */
     private fun listNode(data: JsonElement?): List<JsonElement> = when (data) {

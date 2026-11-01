@@ -87,8 +87,8 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-        <!-- Notification-payload pushes the SDK auto-displays in the background land on
-             CarNotifier's "car_alerts" channel. -->
+        <!-- Notification-payload pushes bypass our classifier in the background. Keep the existing
+             "car_alerts" fallback unless the server specifies one of our category channel IDs. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="car_alerts" />

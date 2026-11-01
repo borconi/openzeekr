@@ -19,14 +19,15 @@ import kotlinx.coroutines.Dispatchers
  * Payload handling (matches the stock ZeekrFirebaseMessagingService + the FCM SDK contract):
  *  - NOTIFICATION messages: the FCM SDK auto-displays them on the default channel when the app is
  *    backgrounded, and delivers them to [onMessageReceived] only when foregrounded. We re-post them
- *    ourselves on the "car_alerts" channel for consistent styling/heads-up when we do get them.
+ *    ourselves on the matching car-notification channel when we do get them.
  *  - DATA messages: always delivered to [onMessageReceived] (foreground AND background), which is
  *    what lets an alarm surface with the screen off. Stock reads only data["url"] (a
  *    `zeekr-overseas://…` deep link); we also read title/content/body so we can render the alert.
  *
  * NOTE: whether a given alarm is sent as notification-only, data-only, or both is decided
- * server-side. Only data (or notification+data) messages reach us in the background; a
- * notification-only push is shown by the SDK on its default channel and never hits this method.
+ * server-side. Only data-only messages reach us in the background; notification and mixed
+ * notification+data pushes are shown by the SDK, using our fallback channel unless the server
+ * specifies an existing channel ID. Those messages cannot be classified by this callback.
  */
 class ZeekrFcmService : FirebaseMessagingService() {
 
@@ -94,6 +95,10 @@ class ZeekrFcmService : FirebaseMessagingService() {
                 imageUrl = null,
                 timeMs = message.sentTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
                 read = false,
+                // Read named metadata fields from the query; never classify arbitrary URL text.
+                categoryHints = listOf("bizType", "category", "type", "groupType").flatMap { key ->
+                    listOfNotNull(data[key], q[key]).filter { it.isNotBlank() }
+                },
             ),
         )
     }

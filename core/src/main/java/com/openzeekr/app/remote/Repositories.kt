@@ -517,12 +517,17 @@ class InboxRepository(private val store: ConfigStore, private val client: ApiCli
                 val categories = com.openzeekr.app.net.model.Inbox.homeCategories(home)
                 if (categories.isEmpty()) return@guarded com.openzeekr.app.net.model.Inbox.parseHome(home)
                 val merged = LinkedHashMap<String, com.openzeekr.app.net.model.InboxMessage>()
-                for (cat in categories) {
+                for ((cat, hints) in categories) {
                     val list = runCatching {
                         com.openzeekr.app.net.model.Inbox.parse(
                             client.api.inbox(INBOX, pageNumber = 1, pageSize = pageSize, customTypeId = cat, vin = "").data)
                     }.getOrDefault(emptyList())
-                    for (m in list) merged.putIfAbsent(m.id ?: "${m.title}:${m.timeMs}", m)
+                    for (m in list) {
+                        merged.putIfAbsent(
+                            m.id ?: "${m.title}:${m.timeMs}",
+                            m.copy(categoryHints = (m.categoryHints + hints).distinct()),
+                        )
+                    }
                 }
                 merged.values.sortedByDescending { it.timeMs ?: 0L }
             }

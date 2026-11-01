@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.os.Bundle
 import com.openzeekr.app.net.AccountLogin
+import com.openzeekr.app.util.CarNotifier
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -19,6 +20,9 @@ class App : Application(), DepsHolder {
 
     override fun onCreate() {
         super.onCreate()
+        // Register before FCM can auto-display a background notification, and expose all categories
+        // in Android settings even before the first message arrives.
+        CarNotifier.ensureChannels(this)
         deps = Deps(this)
         registerActivityLifecycleCallbacks(ForegroundTracker())
     }

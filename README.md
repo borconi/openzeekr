@@ -151,6 +151,20 @@ They're stored in `EncryptedSharedPreferences` on-device only.
 `getNativeSecret()` values from **your own** app's `libenv.so` (Frida-hook those, EU/PROD).
 Leave them blank and everything else works; only the bell/inbox stays off.
 
+Car notifications have separate categories in **Android Settings → Apps → OpenZeekr →
+Notifications**: **Charging & battery**, **Security & parking**, **Vehicle controls**,
+**Software updates**, **Service reminders**, **News & offers**, and **Car alerts (uncategorised)**.
+The persistent **Digital key** notification remains separate. Each category can be muted or
+given its own sound. On upgrade, new categories inherit the old Car notifications channel's
+importance/mute, sound, vibration, lights and badge settings. Per-channel lock-screen and
+Do Not Disturb overrides need configuring on the new categories; this app cannot copy them.
+
+Routing uses descriptive message types where available, with English title matching as a
+fallback. Unknown messages use **Car alerts (uncategorised)**. Background pushes displayed
+directly by Firebase also use this category unless Zeekr's server supplies a matching channel ID;
+the app does not receive those messages before display and cannot sort them itself. This can
+include security alarms, so muting this category can silence background alarms too.
+
 ## Proximity unlock / walk-away lock
 
 Phone-side policy (we decide from RSSI, then issue an explicit DK command — not the

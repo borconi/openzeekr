@@ -3,4 +3,18 @@
     <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
          paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
     <string name="attribution_proximity">Digital key proximity &amp; BLE</string>
+    <string name="notification_channel_charging">Charging &amp; battery</string>
+    <string name="notification_channel_charging_description">Charging progress, charging problems and battery alerts</string>
+    <string name="notification_channel_security">Security &amp; parking</string>
+    <string name="notification_channel_security_description">Security alarms, intrusion, towing and abnormal parking alerts</string>
+    <string name="notification_channel_vehicle">Vehicle controls</string>
+    <string name="notification_channel_vehicle_description">Lock, door, window, climate and remote-control messages</string>
+    <string name="notification_channel_updates">Software updates</string>
+    <string name="notification_channel_updates_description">Vehicle software updates and installation results</string>
+    <string name="notification_channel_service">Service reminders</string>
+    <string name="notification_channel_service_description">Maintenance, service and after-sales messages</string>
+    <string name="notification_channel_news">News &amp; offers</string>
+    <string name="notification_channel_news_description">Zeekr news, events and promotional messages</string>
+    <string name="notification_channel_other">Car alerts (uncategorised)</string>
+    <string name="notification_channel_other_description">May include security alarms delivered in the background and other car alerts without a recognised category</string>
 </resources>

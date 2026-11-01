@@ -12,36 +12,50 @@ import com.openzeekr.app.net.model.InboxMessage
 import com.openzeekr.core.R
 
 /**
- * Surfaces messages from the car's message centre (charging complete, security alarms, abnormal
- * parking, service reminders, OTA, …) as Android notifications on their OWN channel — deliberately
- * separate from the ongoing, low-importance "Digital key" foreground-service channel, so a real
- * alert from the car pops a heads-up and can be filtered/silenced independently by the user.
- *
- * There is no server push (see the live-status-polling notes), so [ProximityService] polls the inbox
- * and calls [notify] for each message newer than the last one it surfaced; de-dup is by message id.
+ * Surfaces push and polled inbox messages on separate Android channels, so charging, security,
+ * controls, updates, service and news can each be silenced independently. The ongoing "Digital key"
+ * foreground-service notification has its own channel. Unknown messages and FCM notifications
+ * displayed directly by the SDK retain the original car_alerts channel as a fallback.
  */
 object CarNotifier {
-    const val CHANNEL_ID = "car_alerts"
-    private const val CHANNEL_NAME = "Car notifications"
-
     /** Intent extra carrying a message-centre deep link (push `url`, e.g. zeekr-overseas://…). */
     const val EXTRA_DEEP_LINK = "com.openzeekr.app.extra.DEEP_LINK"
 
-    fun ensureChannel(ctx: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    // Labels refresh once per process; revisit this cache if translations are added.
+    private var channelsRegistered = false
+
+    @Synchronized
+    fun ensureChannels(ctx: Context) {
+        if (channelsRegistered || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val mgr = ctx.getSystemService(NotificationManager::class.java) ?: return
-        if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
-            mgr.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "Alerts your car sends: charging, security, parking and service"
-                },
-            )
+        val legacy = mgr.getNotificationChannel(CarNotificationCategory.OTHER.channelId)
+        for (category in CarNotificationCategory.entries) {
+            val name = ctx.getString(category.nameRes)
+            val channel = mgr.getNotificationChannel(category.channelId)
+                ?: NotificationChannel(category.channelId, name, legacy?.importance ?: NotificationManager.IMPORTANCE_HIGH).apply {
+                    // Seed NEW categories from the old channel: splitting must not unmute alerts or
+                    // discard the user's chosen sound. Existing categories keep their own settings.
+                    legacy?.let {
+                        setSound(it.sound, it.audioAttributes)
+                        vibrationPattern = it.vibrationPattern
+                        enableVibration(it.shouldVibrate())
+                        enableLights(it.shouldShowLights())
+                        lightColor = it.lightColor
+                        setShowBadge(it.canShowBadge())
+                        // Android doesn't let apps copy per-channel lockscreen/DND user overrides.
+                    }
+                }
+            channel.name = name
+            channel.description = ctx.getString(category.descriptionRes)
+            mgr.createNotificationChannel(channel)
         }
+        // Only cache successful registration. Notification bursts need no more channel IPC calls.
+        channelsRegistered = true
     }
 
     /** Post one car message. No-ops (via runCatching) if POST_NOTIFICATIONS isn't granted. */
     fun notify(ctx: Context, msg: InboxMessage) {
-        ensureChannel(ctx)
+        ensureChannels(ctx)
         val title = msg.title?.takeIf { it.isNotBlank() } ?: "Zeekr"
         val text = msg.body?.takeIf { it.isNotBlank() }.orEmpty()
         val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
@@ -55,7 +69,7 @@ object CarNotifier {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         }
-        val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
+        val n = NotificationCompat.Builder(ctx, CarNotificationCategory.forMessage(msg).channelId)
             .setSmallIcon(R.drawable.ic_logo)
             .setContentTitle(title)
             .setContentText(text)

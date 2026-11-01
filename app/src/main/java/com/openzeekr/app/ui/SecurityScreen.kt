@@ -48,9 +48,17 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Button
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.openzeekr.app.Deps
@@ -188,6 +196,10 @@ private fun SentryAutoArmSection(deps: Deps) {
     var msg by remember { mutableStateOf("") }
     // A freshly-captured location waiting for the user to name it (null = no add in progress).
     var pending by remember { mutableStateOf<android.location.Location?>(null) }
+    // Map picker (add a zone ANYWHERE): showPicker opens it; pickerStart is the starting centre (best-effort
+    // current location, else a world view - the user pans to the real spot regardless).
+    var showPicker by remember { mutableStateOf(false) }
+    var pickerStart by remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
     fun captureLocation() {
         msg = "Getting your location…"
@@ -195,6 +207,19 @@ private fun SentryAutoArmSection(deps: Deps) {
             val loc = deps.sentryAutoArm.currentLocation()
             if (loc == null) msg = "Couldn't get a location fix - check location permission and that location is on."
             else { msg = ""; pending = loc }
+        }
+    }
+
+    // "Add on map": open the picker immediately (no location needed - add a zone anywhere); seed the start
+    // centre from the current location when we can, so it opens somewhere sensible.
+    fun openMapPicker() {
+        scope.launch {
+            // Inline the permission check (the hasLocationPerm() helper is declared later in this scope).
+            val granted = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val loc = if (granted) runCatching { deps.sentryAutoArm.currentLocation() }.getOrNull() else null
+            pickerStart = loc?.let { it.latitude to it.longitude }
+            showPicker = true
         }
     }
 
@@ -250,6 +275,10 @@ private fun SentryAutoArmSection(deps: Deps) {
                 Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
                 Text("  Add current location")
             }
+            OutlinedButton(onClick = { openMapPicker() }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Place, null, modifier = Modifier.size(18.dp))
+                Text("  Add on map")
+            }
             if (msg.isNotBlank()) Text(msg, color = Brand.muted, fontSize = 11.5.sp)
         }
     }
@@ -264,6 +293,60 @@ private fun SentryAutoArmSection(deps: Deps) {
                 msg = "Saved \"$name\"."
             },
         )
+    }
+
+    if (showPicker) ZonePickerDialog(
+        initial = pickerStart,
+        onDismiss = { showPicker = false },
+        onSave = { nm, la, lo, r ->
+            store.addSentryExclusionZone(GeoZone(name = nm, lat = la, lng = lo, radiusMeters = r))
+            showPicker = false
+            msg = "Saved \"$nm\"."
+        },
+    )
+}
+
+/** Full-screen map picker: pan so the pin is on the spot, pick a radius + name, and save a zone anywhere. */
+@Composable
+private fun ZonePickerDialog(
+    initial: Pair<Double, Double>?,
+    onDismiss: () -> Unit,
+    onSave: (name: String, lat: Double, lng: Double, radiusMeters: Double) -> Unit,
+) {
+    var lat by remember { mutableStateOf(initial?.first ?: 0.0) }
+    var lng by remember { mutableStateOf(initial?.second ?: 0.0) }
+    var radius by remember { mutableStateOf(150f) }
+    var name by remember { mutableStateOf("") }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(Modifier.fillMaxSize().background(Color(0xFF0B0E14))) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 12.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Add exclusion zone", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Close", tint = Brand.muted) }
+            }
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+                ZonePickerMap(initial?.first, initial?.second, radius.toDouble(), onCenterChange = { la, lo -> lat = la; lng = lo }, Modifier.matchParentSize())
+            }
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Pan the map so the pin is on the spot - the circle is the zone.", color = Brand.muted, fontSize = 12.sp)
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text("Name (e.g. Home)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                Text("Radius: ${radius.toInt()} m", color = Color.White, fontSize = 13.sp)
+                Slider(value = radius, onValueChange = { radius = it }, valueRange = 50f..500f)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                    Button(
+                        onClick = { onSave(name.trim(), lat, lng, radius.toDouble()) },
+                        enabled = name.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Save") }
+                }
+            }
+        }
     }
 }
 

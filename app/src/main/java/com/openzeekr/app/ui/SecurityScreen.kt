@@ -43,7 +43,18 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import com.openzeekr.app.Deps
+import com.openzeekr.app.config.GeoZone
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.remote.Command
 import com.openzeekr.app.net.model.ServiceParameter
@@ -110,6 +121,9 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                     fire(if (on) "Sentry on" else "Sentry off", if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF)
                 }, colors = brandSwitchColors(Brand.good))
             }
+            // Auto-enable Sentry on lock (+ geofenced exclusions). Lives here next to the manual Sentry
+            // toggle rather than in Settings - it's a security control.
+            SentryAutoArmSection(deps)
             // Owner-only (shared accounts are refused server-side). Both need the user's PIN.
             if (owner) {
                 SecRow(Icons.Filled.Inventory2, "Glovebox lock",
@@ -157,6 +171,134 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
             color = Brand.faint, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
         )
     }
+}
+
+/**
+ * Auto-arm Sentry when the car locks, with geofenced exclusion zones. The master switch flips
+ * [com.openzeekr.app.config.SecretsConfig.autoSentryOnLock]; when on, the car's walk-away (and manual
+ * app) lock also enables Sentry (serviceId RSM = 6) unless the phone sits inside one of the user's
+ * exclusion circles. "Add current location" captures the current fix and saves it as a named zone.
+ */
+@Composable
+private fun SentryAutoArmSection(deps: Deps) {
+    val store = deps.config
+    val cfg by store.config.collectAsState()
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    var msg by remember { mutableStateOf("") }
+    // A freshly-captured location waiting for the user to name it (null = no add in progress).
+    var pending by remember { mutableStateOf<android.location.Location?>(null) }
+
+    fun captureLocation() {
+        msg = "Getting your location…"
+        scope.launch {
+            val loc = deps.sentryAutoArm.currentLocation()
+            if (loc == null) msg = "Couldn't get a location fix - check location permission and that location is on."
+            else { msg = ""; pending = loc }
+        }
+    }
+
+    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.any { it }) captureLocation()
+        else msg = "Location permission is needed to add an exclusion zone."
+    }
+
+    fun hasLocationPerm(): Boolean =
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Auto-enable Sentry when the car locks", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("Arms Sentry on walk-away (and manual) lock. Skipped inside your exclusion zones below.",
+                    color = Brand.muted, fontSize = 12.sp)
+            }
+            Switch(
+                checked = cfg.autoSentryOnLock,
+                onCheckedChange = { on -> store.update { it.copy(autoSentryOnLock = on) } },
+                colors = brandSwitchColors(Brand.good),
+            )
+        }
+        if (cfg.autoSentryOnLock) {
+            Text("Exclusion zones (no Sentry here)", color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            if (cfg.sentryExclusionZones.isEmpty()) {
+                Text("None yet. Add your home or other trusted spots so Sentry isn't armed there.",
+                    color = Brand.faint, fontSize = 11.5.sp)
+            } else {
+                cfg.sentryExclusionZones.forEach { zone ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.surface2).padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(Icons.Filled.Shield, null, tint = Brand.muted, modifier = Modifier.size(16.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(zone.name.ifBlank { "Unnamed zone" }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                            Text("${"%.4f".format(zone.lat)}, ${"%.4f".format(zone.lng)} · ${zone.radiusMeters.toInt()} m radius",
+                                color = Brand.muted, fontSize = 11.sp)
+                        }
+                        IconButton(onClick = { store.removeSentryExclusionZone(zone) }) {
+                            Icon(Icons.Filled.Delete, "Remove zone", tint = Brand.crit, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+            }
+            OutlinedButton(
+                onClick = { if (hasLocationPerm()) captureLocation() else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
+                Text("  Add current location")
+            }
+            if (msg.isNotBlank()) Text(msg, color = Brand.muted, fontSize = 11.5.sp)
+        }
+    }
+
+    pending?.let { loc ->
+        AddZoneDialog(
+            lat = loc.latitude, lng = loc.longitude,
+            onDismiss = { pending = null },
+            onConfirm = { name, radius ->
+                store.addSentryExclusionZone(GeoZone(name = name, lat = loc.latitude, lng = loc.longitude, radiusMeters = radius))
+                pending = null
+                msg = "Saved \"$name\"."
+            },
+        )
+    }
+}
+
+/** Name + radius dialog for a new Sentry exclusion zone, pre-filled with the captured coordinates. */
+@Composable
+private fun AddZoneDialog(lat: Double, lng: Double, onDismiss: () -> Unit, onConfirm: (String, Double) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var radius by remember { mutableStateOf("150") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add exclusion zone") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("At ${"%.4f".format(lat)}, ${"%.4f".format(lng)}", color = Brand.muted, fontSize = 12.sp)
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text("Name (e.g. Home)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = radius,
+                    onValueChange = { v -> if (v.length <= 5 && v.all(Char::isDigit)) radius = v },
+                    label = { Text("Radius (metres)") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = name.isNotBlank() && (radius.toIntOrNull() ?: 0) > 0,
+                onClick = { onConfirm(name.trim(), (radius.toIntOrNull() ?: 150).toDouble()) },
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

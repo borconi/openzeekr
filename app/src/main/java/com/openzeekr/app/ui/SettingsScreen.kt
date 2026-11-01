@@ -1,12 +1,7 @@
 package com.openzeekr.app.ui
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,13 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,13 +50,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openzeekr.app.Deps
-import com.openzeekr.app.config.GeoZone
 import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.ui.theme.Brand
@@ -278,9 +268,6 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             }
         }
 
-        // -------- Sentry auto-arm (+ geofenced exclusions) --------
-        SentryAutoArmSection(deps)
-
         if (!baked) {
             SecretsSection(cfg, { upd -> cfg = upd(cfg) }) {
                 store.replace(cfg)
@@ -415,141 +402,6 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
             },
         )
     }
-}
-
-/**
- * Auto-arm Sentry when the car locks, with geofenced exclusion zones. The master switch flips
- * [SecretsConfig.autoSentryOnLock]; when on, the car's walk-away (and manual app) lock also enables
- * Sentry (serviceId RSM = 6) unless the phone sits inside one of the user's exclusion circles. "Add
- * current location" captures the phone's current fix (FusedLocation) and saves it as a named zone.
- */
-@Composable
-private fun SentryAutoArmSection(deps: Deps) {
-    val store = deps.config
-    val cfg by store.config.collectAsState()
-    val scope = rememberCoroutineScope()
-    val ctx = LocalContext.current
-    var msg by remember { mutableStateOf("") }
-    // A freshly-captured location waiting for the user to name it (null = no add in progress).
-    var pending by remember { mutableStateOf<android.location.Location?>(null) }
-
-    fun captureLocation() {
-        msg = "Getting your location…"
-        scope.launch {
-            val loc = deps.sentryAutoArm.currentLocation()
-            if (loc == null) {
-                msg = "Couldn't get a location fix - check location permission and that location is on."
-            } else {
-                msg = ""
-                pending = loc
-            }
-        }
-    }
-
-    val permLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        if (grants.values.any { it }) captureLocation()
-        else msg = "Location permission is needed to add an exclusion zone."
-    }
-
-    fun hasLocationPerm(): Boolean =
-        ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-    SettingsCard {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Auto-enable Sentry when the car locks", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text("Arms Sentry on walk-away (and manual) lock. Skipped inside your exclusion zones below.",
-                    color = Brand.muted, fontSize = 12.sp)
-            }
-            Switch(
-                checked = cfg.autoSentryOnLock,
-                onCheckedChange = { on -> store.update { it.copy(autoSentryOnLock = on) } },
-                colors = brandSwitchColors(),
-            )
-        }
-
-        if (cfg.autoSentryOnLock) {
-            Text("Exclusion zones (no Sentry here)", color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            if (cfg.sentryExclusionZones.isEmpty()) {
-                Text("None yet. Add your home or other trusted spots so Sentry isn't armed there.",
-                    color = Brand.faint, fontSize = 11.5.sp)
-            } else {
-                cfg.sentryExclusionZones.forEach { zone ->
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.surface2).padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(Icons.Filled.Shield, null, tint = Brand.muted, modifier = Modifier.size(16.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(zone.name.ifBlank { "Unnamed zone" }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-                            Text("${"%.4f".format(zone.lat)}, ${"%.4f".format(zone.lng)} · ${zone.radiusMeters.toInt()} m radius",
-                                color = Brand.muted, fontSize = 11.sp)
-                        }
-                        androidx.compose.material3.IconButton(onClick = { store.removeSentryExclusionZone(zone) }) {
-                            Icon(Icons.Filled.Delete, "Remove zone", tint = Brand.crit, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-            }
-            OutlinedButton(
-                onClick = { if (hasLocationPerm()) captureLocation() else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
-                Text("  Add current location")
-            }
-            if (msg.isNotBlank()) Text(msg, color = Brand.muted, fontSize = 11.5.sp)
-        }
-    }
-
-    pending?.let { loc ->
-        AddZoneDialog(
-            lat = loc.latitude, lng = loc.longitude,
-            onDismiss = { pending = null },
-            onConfirm = { name, radius ->
-                store.addSentryExclusionZone(GeoZone(name = name, lat = loc.latitude, lng = loc.longitude, radiusMeters = radius))
-                pending = null
-                msg = "Saved \"$name\"."
-            },
-        )
-    }
-}
-
-/** Name + radius dialog for a new Sentry exclusion zone, pre-filled with the captured coordinates. */
-@Composable
-private fun AddZoneDialog(lat: Double, lng: Double, onDismiss: () -> Unit, onConfirm: (String, Double) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var radius by remember { mutableStateOf("150") }
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add exclusion zone") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("At ${"%.4f".format(lat)}, ${"%.4f".format(lng)}", color = Brand.muted, fontSize = 12.sp)
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it },
-                    label = { Text("Name (e.g. Home)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = radius,
-                    onValueChange = { v -> if (v.length <= 5 && v.all(Char::isDigit)) radius = v },
-                    label = { Text("Radius (metres)") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(
-                enabled = name.isNotBlank() && (radius.toIntOrNull() ?: 0) > 0,
-                onClick = { onConfirm(name.trim(), (radius.toIntOrNull() ?: 150).toDouble()) },
-            ) { Text("Save") }
-        },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }
 
 /**

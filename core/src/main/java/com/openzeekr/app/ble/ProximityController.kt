@@ -8,8 +8,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.pow
@@ -130,6 +133,23 @@ class ProximityController(
     // Post-lock verification + watch-and-relock loop (walk-away): confirms the lock actually took via a
     // cloud readback and, if a door was open, re-locks once it closes (bounded window). Single-flight.
     @Volatile private var relockJob: Job? = null
+    // Walk-away-lock event: emitted whenever a walk-away lock fires. ProximityService (for no-wake-up
+    // phones) uses it to open a BALANCED active window that keeps the CPU up so a return is tracked without
+    // depending on the (unavailable) motion edge. Wake-up phones ignore it.
+    private val _walkAwayLocked = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val walkAwayLocked: SharedFlow<Unit> = _walkAwayLocked.asSharedFlow()
+
+    /** True while the car is unlocked-by-us (between an auto-unlock and the next walk-away lock). Read by
+     *  ProximityService to gate the car-BT-disconnect wake trigger to that window. */
+    val isUnlocked: Boolean get() = armedUnlocked
+    // Walk-away lock dwell: epoch-ms the smoothed RSSI first fell to/below lockThresh (0 = currently above).
+    // Lock only fires after it has stayed below for [LOCK_DWELL_MS], so a transient dip (body blocking the
+    // car antenna while you unload the boot) can't trigger a false walk-away lock.
+    private var lockBelowSinceMs = 0L
+    // Sentry auto-arm de-dupe: true once Sentry has been armed for the CURRENT locked episode. Cleared when
+    // the car is unlocked by us. Stops repeated link-drops / re-locks / safety-net passes at the same spot
+    // from re-arming Sentry (and spamming notifications).
+    @Volatile private var sentryArmedThisLock = false
     // Set while the unlocked "activity watch" is idling; the car's next frame completes it (instant wake).
     @Volatile private var activityWake: CompletableDeferred<Unit>? = null
 
@@ -173,6 +193,7 @@ class ProximityController(
         // reset so a fresh monitor starts from a known state.
         armedUnlocked = false
         needToUnlock = false; unlockJob?.cancel(); unlockJob = null
+        sentryArmedThisLock = false; lockBelowSinceMs = 0L
         arrivalActed = false
         farAsleep = false; nearRefDist = null; nearStillSinceMs = 0L
         stillIdling = false; sessionWasUp = false
@@ -293,6 +314,7 @@ class ProximityController(
         needToUnlock = false; unlockJob?.cancel(); unlockJob = null
         lockJob?.cancel(); lockJob = null
         relockJob?.cancel(); relockJob = null
+        sentryArmedThisLock = false; lockBelowSinceMs = 0L
         ble.onInboundActivity = null; activityWake?.complete(Unit); activityWake = null
         motion.onMovingEdge = null; motionWake?.complete(Unit); motionWake = null
         motion.stop()
@@ -518,7 +540,13 @@ class ProximityController(
         // decision so a probe never queues ahead of the unlock frame on the sample that fires it.
         if (!armedUnlocked && (near || motion.state.value == MotionMonitor.Motion.MOVING)) ensureVerified(lastCadence)
         // Re-arm the arrival latch once we're clearly FAR, so a walk-away then walk-back unlocks again.
-        if (smoothed <= lockThresh) arrivalActed = false
+        // Also track how long we've been at/below the lock threshold (the walk-away lock dwell, below).
+        if (smoothed <= lockThresh) {
+            arrivalActed = false
+            if (lockBelowSinceMs == 0L) lockBelowSinceMs = now
+        } else {
+            lockBelowSinceMs = 0L
+        }
         // WALK-AWAY cancels a pending unlock loop — only once we cross to FAR (≤ lockThresh). The NEAR/FAR
         // hysteresis gap is the "smoothing" so it can't flap while you hover at the door; cancelling also
         // stops any stale mid-retry command dead.
@@ -527,15 +555,18 @@ class ProximityController(
             needToUnlock = false
             unlockJob?.cancel(); unlockJob = null
         }
-        // LOCK: crossed to FAR while unlocked-by-us. We do NOT require a `receding` trend anymore -
-        // a fast/clean walk-away can cross the FAR threshold without a smooth downward trend, and for
-        // LOCK we bias toward always securing the car (precision does not matter; the NEAR/FAR
-        // hysteresis gap already prevents flapping at the door). Firing here, while still connected,
-        // is the offline path: the DK lock goes over BLE - no cloud needed.
-        if (armedUnlocked && smoothed <= lockThresh) {
+        // LOCK: crossed to FAR while unlocked-by-us AND stayed below lockThresh for LOCK_DWELL_MS. The
+        // dwell replaces a `receding` trend requirement: a fast/clean walk-away stays below long enough,
+        // while a transient dip (your body blocking the car's antenna as you unload the boot) recovers and
+        // resets the dwell - so it no longer fires a false lock a few steps from the car. Firing here,
+        // while still connected, is the offline path: the DK lock goes over BLE - no cloud needed.
+        if (armedUnlocked && smoothed <= lockThresh && lockBelowSinceMs != 0L &&
+            now - lockBelowSinceMs >= LOCK_DWELL_MS) {
             armedUnlocked = false
-            Logx.d("prox", "walk-away-lock (rssi=$smoothed ~${"%.1f".format(dist)}m)")
+            lockBelowSinceMs = 0L
+            Logx.d("prox", "walk-away-lock (rssi=$smoothed ~${"%.1f".format(dist)}m, dwell ok)")
             startLockLoop("walk-away-lock")
+            _walkAwayLocked.tryEmit(Unit)   // no-wake-up phones: ProximityService opens a return window
         }
     }
 
@@ -568,6 +599,9 @@ class ProximityController(
                 _state.value = _state.value.copy(lastAction = "unlock #$attempt · $r")
                 if (r == ControlResult.CONFIRMED) {
                     armedUnlocked = true
+                    // Back at/into the car: this locked episode is over. Allow Sentry to arm again on the
+                    // NEXT walk-away.
+                    sentryArmedThisLock = false
                     lastTriggerMs = System.currentTimeMillis() // cooldown before a walk-away lock
                     break
                 }
@@ -641,6 +675,14 @@ class ProximityController(
     /** Fire the walk-away-locked hook (auto-Sentry) once, fire-and-forget on its own job so a slow
      *  cloud call can't stall the lock loop. The hook itself is a no-op unless the user opted in. */
     private fun fireWalkAwayLocked(reason: String) {
+        // De-dupe: arm Sentry at most once per locked episode. Without this, every link-drop /
+        // cloud-safety-net "already locked" pass / re-lock at the same spot re-armed Sentry and spammed a
+        // notification. Cleared only when the car is next unlocked (see [startUnlockLoop]).
+        if (sentryArmedThisLock) {
+            Logx.d("prox", "$reason: Sentry already armed for this lock - not re-arming")
+            return
+        }
+        sentryArmedThisLock = true
         scope.launch {
             runCatching { onWalkAwayLocked() }
                 .onFailure { Logx.w("prox", "$reason: walk-away-locked hook failed: ${it.message}") }
@@ -983,6 +1025,9 @@ class ProximityController(
         private const val RELOCK_WATCH_MS = 5 * 60_000L
         private const val RELOCK_POLL_MS = 25_000L
         private const val RELOCK_WAKELOCK_MS = RELOCK_WATCH_MS + 15_000L
+        /** Walk-away lock dwell: the smoothed RSSI must stay at/below lockThresh this long before we lock,
+         *  so a transient body-blocking dip at the boot can't fire a false walk-away lock. */
+        private const val LOCK_DWELL_MS = 5_000L
 
         // Nominal RSSI-at-1m and path-loss exponent for the metre estimate (DISPLAY ONLY).
         private const val TX_POWER_1M = -59

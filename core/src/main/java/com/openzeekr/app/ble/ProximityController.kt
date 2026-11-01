@@ -56,6 +56,11 @@ class ProximityController(
      *  We stand down completely: a liveness reconnect / link reset would abort the maneuver, and the car
      *  rejects central lock mid-RPA (owner, 2026-09-20), which would then trigger a reset of its own. */
     private val rpaBusy: () -> Boolean = { false },
+    /** Fired (fire-and-forget) right after a WALK-AWAY lock leaves the car locked (BLE-confirmed, cloud
+     *  fallback, or the car was already locked when we checked). Injected by Deps to arm Sentry when the
+     *  user opted in; defaults to a no-op so :core stays decoupled from the remote-control catalog. The
+     *  callback itself decides whether to actually arm (opt-in flag + geofenced exclusion zones). */
+    private val onWalkAwayLocked: suspend () -> Unit = {},
 ) {
     enum class Zone { UNKNOWN, FAR, NEAR }
     enum class Phase { PASSIVE, CONNECTING, MONITORING }
@@ -478,10 +483,13 @@ class ProximityController(
         // the first sample - often before SESSION_READY - so by the time the handshake is up prevZone is
         // already NEAR and no crossing is seen. [arrivalActed] + the armedUnlocked/needToUnlock latches
         // still guarantee a single unlock per approach (reconnects while parked won't re-fire).
-        if (!armedUnlocked && !needToUnlock && smoothed >= unlockThresh && (prevZone != Zone.NEAR || !arrivalActed)) {
+        // Gated on the user's "Auto-unlock on approach" sub-flag: with it off, the controller still runs
+        // (for walk-away-lock), but the approach half never arms. `arrivalActed` is still set so a later
+        // re-enable doesn't immediately fire off a stale crossing.
+        if (cfg.autoUnlockOnApproach && !armedUnlocked && !needToUnlock && smoothed >= unlockThresh && (prevZone != Zone.NEAR || !arrivalActed)) {
             arrivalActed = true
             needToUnlock = true
-            Logx.d("prox", "approach-unlock ARM (rssi=$smoothed ~${"%.1f".format(dist)}m prevZone=$prevZone) — confirmed-unlock loop")
+            Logx.d("prox", "approach-unlock ARM (rssi=$smoothed ~${"%.1f".format(dist)}m prevZone=$prevZone) - confirmed-unlock loop")
             startUnlockLoop()
             return
         }
@@ -565,7 +573,13 @@ class ProximityController(
      */
     private fun startLockLoop(reason: String) {
         if (lockJob?.isActive == true) return
-        // A pending unlock loop is now moot (we've decided you're leaving) — stop it fighting us.
+        // Gated on the user's "Auto-lock on walk-away" sub-flag: with it off we never auto-lock over BLE.
+        // (The out-of-range cloud backstop is gated the same way in [cloudLockSafetyNet].)
+        if (!store.current().autoLockOnWalkAway) {
+            Logx.d("prox", "$reason: auto-lock-on-walk-away disabled - not locking")
+            return
+        }
+        // A pending unlock loop is now moot (we've decided you're leaving) - stop it fighting us.
         needToUnlock = false; unlockJob?.cancel(); unlockJob = null
         lockJob = scope.launch {
             lastTriggerMs = System.currentTimeMillis()   // start the action cooldown
@@ -587,14 +601,25 @@ class ProximityController(
                 delay(UNLOCK_RETRY_DELAY_MS)
             }
             if (!confirmed) {
-                Logx.w("prox", "$reason: BLE lock unconfirmed after $attempt attempts — falling back to CLOUD lock")
+                Logx.w("prox", "$reason: BLE lock unconfirmed after $attempt attempts - falling back to CLOUD lock")
                 val cloud = runCatching { cloudLock() }.getOrDefault(false)
                 Logx.d("prox", "$reason: cloud lock -> ${if (cloud) "ok" else "FAILED"}")
                 _state.value = _state.value.copy(lastAction = "$reason · ${if (cloud) "cloud-locked ✓" else "LOCK FAILED ✗"}")
+                if (cloud) fireWalkAwayLocked(reason)
             } else {
                 _state.value = _state.value.copy(lastAction = "$reason · locked ✓")
+                fireWalkAwayLocked(reason)
             }
             lockJob = null
+        }
+    }
+
+    /** Fire the walk-away-locked hook (auto-Sentry) once, fire-and-forget on its own job so a slow
+     *  cloud call can't stall the lock loop. The hook itself is a no-op unless the user opted in. */
+    private fun fireWalkAwayLocked(reason: String) {
+        scope.launch {
+            runCatching { onWalkAwayLocked() }
+                .onFailure { Logx.w("prox", "$reason: walk-away-locked hook failed: ${it.message}") }
         }
     }
 
@@ -608,6 +633,11 @@ class ProximityController(
      * car is harmless, so "unknown" errs toward locking.
      */
     private fun cloudLockSafetyNet(reason: String) {
+        // Gated like the BLE walk-away lock: if the user turned "Auto-lock on walk-away" off, the
+        // ranging-independent cloud backstop must not lock the car either.
+        if (!store.current().autoLockOnWalkAway) {
+            Logx.d("prox", "$reason: auto-lock-on-walk-away disabled - skipping cloud backstop"); return
+        }
         scope.launch {
             val wl = acquireSafetyWakelock()
             try {
@@ -624,6 +654,7 @@ class ProximityController(
                     // backstop is not needed. This is what confirms the car-side auto-lock fired.
                     Logx.d("prox", "$reason: car already LOCKED on walk-away - car-side auto-lock (or a prior lock) got there first; no cloud lock needed")
                     _state.value = _state.value.copy(lastAction = "$reason · already locked ✓")
+                    fireWalkAwayLocked(reason)   // the car is locked on walk-away: arm Sentry if opted in
                     return@launch
                 }
                 val ok = runCatching { cloudLock() }.getOrDefault(false)
@@ -632,6 +663,7 @@ class ProximityController(
                 _state.value = _state.value.copy(
                     lastAction = "$reason · ${if (ok) "cloud-locked ✓" else "LOCK FAILED ✗"}",
                 )
+                if (ok) fireWalkAwayLocked(reason)
             } finally {
                 releaseSafetyWakelock(wl)
             }

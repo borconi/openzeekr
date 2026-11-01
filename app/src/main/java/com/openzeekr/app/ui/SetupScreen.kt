@@ -256,9 +256,23 @@ fun SetupScreen(
                 }
             }
 
+            // --- Independent halves: approach-unlock and walk-away-lock toggle separately. The master
+            // switch above + a calibration gate whether the proximity service runs at all; these pick
+            // which half actually actuates (both default on, so an upgrade keeps the old behaviour). ---
+            if (cfg.proximityEnabled && cfg.isProximityCalibrated) {
+                PassiveToggle(
+                    "Auto-unlock on approach", "Unlock as you walk up to the car",
+                    checked = cfg.autoUnlockOnApproach, enabled = true,
+                ) { on -> config.update { it.copy(autoUnlockOnApproach = on) } }
+                PassiveToggle(
+                    "Auto-lock on walk-away", "Lock the car as you leave",
+                    checked = cfg.autoLockOnWalkAway, enabled = true,
+                ) { on -> config.update { it.copy(autoLockOnWalkAway = on) } }
+            }
+
             // --- Sensitivity: only meaningful once enabled (and thus calibrated) ---
             if (cfg.proximityEnabled && cfg.isProximityCalibrated) {
-                Text("Sensitivity — how close before it unlocks", color = Brand.muted, fontSize = 12.sp)
+                Text("Sensitivity - how close before it unlocks", color = Brand.muted, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("veryclose" to "Very close", "close" to "Close", "far" to "Far").forEach { (key, label) ->
                         SelectChip(label, selected = cfg.proximitySensitivity == key) { config.update { it.copy(proximitySensitivity = key) } }

@@ -113,6 +113,8 @@ class Deps(context: Context) {
     val calibTest = CalibrationTestController(appCtx, ble, appScope, config)
     /** Wakelock-free motion state (still vs moving) for proximity cadence gating. */
     val motion = com.openzeekr.app.ble.MotionMonitor(appCtx)
+    /** Auto-arm Sentry when the car locks (opt-in), skipping user-defined geofenced exclusion zones. */
+    val sentryAutoArm = com.openzeekr.app.remote.SentryAutoArmer(appCtx, config, control)
     val proximity = ProximityController(
         appCtx, config, lock, ble, motion, appScope,
         // Cloud lock fallback for the walk-away lock when BLE won't confirm — never leave the car open.
@@ -125,6 +127,9 @@ class Deps(context: Context) {
         },
         // Remote parking owns the link while a maneuver is live - proximity stands down.
         rpaBusy = { rpa.isBusy },
+        // When a walk-away lock leaves the car locked, arm Sentry if the user opted in (and isn't inside
+        // a geofenced exclusion zone). The armer itself no-ops when the feature is off.
+        onWalkAwayLocked = { sentryAutoArm.armIfLockedOutsideZones("walk-away") },
     )
     /** Call after the base URL / sign algo changes so the HTTP client rebuilds. */
     fun onEndpointChanged() = apiClient.rebuild()

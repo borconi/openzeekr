@@ -109,6 +109,14 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
     fun clearProximityCalibration() =
         update { it.copy(calibNearRssi = 0, calibFarRssi = 0, calibInsideRssi = 0, proximityEnabled = false) }
 
+    /** Add a Sentry auto-arm exclusion zone (e.g. the user's "Home"). Appends to the persisted list. */
+    fun addSentryExclusionZone(zone: GeoZone) =
+        update { it.copy(sentryExclusionZones = it.sentryExclusionZones + zone) }
+
+    /** Remove the given exclusion zone (matched by value equality on the data class). No-op if absent. */
+    fun removeSentryExclusionZone(zone: GeoZone) =
+        update { it.copy(sentryExclusionZones = it.sentryExclusionZones.filterNot { z -> z == zone }) }
+
     fun setActiveVehicle(vin: String) = update { cur ->
         val v = cur.vehicles.firstOrNull { it.vin == vin } ?: return@update cur
         cur.copy(vin = v.vin, isOwner = v.isOwner, carNickname = v.name.ifBlank { cur.carNickname })

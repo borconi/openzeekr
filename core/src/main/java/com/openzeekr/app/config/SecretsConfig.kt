@@ -34,6 +34,20 @@ data class VehicleRef(
     val isOwner: Boolean = false,
 )
 
+/**
+ * A circular geofence used as an auto-Sentry EXCLUSION zone: when the car locks inside one of these
+ * (e.g. "Home", "Work"), the auto-enable-Sentry action is SKIPPED so the car isn't recording at a
+ * place the user trusts. [lat]/[lng] are WGS-84 degrees (the phone's own fix), [radiusMeters] the
+ * circle radius. Serialized as a nested list in [SecretsConfig.sentryExclusionZones]; kotlinx handles
+ * the list-of-@Serializable automatically, so no custom serializer is needed. */
+@Serializable
+data class GeoZone(
+    val name: String = "",
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val radiusMeters: Double = 150.0,
+)
+
 @SuppressLint("UnsafeOptInUsageError")
 @Serializable
 data class SecretsConfig(
@@ -126,7 +140,18 @@ data class SecretsConfig(
     val sigVersion: String = "1.0",
 
     // ---- proximity (RSSI-based approach-unlock / walk-away-lock) ----
+    /** MASTER gate for the whole proximity feature: when on (and [isProximityCalibrated]), the
+     *  foreground key service starts the [com.openzeekr.app.ble.ProximityController]. The two
+     *  sub-flags below then decide, INSIDE the controller, which half actually actuates - so the
+     *  user can run approach-unlock and walk-away-lock independently. */
     val proximityEnabled: Boolean = false,
+    /** Auto-unlock as you walk UP to the car (approach). Gated by [proximityEnabled] + calibration.
+     *  Defaults TRUE so an upgrade from a config that only had [proximityEnabled] keeps the old
+     *  "both halves on" behaviour (the key is absent in old persisted JSON -> this default applies). */
+    val autoUnlockOnApproach: Boolean = true,
+    /** Auto-lock as you walk AWAY from the car. Gated by [proximityEnabled] + calibration. Defaults
+     *  TRUE for the same upgrade-compatibility reason as [autoUnlockOnApproach]. */
+    val autoLockOnWalkAway: Boolean = true,
     /** BLE MAC of the vehicle to range against (blank = strongest advertiser). */
     val proximityDeviceMac: String = "",
     /**
@@ -169,6 +194,15 @@ data class SecretsConfig(
      * parked at home. Off = legacy behavior (continuous foreground scan + held wakelock).
      */
     val presenceOffloadEnabled: Boolean = true,
+
+    // ---- auto-Sentry on lock (+ geofenced exclusions) ----
+    /** When on, enabling the car's lock (walk-away auto-lock, or a manual app lock) also arms Sentry
+     *  (serviceId RSM = 6) - UNLESS the phone is inside one of [sentryExclusionZones]. Off by default:
+     *  Sentry records the surroundings, so auto-arming is opt-in. See [com.openzeekr.app.remote.SentryAutoArmer]. */
+    val autoSentryOnLock: Boolean = false,
+    /** Circular zones (e.g. "Home") where auto-enable-Sentry does NOT fire. Nested list persisted as
+     *  JSON (kotlinx serializes the list-of-[GeoZone] automatically; no custom serializer needed). */
+    val sentryExclusionZones: List<GeoZone> = emptyList(),
 
     // ---- app-local UI state (not part of zeekr_secrets.json) ----
     /** First-run onboarding wizard completed (login → key provisioning). */

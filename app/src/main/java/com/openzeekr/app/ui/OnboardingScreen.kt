@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -38,7 +37,6 @@ import com.openzeekr.app.util.Logx
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.openzeekr.app.Deps
@@ -238,6 +236,22 @@ private fun LoginStep(deps: Deps) {
     val loggedIn = cfg.accessToken.isNotBlank()
     val ctx = LocalContext.current
 
+    fun signIn() {
+        if (busy || email.isBlank() || password.isBlank()) return
+        busy = true; status = "Logging in…"
+        scope.launch {
+            try {
+                store.update { it.copy(email = email, password = password) }
+                status = when (val r = deps.auth.login()) {
+                    is CallResult.Ok -> "Login ✓"
+                    is CallResult.Err -> "Login ✗ ${r.message}"
+                }
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     // Capture HTTP logging while the login step is on screen, so a FAILED login (e.g. a rejected
     // access key on a region whose keys we haven't nailed) is always in the buffer and the tester
     // can Share it - they can't reach Settings to turn logging on, login fails before the app opens.
@@ -266,24 +280,11 @@ private fun LoginStep(deps: Deps) {
             }
             Text("Tap Next to continue.", style = MaterialTheme.typography.bodySmall)
         } else {
-            OutlinedTextField(email, { email = it }, label = { Text("Email") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(password, { password = it }, label = { Text("Password") },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions.Default, modifier = Modifier.fillMaxWidth())
+            LoginField(email, { email = it }, LoginFieldKind.Email, Modifier.fillMaxWidth())
+            LoginField(password, { password = it }, LoginFieldKind.Password, Modifier.fillMaxWidth(), onDone = ::signIn)
             Button(
                 enabled = !busy && email.isNotBlank() && password.isNotBlank(),
-                onClick = {
-                    busy = true; status = "Logging in…"
-                    store.update { it.copy(email = email, password = password) }
-                    scope.launch {
-                        status = when (val r = deps.auth.login()) {
-                            is CallResult.Ok -> "Login ✓"
-                            is CallResult.Err -> "Login ✗ ${r.message}"
-                        }
-                        busy = false
-                    }
-                },
+                onClick = ::signIn,
             ) {
                 if (busy) Row(
                     verticalAlignment = Alignment.CenterVertically,

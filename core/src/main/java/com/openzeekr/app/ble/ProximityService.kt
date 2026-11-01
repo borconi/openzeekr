@@ -1,14 +1,17 @@
 package com.openzeekr.app.ble
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -58,6 +61,12 @@ class ProximityService : Service() {
     // foreground connect attempt the first time we go idle-with-offload.
     private var didInitialProbe = false
 
+    // SIGMOTION tier (#21 phones): true while the presence scan has been escalated above its LOW_POWER
+    // baseline by a significant-motion wake and the de-escalation alarms are pending. The ladder is
+    // ANCHORED on this flag - a further sig-motion wake while it's set is ignored, so pacing around the
+    // house can't keep restarting / pinning the scan at LOW_LATENCY. See [onSignificantMotion].
+    @Volatile private var sigEscalated = false
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -87,6 +96,12 @@ class ProximityService : Service() {
                 // reconnect and the CPU-while-moving hold all stand down until the next FIRST_MATCH. A
                 // live session is left alone - its walk-away lock is driven by connected RSSI.
             }
+            ACTION_LADDER_STEP -> {
+                // A de-escalation alarm fired (SIGMOTION tier): step the presence scan down a rung.
+                val mode = intent.getStringExtra(EXTRA_LADDER_MODE)
+                    ?.let { runCatching { DkBleManager.PresenceMode.valueOf(it) }.getOrNull() }
+                handleLadderStep(deps, mode)
+            }
         }
 
         if (loops?.isActive != true) {
@@ -94,6 +109,8 @@ class ProximityService : Service() {
                 launch { keepConnected(deps) }
                 launch { runApproach(deps) }
                 launch { presenceByWalking(deps) }
+                launch { sigMotionLadder(deps) }
+                launch { deps.motion.significantMotion.collect { onSignificantMotion(deps) } }
                 launch { manageWakeLock(deps) }
                 launch { pollCarMessages(deps) }
             }
@@ -125,6 +142,7 @@ class ProximityService : Service() {
             it.proximity.stop()
             runCatching { it.ble.disarmPresenceScan() }
         }
+        cancelLadderAlarms()
         releaseWakeLock()
         scope.cancel()
         super.onDestroy()
@@ -173,6 +191,11 @@ class ProximityService : Service() {
             }
             if (deps.ble.hasCredential && deps.ble.bluetoothAvailable) {
                 val offload = deps.config.config.value.presenceOffloadEnabled
+                // SIGMOTION tier: guarantee a LOW_POWER baseline to (re)arm even if [sigMotionLadder]
+                // missed the source-becoming-active edge; the ladder raises/lowers it from there.
+                if (offload && deps.motion.source == MotionMonitor.Source.SIGMOTION && wantedPresenceMode == null) {
+                    wantedPresenceMode = DkBleManager.PresenceMode.BACKGROUND
+                }
                 when (deps.ble.state.value) {
                     DkBleManager.State.IDLE, DkBleManager.State.ERROR -> {
                         if (!offload) {
@@ -213,7 +236,11 @@ class ProximityService : Service() {
     private suspend fun runApproach(deps: Deps) {
         deps.config.config.collect { cfg ->
             val running = deps.proximity.state.value.running
-            val wanted = cfg.proximityEnabled && cfg.isProximityCalibrated
+            // Don't run the controller if both halves of the proximity feature are off (unlock-on-approach
+            // AND lock-on-walk-away) - it would spin and do nothing. The two sub-flags are read inside the
+            // controller; this just avoids starting it when neither is wanted.
+            val wanted = cfg.proximityEnabled && cfg.isProximityCalibrated &&
+                (cfg.autoUnlockOnApproach || cfg.autoLockOnWalkAway)
             if (wanted && !running) runCatching { deps.proximity.start() }
             else if (!wanted && running) runCatching { deps.proximity.stop() }
         }
@@ -260,6 +287,10 @@ class ProximityService : Service() {
         }.collect { (m, offload) ->
             when {
                 !offload -> { stopWalk(); want(null) }
+                // SIGMOTION tier (#21 phones): the presence scan is owned by [sigMotionLadder]
+                // (LOW_POWER baseline + significant-motion escalation + de-escalation alarms), so this
+                // walk-state-driven path stands aside to avoid fighting it over the scan registration.
+                deps.motion.source == MotionMonitor.Source.SIGMOTION -> stopWalk()
                 // A motion source that merely EXISTS isn't enough: non-wake-up motion/step detectors
                 // (Galaxy Z Fold8, Pixel 10a - issue #21) never fire with the screen off, so the
                 // walk-gated scan would never re-arm in Doze. Treat "no WAKE-UP source" like "no
@@ -304,6 +335,130 @@ class ProximityService : Service() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * SIGMOTION tier (#21 phones with no wake-up step detector, but a significant-motion sensor).
+     *
+     * The offloaded presence scan sits at a LOW_POWER baseline *always*. A significant-motion wake (start
+     * of movement, delivered via [MotionMonitor.significantMotion]) ESCALATES it to LOW_LATENCY in
+     * [onSignificantMotion]; because re-arming/restarting a scan re-evaluates FIRST_MATCH, a car already
+     * in range (the "walk out from the kitchen" case) re-fires FIRST_MATCH the instant we escalate, even
+     * though it never left range. Two [AlarmManager] alarms then de-escalate on a FIXED schedule
+     * ([SIG_BALANCED_AFTER_MS] -> BALANCED, [SIG_BASELINE_AFTER_MS] -> LOW_POWER) so the scan always winds
+     * back down even in Doze with NO wakelock held (a coroutine delay would not fire reliably there).
+     *
+     * This coroutine keeps the baseline armed while idle and resets the ladder when a session starts (the
+     * engage path + [ProximityController] then own the approach, wakelock and walk-away lock) or ends.
+     */
+    private suspend fun sigMotionLadder(deps: Deps) {
+        deps.ble.state.collect { st ->
+            if (deps.motion.source != MotionMonitor.Source.SIGMOTION) return@collect
+            when (st) {
+                DkBleManager.State.SCANNING, DkBleManager.State.CONNECTING,
+                DkBleManager.State.CONNECTED, DkBleManager.State.SESSION_READY -> {
+                    // Engaged: the controller owns RSSI/approach now. Relax the scan ladder back to the
+                    // LOW_POWER baseline (the scan stays armed for MATCH_LOST) and re-enable sig-motion so
+                    // the next walk re-escalates.
+                    if (sigEscalated) {
+                        sigEscalated = false
+                        cancelLadderAlarms()
+                        wantedPresenceMode = DkBleManager.PresenceMode.BACKGROUND
+                        if (deps.ble.bluetoothAvailable) deps.ble.armPresenceScan(DkBleManager.PresenceMode.BACKGROUND)
+                    }
+                }
+                DkBleManager.State.IDLE, DkBleManager.State.ERROR -> {
+                    // Idle: make sure the LOW_POWER baseline is armed, ready for the next FIRST_MATCH or
+                    // significant-motion wake.
+                    if (deps.config.config.value.presenceOffloadEnabled && deps.ble.bluetoothAvailable && !deps.ble.presenceArmed) {
+                        wantedPresenceMode = DkBleManager.PresenceMode.BACKGROUND
+                        deps.ble.armPresenceScan(DkBleManager.PresenceMode.BACKGROUND)
+                    }
+                }
+            }
+        }
+    }
+
+    /** A significant-motion wake (SIGMOTION tier): escalate the presence scan to LOW_LATENCY and arm the
+     *  de-escalation alarms. ANCHORED: ignored while already escalated (so pacing can't pin LOW_LATENCY),
+     *  and skipped while a link is already up/engaging (nothing to detect). */
+    private fun onSignificantMotion(deps: Deps) {
+        if (deps.motion.source != MotionMonitor.Source.SIGMOTION) return
+        if (!deps.config.config.value.presenceOffloadEnabled) return
+        when (deps.ble.state.value) {
+            DkBleManager.State.SCANNING, DkBleManager.State.CONNECTING,
+            DkBleManager.State.CONNECTED, DkBleManager.State.SESSION_READY -> return
+            else -> {}
+        }
+        if (sigEscalated) {
+            Logx.d("svc", "sig-motion: already escalated (anchored ladder) - ignoring")
+            return
+        }
+        sigEscalated = true
+        Logx.d("svc", "sig-motion: escalate presence scan -> LOW_LATENCY " +
+            "(+${SIG_BALANCED_AFTER_MS / 60_000}m BALANCED, +${SIG_BASELINE_AFTER_MS / 60_000}m LOW_POWER)")
+        wantedPresenceMode = DkBleManager.PresenceMode.WALKING
+        if (deps.ble.bluetoothAvailable) deps.ble.armPresenceScan(DkBleManager.PresenceMode.WALKING)
+        scheduleLadderAlarms()
+    }
+
+    /** A de-escalation alarm fired: step the scan down. BALANCED only if still escalated; BACKGROUND
+     *  ends the ladder and re-enables sig-motion. No-op while engaged (the state collector already relaxed
+     *  the ladder) or off the SIGMOTION tier. */
+    private fun handleLadderStep(deps: Deps, mode: DkBleManager.PresenceMode?) {
+        if (deps.motion.source != MotionMonitor.Source.SIGMOTION || mode == null) { cancelLadderAlarms(); return }
+        when (deps.ble.state.value) {
+            DkBleManager.State.CONNECTING, DkBleManager.State.CONNECTED, DkBleManager.State.SESSION_READY -> return
+            else -> {}
+        }
+        when (mode) {
+            DkBleManager.PresenceMode.LONG_WALK -> if (sigEscalated) {
+                Logx.d("svc", "sig-ladder: -> presence scan BALANCED")
+                wantedPresenceMode = DkBleManager.PresenceMode.LONG_WALK
+                if (deps.ble.bluetoothAvailable) deps.ble.armPresenceScan(DkBleManager.PresenceMode.LONG_WALK)
+            }
+            DkBleManager.PresenceMode.BACKGROUND -> {
+                Logx.d("svc", "sig-ladder: -> presence scan LOW_POWER (baseline); sig-motion re-enabled")
+                sigEscalated = false
+                cancelLadderAlarms()
+                wantedPresenceMode = DkBleManager.PresenceMode.BACKGROUND
+                if (deps.ble.bluetoothAvailable) deps.ble.armPresenceScan(DkBleManager.PresenceMode.BACKGROUND)
+            }
+            else -> {}
+        }
+    }
+
+    private fun alarmMgr(): AlarmManager? = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+
+    /** PendingIntent that redelivers [ACTION_LADDER_STEP] to this (already-running, foreground) service. */
+    private fun ladderPendingIntent(mode: DkBleManager.PresenceMode, reqCode: Int): PendingIntent {
+        val i = Intent(this, ProximityService::class.java)
+            .setAction(ACTION_LADDER_STEP)
+            .putExtra(EXTRA_LADDER_MODE, mode.name)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_IMMUTABLE else 0)
+        return PendingIntent.getForegroundService(this, reqCode, i, flags)
+    }
+
+    /** Arm the two de-escalation alarms. setAndAllowWhileIdle so they fire in Doze without the exact-alarm
+     *  permission; a few minutes' slack is harmless for *de*-escalation (just a little extra scanning). */
+    private fun scheduleLadderAlarms() {
+        val am = alarmMgr() ?: return
+        val now = SystemClock.elapsedRealtime()
+        runCatching {
+            am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, now + SIG_BALANCED_AFTER_MS,
+                ladderPendingIntent(DkBleManager.PresenceMode.LONG_WALK, REQ_LADDER_BALANCED))
+            am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, now + SIG_BASELINE_AFTER_MS,
+                ladderPendingIntent(DkBleManager.PresenceMode.BACKGROUND, REQ_LADDER_BASELINE))
+        }
+    }
+
+    private fun cancelLadderAlarms() {
+        val am = alarmMgr() ?: return
+        runCatching {
+            am.cancel(ladderPendingIntent(DkBleManager.PresenceMode.LONG_WALK, REQ_LADDER_BALANCED))
+            am.cancel(ladderPendingIntent(DkBleManager.PresenceMode.BACKGROUND, REQ_LADDER_BASELINE))
         }
     }
 
@@ -391,6 +546,16 @@ class ProximityService : Service() {
         /** BleScanReceiver → service: the car's advert left range (MATCH_LOST) or offload dropped. */
         const val ACTION_ABSENT = "com.openzeekr.app.ble.PROX_ABSENT"
         const val EXTRA_MAC = "mac"
+
+        /** Alarm -> service (SIGMOTION tier): step the presence scan down one rung. */
+        private const val ACTION_LADDER_STEP = "com.openzeekr.app.ble.PROX_LADDER_STEP"
+        private const val EXTRA_LADDER_MODE = "ladder_mode"
+        /** SIGMOTION ladder: after a sig-motion escalation, LOW_LATENCY for this long, then BALANCED. */
+        private const val SIG_BALANCED_AFTER_MS = 5 * 60_000L
+        /** SIGMOTION ladder: back to the LOW_POWER baseline this long after the escalation. */
+        private const val SIG_BASELINE_AFTER_MS = 30 * 60_000L
+        private const val REQ_LADDER_BALANCED = 0x2ee7
+        private const val REQ_LADDER_BASELINE = 0x2ee8
 
         fun start(context: Context) {
             val i = Intent(context, ProximityService::class.java)

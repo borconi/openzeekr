@@ -3,6 +3,54 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.3] - 2026-11-01
+
+### Added
+- **Separate switches for auto-unlock and auto-lock.** "Unlock on approach" and "Lock on walk-away" are
+  now two independent options, so you can turn on one without the other.
+- **Auto-enable Sentry when the car locks, with trusted areas.** Optionally arm Sentry every time the car
+  locks on walk-away (or a manual lock), and define geofenced exclusion zones - home, work - where it
+  won't. Add a zone from your current location, or by dropping a pin anywhere on a map with an adjustable
+  radius. If your location can't be determined it errs toward NOT arming, so it never arms at a trusted
+  spot by mistake. Lives in the Security tab, next to the manual Sentry toggle.
+- **Lock-screen volume shortcut (opt-in).** Control the car without unlocking your phone: on the lock
+  screen, double-press Volume Up to unlock the car and Volume Down to lock it. A small panel shows the
+  gesture plus an "Unlock phone" button; face unlock still works and closes the panel instantly. Only
+  available when a secure screen lock is set, and gated behind a clear warning - anyone holding the locked
+  phone who knows the gesture can open the car.
+- **Approach-unlock and walk-away-lock now work on phones without a wake-up motion sensor.** These phones
+  previously couldn't reliably notice you walking up to or away from the car in the background. OpenZeekr
+  now uses the significant-motion sensor, and - while you're in the car - treats the car's Bluetooth
+  (hands-free) disconnecting as you step out as a fast "you've left" signal, so it doesn't have to keep
+  the CPU awake while you drive.
+- **Per-category notifications.** Car messages now arrive on separate channels - charging, security,
+  vehicle, updates, service, news - so you can silence any one of them independently. (Thanks calvinbui, #33.)
+
+### Changed
+- **Zero background cost when proximity is off.** With both approach-unlock and walk-away-lock disabled,
+  OpenZeekr stops all background scanning entirely; manual lock/unlock just connects on demand.
+- **The car-location map follows the car live.** It updates as the car moves without leaving and
+  re-opening the tab.
+- **Sign-in works with password managers.** The email and password fields now expose autofill and
+  Next/Done keyboard actions. (Thanks calvinbui, #30.)
+
+### Fixed
+- **No more false auto-lock while you unload the boot.** A brief signal dip from your body blocking the
+  car as you stand at the tailgate no longer fires a walk-away lock a few steps away; it waits until
+  you've genuinely moved off.
+- **Walk-away lock is now verified, and retried if a door was open.** The car's "locked" reply only means
+  it received the command, so OpenZeekr now checks the car actually locked. If a door or the boot was
+  open it warns you and locks the car automatically once it's closed (within a few minutes), and Sentry
+  only auto-arms once the car is confirmed locked.
+- **Unlock when you return to the car without having left Bluetooth range.** If you parked, stepped a
+  short way off and came back (a petrol station, for example) without the connection ever dropping, the
+  car now unlocks on your return instead of staying shut.
+- **No more repeated "Sentry armed" notifications** at the same spot.
+- **The car pin no longer drags around when you touch the location map** - it's a display pinned to the
+  car, not a movable marker. (The movable pin + radius circle is now the map picker for Sentry zones.)
+- **Correct colour for the 7X "Shadow Blue (including silver roof)" paint.** (Thanks calvinbui, #32.)
+- **Clearer phone-placement prompt** in the first digital-key calibration step. (Thanks calvinbui, #29.)
+
 ## [0.2.2] - 2026-10-22
 
 ### Added

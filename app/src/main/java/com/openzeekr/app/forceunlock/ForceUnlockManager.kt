@@ -29,7 +29,7 @@ import com.openzeekr.core.R
  *
  * Gate on every screen-on: the feature flag is on AND [KeyguardManager.isDeviceLocked] is true (phone still
  * locked). If the phone is already unlocked there is nothing to force - the user can just use the app. The
- * activity owns the rest (the ~10 s listen window, the VOL-UP + VOL-DOWN combo, and the BLE unlock).
+ * activity owns the rest (the ~4 s listen window, the double-volume gesture, and the BLE lock/unlock).
  *
  * Self-contained on purpose: its own notification channel so it never borrows the car-alert channels, and
  * it reads [ConfigStore] directly rather than pulling in Deps (the unlock itself, which DOES need Deps, is
@@ -112,8 +112,8 @@ object ForceUnlockManager {
 
         val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_logo)
-            .setContentTitle("Force unlock ready")
-            .setContentText("Press volume up and down together to unlock the car.")
+            .setContentTitle("Car control ready")
+            .setContentText("Double-press volume up to unlock the car, volume down to lock.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             // high priority + full-screen intent = the system raises ForceUnlockActivity over the keyguard.
@@ -139,12 +139,13 @@ object ForceUnlockManager {
         val channel = NotificationChannel(
             CHANNEL_ID, "Force unlock", NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "Lets the lock-screen volume-button combo unlock the car."
+            description = "Lets a lock-screen volume gesture lock or unlock the car."
             setShowBadge(false)
         }
         mgr.createNotificationChannel(channel)
     }
 
-    /** How long the listen window stays open (must match [ForceUnlockActivity.LISTEN_WINDOW_MS]). */
-    const val LISTEN_WINDOW_MS = 10_000L
+    /** How long the listen window stays open (must match [ForceUnlockActivity.LISTEN_WINDOW_MS]).
+     *  4 s: plenty for a double-volume gesture, then the normal lock screen is revealed. */
+    const val LISTEN_WINDOW_MS = 4_000L
 }

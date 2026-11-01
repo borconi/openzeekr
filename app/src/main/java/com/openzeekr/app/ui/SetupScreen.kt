@@ -315,8 +315,8 @@ fun SetupScreen(
                     Icon(Icons.Filled.VpnKey, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Unlock with a volume combo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("Press volume up + down together on the lock screen to unlock the car.", color = Brand.muted, fontSize = 12.sp)
+                    Text("Lock-screen volume shortcut", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Double-press volume up to unlock the car, volume down to lock it - from the lock screen.", color = Brand.muted, fontSize = 12.sp)
                 }
                 Switch(
                     // Only ON when a secure lock exists; turning it ON routes through the warning dialog first.
@@ -333,8 +333,8 @@ fun SetupScreen(
                 Text("Needs a secure screen lock (PIN, pattern or password). Set one in system settings to use this.",
                     color = Brand.faint, fontSize = 11.5.sp)
             } else {
-                Text("For ~10 s after the screen turns on while locked, the combo connects and unlocks the car " +
-                    "over the BLE key - without unlocking the phone.", color = Brand.faint, fontSize = 11.5.sp)
+                Text("For ~4 s after the screen turns on while locked, a double-press of volume up unlocks (or " +
+                    "volume down locks) the car over the BLE key - without unlocking the phone.", color = Brand.faint, fontSize = 11.5.sp)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -349,12 +349,12 @@ fun SetupScreen(
 
     if (confirmForceUnlock) AlertDialog(
         onDismissRequest = { confirmForceUnlock = false },
-        title = { Text("Enable lock-screen force unlock?") },
+        title = { Text("Enable lock-screen car control?") },
         text = {
             Text(
-                "Anyone who is holding this phone while it is locked, and who knows the combo (volume up and " +
-                    "volume down pressed together), can unlock the car WITHOUT unlocking the phone.\n\n" +
-                    "The window is only open for about 10 seconds each time the screen turns on while locked, " +
+                "Anyone who is holding this phone while it is locked, and who knows the gesture (double-press " +
+                    "volume up to unlock, volume down to lock), can control the car WITHOUT unlocking the phone.\n\n" +
+                    "The window is only open for about 4 seconds each time the screen turns on while locked, " +
                     "and it closes the moment you unlock the phone or the screen turns off. Only enable this if " +
                     "you accept that trade-off.",
             )
@@ -363,7 +363,7 @@ fun SetupScreen(
             TextButton(onClick = {
                 config.update { it.copy(forceUnlockKeyCombo = true) }
                 confirmForceUnlock = false
-                snackbar("Force unlock enabled - volume up + down on the lock screen")
+                snackbar("Enabled - double-press volume up to unlock, down to lock")
             }) { Text("Enable", color = Brand.crit) }
         },
         dismissButton = { TextButton(onClick = { confirmForceUnlock = false }) { Text("Cancel") } },

@@ -1,6 +1,5 @@
 package com.openzeekr.app.forceunlock
 
-import android.app.Activity
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -11,45 +10,66 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import android.view.Gravity
+import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.openzeekr.app.DepsHolder
 import com.openzeekr.app.ble.DkBleManager
+import com.openzeekr.app.config.ConfigStore
+import com.openzeekr.app.ui.theme.Brand
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Transparent, UI-less activity raised OVER the keyguard (by [ForceUnlockManager]'s full-screen intent)
- * for a short listen window. It captures the VOLUME-UP + VOLUME-DOWN combo and, when both are held at the
- * same time, issues a BLE connect + unlock - WITHOUT the user unlocking the phone.
+ * A short-lived screen shown OVER the keyguard (by [ForceUnlockManager]'s full-screen intent) whenever the
+ * screen turns on while the phone is still locked. It has a REAL UI (so the lock screen never looks blank)
+ * explaining the two gestures, plus an "Unlock phone" button that hands you straight to the normal unlock.
  *
- * The crux is the window geometry: the activity window is FOCUSABLE (so it receives key events) but only
- * 1x1 px in the top-left corner with [WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL] set. That means:
- *  - every TOUCH outside its 1 px bounds (i.e. everywhere) falls through to the keyguard, so the user can
- *    still type their PIN / draw their pattern as normal, and
- *  - KEY events still come to us, so we can watch the volume keys.
- * Returning true for the volume keycodes also keeps the volume UI / media stream from reacting (stealthy).
+ * Gestures (no need to take the phone out of your pocket):
+ *  - double-press VOLUME UP   -> unlock the car over BLE
+ *  - double-press VOLUME DOWN -> lock the car over BLE
  *
- * It finishes as soon as ANY of: the combo fires, the user unlocks the phone (`ACTION_USER_PRESENT` or a
- * resume where the device is no longer locked), the screen turns off (`ACTION_SCREEN_OFF`), or the 10 s
- * window elapses - matching rule 3 ("stop as soon as unlocked or screen off").
+ * Lifecycle is purely the three screen intents: [ForceUnlockManager] starts us on ACTION_SCREEN_ON (still
+ * locked); we finish on ACTION_USER_PRESENT (unlocked) or ACTION_SCREEN_OFF, and on a [LISTEN_WINDOW_MS]
+ * timeout - which then just reveals the normal lock screen. A hard safety: a gesture never actuates unless
+ * the phone is still locked at that instant.
  */
-class ForceUnlockActivity : Activity() {
+class ForceUnlockActivity : ComponentActivity() {
 
-    private var volUp = false
-    private var volDown = false
     private var fired = false
+    private var lastUpMs = 0L
+    private var lastDownMs = 0L
+    private val status = mutableStateOf<String?>(null)   // null = show the hint; else action feedback
 
     private val handler = Handler(Looper.getMainLooper())
-    private val timeout = Runnable {
-        Logx.d("forceunlock", "listen window elapsed - closing")
-        finishAndClear()
-    }
+    private val timeout = Runnable { Logx.d("forceunlock", "window elapsed - revealing lock screen"); finishAndClear() }
 
-    /** Close the moment the phone is unlocked or the screen goes off. */
+    /** Close the moment the phone is unlocked or the screen goes off (the three-intent model). */
     private val stopReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -61,6 +81,10 @@ class ForceUnlockActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Never run if the feature is disabled - defence in depth against a stale full-screen-intent that
+        // fires just after the user turned it off. The manager already gates the launch; this guarantees the
+        // activity can't do anything when the option is off.
+        if (!ConfigStore.get(this).current().forceUnlockKeyCombo) { finish(); return }
         // Show over the keyguard, but do NOT turn the screen on ourselves (we only arm on a screen-on).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -70,38 +94,27 @@ class ForceUnlockActivity : Activity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
         }
 
-        // Focusable (default) so we get key events, but 1x1 + NOT_TOUCH_MODAL so every touch falls through
-        // to the keyguard and the user can still enter their PIN/pattern while we keep KEY focus.
-        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
-        window.attributes = window.attributes.apply {
-            width = 1
-            height = 1
-            gravity = Gravity.TOP or Gravity.START
-            // No dimming - stay invisible behind the keyguard.
-            dimAmount = 0f
-        }
-
-        // Guard: only run while actually locked (the manager already checked, but the user could have
-        // unlocked in the gap between the screen-on broadcast and this launch).
+        // Only run while actually locked (the manager checked, but the user could have unlocked in the gap).
         if (!isStillLocked()) { finishAndClear(); return }
 
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_USER_PRESENT)
-            addAction(Intent.ACTION_SCREEN_OFF)
-        }
         runCatching {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_USER_PRESENT)
+                addAction(Intent.ACTION_SCREEN_OFF)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                 registerReceiver(stopReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
             else
-                registerReceiver(stopReceiver, filter)
+                @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(stopReceiver, filter)
         }
+
+        setContent { Ui(status.value, onUnlockPhone = ::unlockPhone) }
         handler.postDelayed(timeout, LISTEN_WINDOW_MS)
-        Logx.d("forceunlock", "listening ${LISTEN_WINDOW_MS / 1000}s for VOL-UP + VOL-DOWN")
+        Logx.d("forceunlock", "listening ${LISTEN_WINDOW_MS / 1000}s for a double-volume gesture")
     }
 
     override fun onResume() {
         super.onResume()
-        // Re-check on every resume: if the phone got unlocked there is nothing to force.
         if (!fired && !isStillLocked()) { Logx.d("forceunlock", "no longer locked on resume - closing"); finishAndClear() }
     }
 
@@ -109,84 +122,143 @@ class ForceUnlockActivity : Activity() {
         (getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)?.isDeviceLocked == true
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event?.repeatCount != 0) {   // ignore auto-repeat from a held key
+            if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) return true
+            return super.onKeyDown(keyCode, event)
+        }
         when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> { volUp = true; maybeFire(); return true }
-            KeyEvent.KEYCODE_VOLUME_DOWN -> { volDown = true; maybeFire(); return true }
+            KeyEvent.KEYCODE_VOLUME_UP -> { handleTap(up = true); return true }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> { handleTap(up = false); return true }
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> { volUp = false; return true }
-            KeyEvent.KEYCODE_VOLUME_DOWN -> { volDown = false; return true }
-        }
+        // Swallow volume key-ups too, so the system volume UI never reacts while we listen.
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) return true
         return super.onKeyUp(keyCode, event)
     }
 
-    /** There is no native "both volume keys" event, so we fire when both are currently HELD down. */
-    private fun maybeFire() {
-        if (fired || !volUp || !volDown) return
+    /** Double-tap detector: two presses of the SAME volume key within [DOUBLE_TAP_MS]. A press of the other
+     *  key resets the pending tap, so up/down can't be mixed into a false double. */
+    private fun handleTap(up: Boolean) {
+        if (fired) return
+        val now = SystemClock.elapsedRealtime()
+        if (up) {
+            if (lastUpMs != 0L && now - lastUpMs <= DOUBLE_TAP_MS) { fireCar(unlock = true); return }
+            lastUpMs = now; lastDownMs = 0L
+        } else {
+            if (lastDownMs != 0L && now - lastDownMs <= DOUBLE_TAP_MS) { fireCar(unlock = false); return }
+            lastDownMs = now; lastUpMs = 0L
+        }
+    }
+
+    private fun fireCar(unlock: Boolean) {
+        if (fired) return
+        // Hard safety: never actuate if the phone is not locked right now.
+        if (!isStillLocked()) { Logx.d("forceunlock", "gesture but phone is unlocked - ignoring"); finishAndClear(); return }
         fired = true
-        Logx.d("forceunlock", "VOL-UP + VOL-DOWN combo detected - unlocking the car over BLE")
-        fireUnlock()
-        finishAndClear()
+        status.value = if (unlock) "Unlocking the car..." else "Locking the car..."
+        Logx.d("forceunlock", "double-volume-${if (unlock) "UP" else "DOWN"} - ${if (unlock) "unlock" else "lock"} car over BLE")
+        runCar(unlock)
+        handler.removeCallbacks(timeout)
+        handler.postDelayed({ finishAndClear() }, FEEDBACK_MS)   // show feedback briefly, then reveal lock screen
     }
 
     /**
-     * Run the connect + unlock on an APP-SCOPED coroutine so it survives this activity finishing. A short
-     * partial wakelock keeps the CPU up for the handshake even if the screen goes off mid-connect. Uses the
-     * same established BLE path as everywhere else: [DkBleManager.connect] to bring a session up, then
-     * [com.openzeekr.app.ble.DkLockController.unlock] (which confirms, self-heals a stale session, and
-     * refreshes on its own if the connect didn't finish in time).
+     * Connect + actuate on an APP-SCOPED coroutine (survives this activity finishing), under a short
+     * wakelock. Same BLE path as everywhere else: [DkBleManager.connect] to bring a session up, then
+     * [com.openzeekr.app.ble.DkLockController.unlock]/[com.openzeekr.app.ble.DkLockController.lock].
      */
-    private fun fireUnlock() {
-        val deps = (application as? DepsHolder)?.deps ?: run {
-            Logx.w("forceunlock", "no Deps - cannot unlock"); return
-        }
+    private fun runCar(unlock: Boolean) {
+        val deps = (application as? DepsHolder)?.deps ?: run { Logx.w("forceunlock", "no Deps - cannot act"); return }
         val appCtx = applicationContext
         deps.appScope.launch {
             val pm = appCtx.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            val wl = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "openzeekr:forceunlock")
-                ?.apply { setReferenceCounted(false) }
+            val wl = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "openzeekr:forceunlock")?.apply { setReferenceCounted(false) }
             runCatching { wl?.acquire(WAKE_MS) }
             try {
-                if (!deps.ble.hasCredential) { Logx.w("forceunlock", "no digital key provisioned - nothing to unlock with"); return@launch }
+                if (!deps.ble.hasCredential) { Logx.w("forceunlock", "no digital key provisioned"); return@launch }
                 deps.ble.resetHandshakeBackoff()   // user-initiated: don't let a prior backoff delay us
                 if (deps.ble.state.value != DkBleManager.State.SESSION_READY) {
                     deps.ble.connect(null)
-                    withTimeoutOrNull(CONNECT_WAIT_MS) {
-                        deps.ble.state.first { it == DkBleManager.State.SESSION_READY }
-                    }
+                    withTimeoutOrNull(CONNECT_WAIT_MS) { deps.ble.state.first { it == DkBleManager.State.SESSION_READY } }
                 }
-                val ok = deps.lock.unlock()
-                Logx.d("forceunlock", "combo unlock -> $ok")
+                val ok = if (unlock) deps.lock.unlock() else deps.lock.lock()
+                Logx.d("forceunlock", "combo ${if (unlock) "unlock" else "lock"} -> $ok")
             } catch (t: Throwable) {
-                Logx.w("forceunlock", "combo unlock failed: ${t.message}")
+                Logx.w("forceunlock", "combo ${if (unlock) "unlock" else "lock"} failed: ${t.message}")
             } finally {
                 runCatching { if (wl?.isHeld == true) wl.release() }
             }
         }
     }
 
-    private fun finishAndClear() {
+    /** "Unlock phone" button: hand straight to the normal unlock (bouncer), then get out of the way. */
+    private fun unlockPhone() {
         handler.removeCallbacks(timeout)
+        ForceUnlockManager.clearNotification(applicationContext)
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        if (km != null) {
+            km.requestDismissKeyguard(this, object : KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() { if (!isFinishing) finish() }
+                override fun onDismissCancelled() { if (!isFinishing) finish() }
+                override fun onDismissError() { if (!isFinishing) finish() }
+            })
+        } else if (!isFinishing) finish()
+    }
+
+    private fun finishAndClear() {
+        handler.removeCallbacksAndMessages(null)
         ForceUnlockManager.clearNotification(applicationContext)
         if (!isFinishing) finish()
     }
 
     override fun onDestroy() {
-        handler.removeCallbacks(timeout)
+        handler.removeCallbacksAndMessages(null)
         runCatching { unregisterReceiver(stopReceiver) }
         super.onDestroy()
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun Ui(statusText: String?, onUnlockPhone: () -> Unit) {
+        Column(
+            Modifier.fillMaxSize().background(Color(0xFF0B0E14)).padding(28.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("OpenZeekr", color = Brand.accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(18.dp))
+            if (statusText != null) {
+                Text(statusText, color = Brand.good, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+            } else {
+                Text("Control your car without unlocking", color = Brand.muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(16.dp))
+                Text("Volume Up x2", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("unlock the car", color = Brand.good, fontSize = 13.sp)
+                Spacer(Modifier.height(10.dp))
+                Text("Volume Down x2", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("lock the car", color = Brand.good, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(28.dp))
+            Button(
+                onClick = onUnlockPhone,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Brand.surface2, contentColor = Color.White),
+            ) { Text("Unlock phone") }
+        }
     }
 
     companion object {
         /** Listen window length - must match [ForceUnlockManager.LISTEN_WINDOW_MS]. */
         const val LISTEN_WINDOW_MS = ForceUnlockManager.LISTEN_WINDOW_MS
-        /** Belt-and-braces CPU wakelock around the connect + unlock. */
+        /** Two presses of the same volume key within this = a double-tap. */
+        private const val DOUBLE_TAP_MS = 500L
+        /** Keep the "Unlocking/Locking" feedback up briefly before revealing the lock screen. */
+        private const val FEEDBACK_MS = 1_200L
+        /** Belt-and-braces CPU wakelock around the connect + actuate. */
         private const val WAKE_MS = 30_000L
-        /** How long to wait for the DK session after kicking off the connect, before letting unlock() retry. */
+        /** How long to wait for the DK session after kicking off the connect. */
         private const val CONNECT_WAIT_MS = 15_000L
     }
 }

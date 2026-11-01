@@ -130,6 +130,31 @@ class Deps(context: Context) {
         // When a walk-away lock leaves the car locked, arm Sentry if the user opted in (and isn't inside
         // a geofenced exclusion zone). The armer itself no-ops when the feature is off.
         onWalkAwayLocked = { sentryAutoArm.armIfLockedOutsideZones("walk-away") },
+        // Verify a walk-away lock actually took (the BLE/cloud "confirm" is only command-accepted): read the
+        // car's real lock + open-part state. "1" = locked / "1" = open per the TSP status encoding.
+        cloudLockState = {
+            (control.status() as? com.openzeekr.app.remote.CallResult.Ok)?.value
+                ?.additionalVehicleStatus?.drivingSafetyStatus?.let { d ->
+                    fun open(s: String?) = s == "1" || s.equals("open", true) || s.equals("true", true)
+                    val parts = buildList {
+                        if (open(d.doorOpenStatusDriver)) add("driver door")
+                        if (open(d.doorOpenStatusPassenger)) add("passenger door")
+                        if (open(d.doorOpenStatusDriverRear)) add("rear driver door")
+                        if (open(d.doorOpenStatusPassengerRear)) add("rear passenger door")
+                        if (open(d.trunkOpenStatus)) add("boot")
+                        if (open(d.engineHoodOpenStatus)) add("bonnet")
+                    }
+                    ProximityController.LockState(locked = d.centralLockingStatus == "1", openParts = parts)
+                }
+        },
+        // Walk-away lock warnings on the SECURITY channel (car couldn't lock / locked after you closed it /
+        // gave up after the watch window).
+        notifyLockAlert = { title, text, ongoing ->
+            com.openzeekr.app.util.CarNotifier.notifyAlert(
+                appCtx, com.openzeekr.app.util.CarNotificationCategory.SECURITY, title, text,
+                com.openzeekr.app.util.CarNotifier.LOCK_ALERT_ID, ongoing,
+            )
+        },
     )
     /** Call after the base URL / sign algo changes so the HTTP client rebuilds. */
     fun onEndpointChanged() = apiClient.rebuild()

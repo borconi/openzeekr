@@ -28,11 +28,10 @@ import kotlin.coroutines.resume
  *  4. Otherwise fire [Command.SENTINEL_ON] through the normal remote-control path (lowercase "rsm"=6,
  *     System A gateway - the exact call the Security screen's Sentry toggle uses).
  *
- * FAIL-SAFE DEFAULT: if the location is unavailable (permission not granted, no fix, Play Services
- * missing, or it times out) we CANNOT prove we're inside an exclusion zone, so we DO arm Sentry. Sentry
- * is a security feature - erring toward "armed" protects the car when we're uncertain; the exclusion
- * zones are a privacy convenience that fails OPEN (toward arming) when geofencing can't run. This is the
- * documented, intentional choice.
+ * FAIL-CLOSED DEFAULT: if the location is unavailable (permission not granted, no fix, Play Services
+ * missing, or it times out) we CANNOT prove we're OUTSIDE an exclusion zone, so we do NOT arm Sentry. A
+ * false Sentry trigger at a trusted spot (home) is worse than a missed auto-arm, and the user can always
+ * arm manually from the Security screen. (Chosen by the owner over the opposite fail-open behaviour.)
  */
 class SentryAutoArmer(
     private val appCtx: Context,
@@ -52,9 +51,9 @@ class SentryAutoArmer(
 
         val loc = currentLocation()
         if (loc == null) {
-            // Fail-safe: can't geofence -> arm anyway (security-first). See the class KDoc.
-            Logx.d("sentry", "auto-arm ($trigger): location unavailable - firing anyway (fail-safe toward security)")
-            fire(trigger)
+            // Fail-CLOSED: can't geofence -> can't prove we're outside an exclusion zone, so do NOT arm.
+            // A false arm at home is worse than a missed one; the user can arm from the Security screen.
+            Logx.d("sentry", "auto-arm ($trigger): location unavailable - NOT arming (fail-closed)")
             return
         }
         val zone = enclosingZone(loc, cfg.sentryExclusionZones)

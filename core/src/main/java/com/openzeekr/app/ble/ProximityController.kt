@@ -61,7 +61,21 @@ class ProximityController(
      *  user opted in; defaults to a no-op so :core stays decoupled from the remote-control catalog. The
      *  callback itself decides whether to actually arm (opt-in flag + geofenced exclusion zones). */
     private val onWalkAwayLocked: suspend () -> Unit = {},
+    /** Cloud readback of the car's REAL lock/door state (GET vehicle status), used to VERIFY a walk-away
+     *  lock actually took - the BLE 0x0111 confirm only means "command received/acted", so a lock issued
+     *  with a door open still confirms while the car stays unlocked. null = readback unavailable. */
+    private val cloudLockState: suspend () -> LockState? = { null },
+    /** Post / update a user-facing lock alert (SECURITY channel): the car couldn't lock (which part is
+     *  open), it locked after you closed it, or it's still open after the watch window. Injected by Deps so
+     *  :core stays decoupled from CarNotifier; ongoing=true keeps the warning sticky while unresolved. */
+    private val notifyLockAlert: (title: String, text: String, ongoing: Boolean) -> Unit = { _, _, _ -> },
 ) {
+
+    /** The car's real lock/door state from a cloud status readback (not the BLE command ACK). */
+    data class LockState(val locked: Boolean, val openParts: List<String>) {
+        val anyOpen: Boolean get() = openParts.isNotEmpty()
+    }
+
     enum class Zone { UNKNOWN, FAR, NEAR }
     enum class Phase { PASSIVE, CONNECTING, MONITORING }
     enum class Source { NONE, GATT }
@@ -113,6 +127,9 @@ class ProximityController(
     // Confirmed-lock loop (walk-away). Locking matters more than unlocking — never leave the car open —
     // so this is at least as persistent as unlock and falls back to a cloud lock if BLE won't confirm.
     private var lockJob: Job? = null
+    // Post-lock verification + watch-and-relock loop (walk-away): confirms the lock actually took via a
+    // cloud readback and, if a door was open, re-locks once it closes (bounded window). Single-flight.
+    @Volatile private var relockJob: Job? = null
     // Set while the unlocked "activity watch" is idling; the car's next frame completes it (instant wake).
     @Volatile private var activityWake: CompletableDeferred<Unit>? = null
 
@@ -275,6 +292,7 @@ class ProximityController(
         monitorJob?.cancel(); monitorJob = null
         needToUnlock = false; unlockJob?.cancel(); unlockJob = null
         lockJob?.cancel(); lockJob = null
+        relockJob?.cancel(); relockJob = null
         ble.onInboundActivity = null; activityWake?.complete(Unit); activityWake = null
         motion.onMovingEdge = null; motionWake?.complete(Unit); motionWake = null
         motion.stop()
@@ -604,11 +622,17 @@ class ProximityController(
                 Logx.w("prox", "$reason: BLE lock unconfirmed after $attempt attempts - falling back to CLOUD lock")
                 val cloud = runCatching { cloudLock() }.getOrDefault(false)
                 Logx.d("prox", "$reason: cloud lock -> ${if (cloud) "ok" else "FAILED"}")
-                _state.value = _state.value.copy(lastAction = "$reason · ${if (cloud) "cloud-locked ✓" else "LOCK FAILED ✗"}")
-                if (cloud) fireWalkAwayLocked(reason)
+                if (cloud) {
+                    _state.value = _state.value.copy(lastAction = "$reason · cloud-locked (verifying)")
+                    verifyLockThenArm(reason)
+                } else {
+                    _state.value = _state.value.copy(lastAction = "$reason · LOCK FAILED ✗")
+                }
             } else {
-                _state.value = _state.value.copy(lastAction = "$reason · locked ✓")
-                fireWalkAwayLocked(reason)
+                // BLE said CONFIRMED, but that is only "command received/acted" - verify it actually locked
+                // (a door left open lets the lock confirm while the car stays open), then arm Sentry.
+                _state.value = _state.value.copy(lastAction = "$reason · locked (verifying)")
+                verifyLockThenArm(reason)
             }
             lockJob = null
         }
@@ -622,6 +646,114 @@ class ProximityController(
                 .onFailure { Logx.w("prox", "$reason: walk-away-locked hook failed: ${it.message}") }
         }
     }
+
+    /**
+     * Verify a walk-away lock actually took, then arm Sentry. The BLE/cloud "confirm" only means the
+     * command was accepted; a lock issued with a door open confirms while the car stays unlocked. So we
+     * read the car's REAL state ([cloudLockState]) and:
+     *  - locked            -> arm Sentry (the normal happy path);
+     *  - verify unavailable -> trust the confirm and arm (don't block Sentry on a readback we couldn't get);
+     *  - not locked         -> hand off to [startRelockWatch] (notify + re-lock when the door closes). We do
+     *                          NOT arm Sentry while the car is open.
+     */
+    private fun verifyLockThenArm(reason: String) {
+        scope.launch {
+            val st = runCatching { cloudLockState() }.getOrNull()
+            when {
+                st == null -> {
+                    Logx.d("prox", "$reason: lock verify unavailable - trusting the confirm, arming")
+                    fireWalkAwayLocked(reason)
+                }
+                st.locked -> {
+                    Logx.d("prox", "$reason: lock verified LOCKED")
+                    _state.value = _state.value.copy(lastAction = "$reason · locked ✓")
+                    fireWalkAwayLocked(reason)
+                }
+                else -> {
+                    Logx.w("prox", "$reason: verify says NOT locked (open: ${st.openParts.joinToString().ifEmpty { "none" }}) -> watch-and-relock")
+                    startRelockWatch(reason, st)
+                }
+            }
+        }
+    }
+
+    /**
+     * Watch-and-relock (bounded [RELOCK_WATCH_MS]). Warns the user the car didn't lock and, while a door is
+     * open, waits for it to close; once nothing is open it re-issues a lock (BLE if a session is up, else
+     * cloud) and re-verifies. On success it clears the warning and arms Sentry; on timeout it leaves a
+     * "still open" warning and does NOT arm. Single-flight. Holds a wakelock so the polls fire screen-off.
+     */
+    private fun startRelockWatch(reason: String, initial: LockState) {
+        if (relockJob?.isActive == true) return
+        relockJob = scope.launch {
+            val wl = acquireRelockWakelock()
+            try {
+                notifyNotLocked(initial)
+                _state.value = _state.value.copy(
+                    lastAction = "$reason · not locked (${initial.openParts.joinToString().ifEmpty { "retrying" }})")
+                val deadline = System.currentTimeMillis() + RELOCK_WATCH_MS
+                var st = initial
+                while (isActive && System.currentTimeMillis() < deadline) {
+                    if (!st.anyOpen) {
+                        Logx.d("prox", "$reason: nothing open - (re)issuing lock")
+                        relock(reason)
+                    }
+                    delay(RELOCK_POLL_MS)
+                    st = runCatching { cloudLockState() }.getOrNull() ?: continue
+                    if (st.locked) {
+                        Logx.d("prox", "$reason: car now LOCKED (watch) - done")
+                        notifyLocked()
+                        _state.value = _state.value.copy(lastAction = "$reason · locked ✓ (after retry)")
+                        fireWalkAwayLocked(reason)
+                        return@launch
+                    }
+                    notifyNotLocked(st)   // update which parts are still open
+                }
+                Logx.w("prox", "$reason: still not locked after ${RELOCK_WATCH_MS / 60_000} min - giving up")
+                notifyGaveUp(st)
+                _state.value = _state.value.copy(
+                    lastAction = "$reason · NOT LOCKED (${st.openParts.joinToString().ifEmpty { "open" }}) ✗")
+            } finally {
+                releaseSafetyWakelock(wl)
+                relockJob = null
+            }
+        }
+    }
+
+    /** Re-issue a lock during the watch: prefer the live BLE session, else fall back to cloud. */
+    private suspend fun relock(reason: String) {
+        val bleOk = ble.state.value == DkBleManager.State.SESSION_READY &&
+            runCatching { ble.session.control(DkProtocol.CTRL_LOCK, LOCK_ACK_TIMEOUT_MS) }.getOrNull() == ControlResult.CONFIRMED
+        if (bleOk) { Logx.d("prox", "$reason: relock via BLE -> confirmed"); return }
+        val cloud = runCatching { cloudLock() }.getOrDefault(false)
+        Logx.d("prox", "$reason: relock via cloud -> ${if (cloud) "ok" else "FAILED"}")
+    }
+
+    private fun notifyNotLocked(st: LockState) {
+        val parts = st.openParts.joinToString(", ")
+        if (st.openParts.isEmpty()) {
+            notifyLockAlert("Car not locked", "The car didn't lock - retrying.", true)
+        } else {
+            notifyLockAlert("Car not locked", "Close the $parts - the car can't lock while it's open.", true)
+        }
+    }
+
+    private fun notifyLocked() = notifyLockAlert("Car locked", "The car is now locked.", false)
+
+    private fun notifyGaveUp(st: LockState) {
+        val parts = st.openParts.joinToString(", ").ifEmpty { "it's still open" }
+        notifyLockAlert("Car still not locked", "Gave up after ${RELOCK_WATCH_MS / 60_000} min - $parts. Please lock it manually.", false)
+    }
+
+    /** A longer self-releasing wakelock than [acquireSafetyWakelock], so the bounded watch-and-relock polls
+     *  keep firing while the screen is off. Auto-expires; also released in the watch's finally. */
+    private fun acquireRelockWakelock(): android.os.PowerManager.WakeLock? = runCatching {
+        val pm = appContext.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "openzeekr:relock-watch").apply {
+            setReferenceCounted(false)
+            acquire(RELOCK_WAKELOCK_MS)
+        }
+    }.getOrNull()
 
     /**
      * Out-of-range CLOUD lock backstop. Runs when the BLE link drops as a walk-away that the BLE
@@ -660,10 +792,13 @@ class ProximityController(
                 val ok = runCatching { cloudLock() }.getOrDefault(false)
                 Logx.d("prox", "$reason: car ${if (locked == false) "unlocked" else "state unknown"} " +
                     "-> cloud lock ${if (ok) "ok" else "FAILED"}")
-                _state.value = _state.value.copy(
-                    lastAction = "$reason · ${if (ok) "cloud-locked ✓" else "LOCK FAILED ✗"}",
-                )
-                if (ok) fireWalkAwayLocked(reason)
+                if (ok) {
+                    // Verify the cloud lock actually took (door-open can leave it unlocked), then arm Sentry.
+                    _state.value = _state.value.copy(lastAction = "$reason · cloud-locked (verifying)")
+                    verifyLockThenArm(reason)
+                } else {
+                    _state.value = _state.value.copy(lastAction = "$reason · LOCK FAILED ✗")
+                }
             } finally {
                 releaseSafetyWakelock(wl)
             }
@@ -843,6 +978,11 @@ class ProximityController(
         private const val MAX_LOCK_ATTEMPTS = 5
         private const val LOCK_SESSION_WAIT_MS = 3_000L    // brief wait for SESSION_READY per attempt
         private const val LOCK_ACK_TIMEOUT_MS = 1_500L     // wait for the car's lock receipt
+        // Post-lock verification watch-and-relock (walk-away): poll the cloud lock/door state for this long,
+        // re-locking once an open door closes. Bounded so a door left open forever can't watch indefinitely.
+        private const val RELOCK_WATCH_MS = 5 * 60_000L
+        private const val RELOCK_POLL_MS = 25_000L
+        private const val RELOCK_WAKELOCK_MS = RELOCK_WATCH_MS + 15_000L
 
         // Nominal RSSI-at-1m and path-loss exponent for the metre estimate (DISPLAY ONLY).
         private const val TX_POWER_1M = -59

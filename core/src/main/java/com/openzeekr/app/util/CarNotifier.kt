@@ -82,5 +82,52 @@ object CarNotifier {
         runCatching { NotificationManagerCompat.from(ctx).notify(msg.notifId(), n) }
     }
 
+    /**
+     * Post a standalone, app-generated alert (not an inbox message) on [category]'s channel - e.g. the
+     * walk-away lock verification warning that the car couldn't lock because a door is open. Reusing a
+     * stable [notifId] per alert kind means later calls UPDATE the same notification instead of stacking.
+     * [ongoing] keeps it sticky while the condition persists (cleared with a final non-ongoing update or
+     * [cancelAlert]). No-ops (via runCatching) when POST_NOTIFICATIONS isn't granted.
+     */
+    fun notifyAlert(
+        ctx: Context,
+        category: CarNotificationCategory,
+        title: String,
+        text: String,
+        notifId: Int,
+        ongoing: Boolean = false,
+    ) {
+        ensureChannels(ctx)
+        val launch = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val pi = launch?.let {
+            PendingIntent.getActivity(
+                ctx, notifId, it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+        val n = NotificationCompat.Builder(ctx, category.channelId)
+            .setSmallIcon(R.drawable.ic_logo)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setOnlyAlertOnce(true)
+            .setOngoing(ongoing)
+            .setAutoCancel(!ongoing)
+            .apply { pi?.let { setContentIntent(it) } }
+            .build()
+        runCatching { NotificationManagerCompat.from(ctx).notify(notifId, n) }
+    }
+
+    /** Dismiss an alert previously posted by [notifyAlert]. */
+    fun cancelAlert(ctx: Context, notifId: Int) {
+        runCatching { NotificationManagerCompat.from(ctx).cancel(notifId) }
+    }
+
+    /** Stable notification id for the walk-away lock-verification alert (so updates replace it). */
+    const val LOCK_ALERT_ID = 0x10C7
+
     private fun InboxMessage.notifId(): Int = (id ?: "$title:$timeMs").hashCode()
 }

@@ -222,6 +222,15 @@ data class SecretsConfig(
      *  remember the user's last choice to keep the switches showing the right state (like stock). */
     val approachUnlockOn: Boolean = false,
     val walkAwayLockOn: Boolean = false,
+    /**
+     * Force-unlock the car with a volume-button combo on the lock screen. When on (and ONLY while the
+     * phone has a secure lock - see [com.openzeekr.app.forceunlock.ForceUnlockManager]), every time the
+     * screen turns on while the phone is still LOCKED we listen ~10 s for VOLUME-UP + VOLUME-DOWN pressed
+     * together; the combo issues a BLE connect + unlock WITHOUT unlocking the phone. Off by default: it is
+     * a deliberate convenience/safety trade-off (anyone holding the locked phone who knows the combo can
+     * open the car), so the Key-tab toggle raises a big warning before enabling and is only selectable on
+     * a device with a secure lock. */
+    val forceUnlockKeyCombo: Boolean = false,
     /** Developer mode (enabled by tapping the version 10x in Settings). Gates in-development tools -
      *  the Hero lab, Remote Parking and Smart calibration - so they aren't shown to normal users
      *  between releases. Default off; a fresh/normal install never sees the dev tools. */

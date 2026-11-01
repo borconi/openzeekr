@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lock-screen force-unlock raises its combo-listener over the keyguard via a full-screen intent
+         (the call-screen mechanism). Android 14+ gates this behind a user grant; ForceUnlockManager
+         checks canUseFullScreenIntent() and degrades gracefully when it isn't granted. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Keep the CPU awake while the keep-alive/proximity loop runs with the screen off; a FGS
          alone does not prevent CPU suspend, and without it the screen-off BLE scan never flushes

@@ -92,6 +92,11 @@ fun SetupScreen(
     var confirmRemove by remember { mutableStateOf(false) }
     var probing by remember { mutableStateOf(false) }
     var showCalib by remember { mutableStateOf(false) }
+    // Force-unlock (volume combo on the lock screen) is only ENABLE-able on a phone with a secure lock:
+    // without one, anyone could open the car just by waking a swipe-to-unlock screen.
+    val keyguard = remember { context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager }
+    val deviceSecure = keyguard?.isDeviceSecure == true
+    var confirmForceUnlock by remember { mutableStateOf(false) }
 
     val ready = isProvisioned() || prov.step == DkProvisioning.Step.DONE
     val sessionReady = bleState == DkBleManager.State.SESSION_READY
@@ -301,6 +306,37 @@ fun SetupScreen(
                 color = Brand.faint, fontSize = 11.sp,
             )
         }
+
+        // --- Force unlock: volume-button combo on the lock screen ---
+        SectionHeader("Force unlock")
+        CockpitCard {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Brand.surface2), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.VpnKey, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Unlock with a volume combo", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text("Press volume up + down together on the lock screen to unlock the car.", color = Brand.muted, fontSize = 12.sp)
+                }
+                Switch(
+                    // Only ON when a secure lock exists; turning it ON routes through the warning dialog first.
+                    checked = cfg.forceUnlockKeyCombo && deviceSecure,
+                    enabled = deviceSecure,
+                    onCheckedChange = { on ->
+                        if (on) confirmForceUnlock = true
+                        else config.update { it.copy(forceUnlockKeyCombo = false) }
+                    },
+                    colors = brandSwitchColors(Brand.accent),
+                )
+            }
+            if (!deviceSecure) {
+                Text("Needs a secure screen lock (PIN, pattern or password). Set one in system settings to use this.",
+                    color = Brand.faint, fontSize = 11.5.sp)
+            } else {
+                Text("For ~10 s after the screen turns on while locked, the combo connects and unlocks the car " +
+                    "over the BLE key - without unlocking the phone.", color = Brand.faint, fontSize = 11.5.sp)
+            }
+        }
         Spacer(Modifier.height(16.dp))
     }
 
@@ -310,6 +346,28 @@ fun SetupScreen(
             ProximityCalibrationWalk(calib) { showCalib = false }
         }
     }
+
+    if (confirmForceUnlock) AlertDialog(
+        onDismissRequest = { confirmForceUnlock = false },
+        title = { Text("Enable lock-screen force unlock?") },
+        text = {
+            Text(
+                "Anyone who is holding this phone while it is locked, and who knows the combo (volume up and " +
+                    "volume down pressed together), can unlock the car WITHOUT unlocking the phone.\n\n" +
+                    "The window is only open for about 10 seconds each time the screen turns on while locked, " +
+                    "and it closes the moment you unlock the phone or the screen turns off. Only enable this if " +
+                    "you accept that trade-off.",
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                config.update { it.copy(forceUnlockKeyCombo = true) }
+                confirmForceUnlock = false
+                snackbar("Force unlock enabled - volume up + down on the lock screen")
+            }) { Text("Enable", color = Brand.crit) }
+        },
+        dismissButton = { TextButton(onClick = { confirmForceUnlock = false }) { Text("Cancel") } },
+    )
 
     if (confirmRemove) AlertDialog(
         onDismissRequest = { confirmRemove = false },

@@ -55,6 +55,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Lock-screen force-unlock: a transparent, UI-less activity raised OVER the keyguard by a
+             full-screen intent (ForceUnlockManager) for a ~10 s window. It captures the VOL-UP + VOL-DOWN
+             combo and unlocks the car over BLE without unlocking the phone. showWhenLocked + a 1x1
+             focusable NOT_TOUCH_MODAL window (set in code) let the keyguard still receive touches (PIN
+             entry) while we keep key focus. Not exported - only our own full-screen PendingIntent starts
+             it. noHistory/excludeFromRecents so it never lingers in recents. -->
+        <activity
+            android:name=".forceunlock.ForceUnlockActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:showWhenLocked="true"
+            android:turnScreenOn="false"
+            android:noHistory="true" />
+
         <!-- Shares the exported journey-log CSV out via the system share sheet. -->
         <provider
             android:name="androidx.core.content.FileProvider"

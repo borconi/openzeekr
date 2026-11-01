@@ -25,6 +25,12 @@ class App : Application(), DepsHolder {
         CarNotifier.ensureChannels(this)
         deps = Deps(this)
         registerActivityLifecycleCallbacks(ForegroundTracker())
+        // Arm the opt-in lock-screen force-unlock: registers the runtime ACTION_SCREEN_ON receiver (it
+        // can't be manifest-declared) that, when the feature is enabled and the phone is still locked,
+        // raises the transparent combo-listener over the keyguard via a full-screen intent. The receiver
+        // stays alive because the BLE foreground service keeps the process up; the per-screen-on gate
+        // (flag + secure lock) is re-checked live, so this is safe to arm unconditionally at startup.
+        com.openzeekr.app.forceunlock.ForceUnlockManager.init(this)
     }
 
     /**

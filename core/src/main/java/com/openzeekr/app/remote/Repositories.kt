@@ -838,7 +838,11 @@ class ScheduleRepository(private val store: ConfigStore, private val client: Api
             guarded {
                 requireVin()
                 runCatching { com.openzeekr.app.net.AccountLogin(store).heartbeat() }
-                client.api.getTravelPlans().data ?: emptyList()
+                // #36 diagnostic: if the car's readback shape changed and the strict model throws, surface
+                // WHY (the missing/changed field) instead of a bare failure on the schedule screen.
+                runCatching { client.api.getTravelPlans().data ?: emptyList() }
+                    .onFailure { com.openzeekr.app.util.Logx.w("schedule", "departures(): getTravelPlans parse FAILED: ${it.message}") }
+                    .getOrThrow()
             }
         }
 
@@ -878,8 +882,19 @@ class ScheduleRepository(private val store: ConfigStore, private val client: Api
                 }
                 if (verify) {
                     // Confirm the plan actually applied on the car (match by name + requested enable state).
+                    // Diagnostic (issue #36, a regression): the readback was swallowing its errors, so a
+                    // changed/missing field in the car's BookingTravelSetting JSON (which makes the strict
+                    // model throw on parse) surfaced only as a misleading "car asleep". Log the raw outcome
+                    // so a reproduction log shows whether it's a PARSE failure, a field MISMATCH, or truly
+                    // absent (car offline).
                     val applied = pollUntil {
-                        val plans = client.api.getTravelPlans().data ?: emptyList()
+                        val plans = runCatching { client.api.getTravelPlans().data }
+                            .onFailure { com.openzeekr.app.util.Logx.w("schedule", "verify: getTravelPlans readback FAILED to parse: ${it.message}") }
+                            .getOrNull() ?: emptyList()
+                        com.openzeekr.app.util.Logx.d(
+                            "schedule",
+                            "verify: readback=${plans.map { "${it.name}/sts=${it.sts}/btId=${it.btId}" }} want name='${setting.name}' sts=${setting.sts}",
+                        )
                         plans.any { it.name == setting.name && it.sts == setting.sts }
                     }
                     if (!applied) error(CAR_ASLEEP)

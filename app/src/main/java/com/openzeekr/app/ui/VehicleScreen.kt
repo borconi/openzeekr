@@ -781,6 +781,17 @@ private fun ClimateSheet(
                 }
             }
 
+            // ---- rapid presets: one tap = A/C on at the coldest / warmest setpoint (#24) ----
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                CabinActionButton(Icons.Filled.AcUnit, "Rapid cool", acOn && temp <= 16.01, Brand.accent) {
+                    temp = 16.0; tempDirty = true   // triggers the debounced A/C-on-at-temp command below
+                }
+                Spacer(Modifier.width(28.dp))
+                CabinActionButton(Icons.Filled.Whatshot, "Rapid heat", acOn && temp >= 27.99, Brand.energy) {
+                    temp = 28.0; tempDirty = true
+                }
+            }
+
             // ---- bottom bar: temperature stepper · Ventilate · Climate power ----
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

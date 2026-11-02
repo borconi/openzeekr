@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -309,7 +310,12 @@ private fun AddDepartureSheet(
                     TimeChip(time.take(5)) { pickTime(ctx, time, withSeconds = true) { time = it } }
                 }
                 Text("Repeat on (pick at least one day)", color = Brand.muted, fontSize = 12.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // FlowRow so all 7 days wrap onto a second line on narrow dialogs instead of clipping
+                // Sat/Sun off the right edge (they were unreachable in a plain Row).
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     // day is 1-based on the wire (1=Mon .. 7=Sun); DAY_LABELS is indexed day-1.
                     for (d in 1..7) {
                         val on = d in days

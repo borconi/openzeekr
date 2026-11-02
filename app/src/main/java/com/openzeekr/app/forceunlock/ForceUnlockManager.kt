@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -84,6 +85,15 @@ object ForceUnlockManager {
         }
         // 3) phone must still be LOCKED right now (nothing to force if it's already unlocked)
         if (!keyguard.isDeviceLocked) return
+        // 4) Don't hijack a screen that an incoming/active CALL woke - the call screen should show, not ours.
+        //    There's no API for WHY the screen turned on, so use the audio mode as a permission-free proxy
+        //    for ringing / in a call. This keeps the panel to power-button-style wakes (lift/tap-to-wake
+        //    still fire SCREEN_ON, but those are deliberate user wakes, so showing it there is fine).
+        val mode = (ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.mode ?: AudioManager.MODE_NORMAL
+        if (mode == AudioManager.MODE_RINGTONE || mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
+            Logx.d("forceunlock", "screen-on during a call (audio mode=$mode) - not showing the panel")
+            return
+        }
         Logx.d("forceunlock", "screen-on while locked - opening the force-unlock listen window")
         launchViaFullScreenIntent(ctx)
     }

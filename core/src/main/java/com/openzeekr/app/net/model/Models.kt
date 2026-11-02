@@ -730,17 +730,28 @@ object Inbox {
      */
     fun homeUnread(data: JsonElement?): Int {
         var total = 0
+        // Per-contributor breakdown, logged so an affected tester's debug log (issue #37: a stuck,
+        // non-zero badge while the official app shows 0 unread) reveals WHICH category/notice-type the
+        // count comes from - i.e. whether it is a type the official app doesn't badge, or old unread we
+        // never mark read.
+        val breakdown = StringBuilder()
+        fun label(o: JsonObject): String =
+            listOf("customTypeId", "noticeType", "type", "groupType", "bizType", "name", "title")
+                .firstNotNullOfOrNull { (o[it] as? JsonPrimitive)?.contentOrNull } ?: "?"
         fun walk(n: JsonElement?) {
             when (n) {
                 is JsonArray -> n.forEach(::walk)
                 is JsonObject -> {
-                    (n["unReadNum"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()?.let { total += it }
+                    (n["unReadNum"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()?.let {
+                        if (it != 0) { total += it; breakdown.append("${label(n)}=$it ") }
+                    }
                     n.values.forEach(::walk)
                 }
                 else -> {}
             }
         }
         walk(data)
+        com.openzeekr.app.util.Logx.d("inbox", "homeUnread total=$total {${breakdown.toString().trim()}}")
         return total
     }
 

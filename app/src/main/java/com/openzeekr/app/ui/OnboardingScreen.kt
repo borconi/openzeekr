@@ -235,6 +235,8 @@ private fun LoginStep(deps: Deps) {
     var shareMsg by remember { mutableStateOf("") }
     val loggedIn = cfg.accessToken.isNotBlank()
     val ctx = LocalContext.current
+    // Autofill (Compose 1.8+): commit() on a successful login prompts the password manager to SAVE it.
+    val autofillManager = androidx.compose.ui.platform.LocalAutofillManager.current
 
     fun signIn() {
         if (busy || email.isBlank() || password.isBlank()) return
@@ -243,7 +245,7 @@ private fun LoginStep(deps: Deps) {
             try {
                 store.update { it.copy(email = email, password = password) }
                 status = when (val r = deps.auth.login()) {
-                    is CallResult.Ok -> "Login ✓"
+                    is CallResult.Ok -> { runCatching { autofillManager?.commit() }; "Login ✓" }
                     is CallResult.Err -> "Login ✗ ${r.message}"
                 }
             } finally {

@@ -71,7 +71,7 @@ run {
 
 android {
     namespace = "com.openzeekr.core"
-    compileSdk = 34
+    compileSdk = 35
 
     // Build the native secrets lib (libozsecrets.so). The NDK version is pinned once, in
     // gradle.properties (openzeekr.ndkVersion), and must be installed under the SDK

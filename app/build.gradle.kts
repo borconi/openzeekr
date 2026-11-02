@@ -4,6 +4,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 // Release signing is read from an UNTRACKED keystore.properties at the repo root (see
@@ -14,7 +15,7 @@ val keystoreProps = Properties().apply { if (keystorePropsFile.exists()) load(Fi
 
 android {
     namespace = "com.openzeekr.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.openzeekr.app"
@@ -56,9 +57,8 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // Compose compiler is now configured by the kotlin.plugin.compose Gradle plugin (Kotlin 2.0+),
+    // so the old composeOptions.kotlinCompilerExtensionVersion is gone.
     lint {
         // Same policy in :app, :core and :wear. See "Lint policy" in the root build.gradle.kts.
         abortOnError = true
@@ -82,7 +82,9 @@ dependencies {
     // security-crypto/bouncycastle transitively via `api`).
     implementation(project(":core"))
 
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
+    // Compose 1.8 (brings the new semantics-based autofill that can SAVE logins, #31). Bump to the
+    // latest 1.8+ BOM your Studio/AndroidX offers if this one lags.
+    val composeBom = platform("androidx.compose:compose-bom:2025.06.01")
     implementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.13.1")

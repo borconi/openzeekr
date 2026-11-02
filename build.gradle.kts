@@ -2,10 +2,13 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 // Top-level build file. Plugin versions are declared here and applied per-module.
 plugins {
-    id("com.android.application") version "8.5.2" apply false
-    id("com.android.library") version "8.5.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24" apply false
+    id("com.android.application") version "8.7.2" apply false
+    id("com.android.library") version "8.7.2" apply false
+    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0" apply false
+    // Kotlin 2.0+ moves the Compose compiler into this Gradle plugin (replaces the old
+    // composeOptions.kotlinCompilerExtensionVersion). Applied in :app and :wear.
+    id("org.jetbrains.kotlin.plugin.compose") version "2.1.0" apply false
 }
 
 // ---- Verification entry points --------------------------------------------------------------

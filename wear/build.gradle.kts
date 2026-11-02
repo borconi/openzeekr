@@ -4,6 +4,7 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 // Same untracked keystore.properties as the phone app — the watch AAB MUST be signed with the
@@ -13,7 +14,7 @@ val keystoreProps = Properties().apply { if (keystorePropsFile.exists()) load(Fi
 
 android {
     namespace = "com.openzeekr.wear"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         // MUST match the phone app's applicationId: the Wear Data Layer only delivers
@@ -57,7 +58,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
+    // Compose compiler now comes from the kotlin.plugin.compose Gradle plugin (Kotlin 2.0+).
     lint {
         // Same policy in :app, :core and :wear. See "Lint policy" in the root build.gradle.kts.
         abortOnError = true
@@ -81,7 +82,8 @@ dependencies {
     // RealDkSession, DkLockController, DkIdentity — no cloud, no proximity).
     implementation(project(":core"))
 
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
+    // Keep in step with :app (Compose 1.8+). Bump to the latest 1.8+ BOM if this one lags.
+    val composeBom = platform("androidx.compose:compose-bom:2025.06.01")
     implementation(composeBom)
 
     implementation("androidx.core:core-ktx:1.13.1")

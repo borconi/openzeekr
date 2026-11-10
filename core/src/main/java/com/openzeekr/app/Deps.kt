@@ -155,6 +155,9 @@ class Deps(context: Context) {
                 com.openzeekr.app.util.CarNotifier.LOCK_ALERT_ID, ongoing,
             )
         },
+        // #42: suppress approach-unlock / walk-away-lock inside the user's proximity exclusion zones
+        // (e.g. "Home"). Fast cached-location check so it never delays an unlock.
+        isInExclusionZone = { sentryAutoArm.isInsideAnyZoneFast(config.current().proximityExclusionZones) },
     )
     /** Call after the base URL / sign algo changes so the HTTP client rebuilds. */
     fun onEndpointChanged() = apiClient.rebuild()

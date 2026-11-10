@@ -203,6 +203,10 @@ data class SecretsConfig(
     /** Circular zones (e.g. "Home") where auto-enable-Sentry does NOT fire. Nested list persisted as
      *  JSON (kotlinx serializes the list-of-[GeoZone] automatically; no custom serializer needed). */
     val sentryExclusionZones: List<GeoZone> = emptyList(),
+    /** Circular zones (e.g. "Home") where approach-unlock and walk-away-lock do NOT fire (issue #42):
+     *  the car is left as-is inside these zones, so it isn't auto-locked/unlocked (and doesn't chirp
+     *  repeatedly) while parked at home. Separate from [sentryExclusionZones] so the two can differ. */
+    val proximityExclusionZones: List<GeoZone> = emptyList(),
 
     // ---- app-local UI state (not part of zeekr_secrets.json) ----
     /** First-run onboarding wizard completed (login → key provisioning). */

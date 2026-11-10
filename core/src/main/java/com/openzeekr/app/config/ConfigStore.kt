@@ -117,6 +117,14 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
     fun removeSentryExclusionZone(zone: GeoZone) =
         update { it.copy(sentryExclusionZones = it.sentryExclusionZones.filterNot { z -> z == zone }) }
 
+    /** Add an approach-unlock / walk-away-lock exclusion zone (issue #42; e.g. the user's "Home"). */
+    fun addProximityExclusionZone(zone: GeoZone) =
+        update { it.copy(proximityExclusionZones = it.proximityExclusionZones + zone) }
+
+    /** Remove the given proximity exclusion zone (value equality). No-op if absent. */
+    fun removeProximityExclusionZone(zone: GeoZone) =
+        update { it.copy(proximityExclusionZones = it.proximityExclusionZones.filterNot { z -> z == zone }) }
+
     fun setActiveVehicle(vin: String) = update { cur ->
         val v = cur.vehicles.firstOrNull { it.vin == vin } ?: return@update cur
         cur.copy(vin = v.vin, isOwner = v.isOwner, carNickname = v.name.ifBlank { cur.carNickname })

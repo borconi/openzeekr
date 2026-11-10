@@ -101,6 +101,22 @@ class SentryAutoArmer(
         }
     }
 
+    /**
+     * Fast "is the phone inside one of [zones]" test using ONLY the cached last location (no fresh-fix
+     * wait), for the latency-sensitive proximity path (issue #42): approach-unlock must stay instant, so we
+     * never block on a GPS fix. Returns false when zones are empty, permission is missing, there's no
+     * cached fix, or the phone is outside every zone. "Am I at home" tolerates a slightly stale fix.
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun isInsideAnyZoneFast(zones: List<GeoZone>): Boolean {
+        if (zones.isEmpty() || !hasLocationPermission()) return false
+        val client = runCatching { LocationServices.getFusedLocationProviderClient(appCtx) }.getOrNull() ?: return false
+        val loc = withTimeoutOrNull(FAST_LOCATION_TIMEOUT_MS) {
+            runCatching { awaitLocation { client.lastLocation } }.getOrNull()
+        } ?: return false
+        return enclosingZone(loc, zones) != null
+    }
+
     /** Bridge a Play-services Task<Location> into a suspend result (null on failure/cancel). */
     private suspend fun awaitLocation(task: () -> com.google.android.gms.tasks.Task<Location>): Location? =
         suspendCancellableCoroutine { cont ->
@@ -117,5 +133,6 @@ class SentryAutoArmer(
     private companion object {
         const val LOCATION_TIMEOUT_MS = 8_000L
         const val LOCATION_MAX_AGE_MS = 60_000L   // a fix up to a minute old is fine for a home/away test
+        const val FAST_LOCATION_TIMEOUT_MS = 1_500L   // cached-only lookup for the latency-sensitive proximity gate
     }
 }

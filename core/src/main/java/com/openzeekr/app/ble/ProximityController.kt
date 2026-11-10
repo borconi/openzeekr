@@ -72,6 +72,11 @@ class ProximityController(
      *  open), it locked after you closed it, or it's still open after the watch window. Injected by Deps so
      *  :core stays decoupled from CarNotifier; ongoing=true keeps the warning sticky while unresolved. */
     private val notifyLockAlert: (title: String, text: String, ongoing: Boolean) -> Unit = { _, _, _ -> },
+    /** True when the phone is currently inside a user-defined proximity exclusion zone (issue #42; e.g.
+     *  "Home"). When it is, approach-unlock and walk-away-lock are suppressed so the car isn't auto-
+     *  locked/unlocked (or made to chirp repeatedly) while parked there. Fast cached-location check so it
+     *  never adds latency to an unlock. Injected by Deps; defaults to never-excluded. */
+    private val isInExclusionZone: suspend () -> Boolean = { false },
 ) {
 
     /** The car's real lock/door state from a cloud status readback (not the BLE command ACK). */
@@ -564,9 +569,20 @@ class ProximityController(
             now - lockBelowSinceMs >= LOCK_DWELL_MS) {
             armedUnlocked = false
             lockBelowSinceMs = 0L
-            Logx.d("prox", "walk-away-lock (rssi=$smoothed ~${"%.1f".format(dist)}m, dwell ok)")
-            startLockLoop("walk-away-lock")
-            _walkAwayLocked.tryEmit(Unit)   // no-wake-up phones: ProximityService opens a return window
+            val lockRssi = smoothed
+            val lockDist = dist
+            // #42: suppress the walk-away lock (and the Sentry-arm / return-window it triggers) inside an
+            // exclusion zone, so the car stays as-is at home. The zone check is a fast cached-location
+            // lookup; run it off the sample thread so onSample stays non-blocking.
+            scope.launch {
+                if (isInExclusionZone()) {
+                    Logx.d("prox", "walk-away-lock SKIPPED - inside a proximity exclusion zone")
+                    return@launch
+                }
+                Logx.d("prox", "walk-away-lock (rssi=$lockRssi ~${"%.1f".format(lockDist)}m, dwell ok)")
+                startLockLoop("walk-away-lock")
+                _walkAwayLocked.tryEmit(Unit)   // no-wake-up phones: ProximityService opens a return window
+            }
         }
     }
 
@@ -583,6 +599,12 @@ class ProximityController(
     private fun startUnlockLoop() {
         if (unlockJob?.isActive == true) return
         unlockJob = scope.launch {
+            // #42: don't auto-unlock inside an exclusion zone (e.g. at home). Fast cached-location check.
+            if (isInExclusionZone()) {
+                Logx.d("prox", "approach-unlock SKIPPED - inside a proximity exclusion zone")
+                needToUnlock = false
+                return@launch
+            }
             var attempt = 0
             while (isActive && needToUnlock && attempt < MAX_UNLOCK_ATTEMPTS) {
                 attempt++

@@ -76,6 +76,7 @@ fun SetupScreen(
     lock: DkLockController,
     config: ConfigStore,
     calib: com.openzeekr.app.ble.CalibrationTestController,
+    sentryAutoArm: com.openzeekr.app.remote.SentryAutoArmer,
     isProvisioned: () -> Boolean,
     dkId: String?,
     onRemoveKey: () -> Unit,
@@ -273,6 +274,8 @@ fun SetupScreen(
                     "Auto-lock on walk-away", "Lock the car as you leave",
                     checked = cfg.autoLockOnWalkAway, enabled = true,
                 ) { on -> config.update { it.copy(autoLockOnWalkAway = on) } }
+                // #42: zones (e.g. Home) where approach-unlock / walk-away-lock are suppressed.
+                ProximityExclusionSection(config, sentryAutoArm)
             }
 
             // --- Sensitivity: only meaningful once enabled (and thus calibrated) ---

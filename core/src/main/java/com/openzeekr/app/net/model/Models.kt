@@ -469,6 +469,100 @@ object ShareInviteParse {
     }
 }
 
+// -------------------------------------------------------------- car share (OWNER side): list + revoke
+// GET ms-tsp-user-vehicle/api/v2/veh/owner/authorize/list -> data list of ShareVehicleResultBean (the
+// car's OUTGOING shares). POST .../owner/authorize/cancel {shareId} ends one. (Decompiled aj/a.smali.)
+
+/** One outgoing share the owner has granted, flattened for the UI. `shareId` feeds the cancel call. */
+data class ShareGrant(
+    val shareId: String,
+    val toName: String?,
+    val toContact: String?,      // email or phone of the person it's shared with
+    val status: Int?,            // server status enum (1-ish = active); shown via [isActive]
+    val functionNames: String?,  // granted scopes, human-readable
+    val startTime: Long?,
+    val endTime: Long?,
+    val expireTime: Long?,
+    val shareType: Int?,
+) {
+    /** Epoch-seconds-or-millis normaliser (the API mixes both, like [ShareInvite]). */
+    private fun ms(t: Long?) = t?.let { if (it < 100_000_000_000L) it * 1000 else it }
+
+    /** Still live: not past its end/expiry. We don't reverse the numeric status enum, so a non-expired
+     *  grant is treated as active (the list endpoint already returns current shares). */
+    fun isActive(nowMs: Long = System.currentTimeMillis()): Boolean {
+        val exp = ms(expireTime); val end = ms(endTime)
+        return (exp == null || exp > nowMs) && (end == null || end > nowMs)
+    }
+}
+
+/** Body for POST …/owner/authorize/cancel. digtalKeyReqVO omitted (only needed for DK-key shares). */
+@Serializable
+data class OwnerCancelShareRequest(val shareId: String)
+
+/**
+ * Body for POST …/owner/authorize/create — invite someone to share the car by email.
+ *
+ * The stock VehicleOwnerCreateCarShareRequestBean is null-heavy (most of its 27 fields go out as null),
+ * so we send only the essentials and let the server derive the owner (from the bearer) and the car (VIN
+ * via X-VIN header). Defaults are OFF in the retrofit JSON (encodeDefaults=false), so the required fields
+ * carry no Kotlin default (always emitted) and the optional ones default to null (omitted when unset).
+ *
+ * `shareType` 2 = permanent and `serviceCodeList` with all four scopes match the car's existing live
+ * shares exactly (highest chance the gateway accepts it). The digital key, when granted, is provisioned
+ * on the INVITEE's side when they accept - the owner's create carries no key material.
+ */
+@Serializable
+data class OwnerCreateShareRequest(
+    val toUserEmail: String,
+    val toUserName: String,
+    val shareType: Int,
+    val serviceCodeList: List<String>,
+    val supportSubSharing: Int,
+    val vin: String? = null,
+    val systemType: String? = null,
+)
+
+object ShareOwner {
+    /** Tolerant parse of the owner share list (data list of ShareVehicleResultBean). */
+    fun parseList(data: JsonElement?): List<ShareGrant> {
+        val arr = when (data) {
+            is JsonArray -> data
+            is JsonObject -> (data["data"] as? JsonArray ?: data["list"] as? JsonArray
+                ?: data["records"] as? JsonArray ?: data.values.firstOrNull { it is JsonArray } as? JsonArray)
+            else -> null
+        } ?: return emptyList()
+        return arr.mapNotNull { it as? JsonObject }.mapNotNull { o ->
+            fun s(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+            fun i(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+            fun l(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
+            val id = s("id") ?: s("shareId") ?: return@mapNotNull null
+            val funcList = (o["function"] as? JsonArray)
+                ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.replace('-', ' ') }
+                ?.filter { it.isNotBlank() }?.joinToString(", ")?.takeIf { it.isNotBlank() }
+            ShareGrant(
+                shareId = id,
+                toName = s("toUserName"),
+                toContact = s("toUserEmail") ?: s("toUserPhone"),
+                status = i("status"),
+                functionNames = s("functionNames") ?: funcList,
+                startTime = l("startTime"),
+                endTime = l("endTime"),
+                expireTime = l("expireTime"),
+                shareType = i("shareType"),
+            )
+        }
+    }
+}
+
+// -------------------------------------------------------------- journey-log recording switch
+// Trip recording is toggled through the generic RemoteControlRequest (serviceId "JOU", command
+// "start"/"stop", one serviceParameter key "jou" value "1"=open/"2"=close) POSTed to
+// ms-vehicle-trail/v1.0/journalLog/onOff. The current state is read from getVehicleState
+// (journalLogState) via Journey.parseLoggingState. (decompiled RemoteService.commonOff +
+// Cmd$Companion OPEN/CLOSE_DRIVING_LOG.) No bespoke request model is needed - it reuses
+// RemoteControlRequest. See JourneyRepository.setLogging.
+
 // -------------------------------------------------------------- OTA software-update check
 // Cloud-orchestration ONLY (the car does the GEEA FOTA download/flash itself). We wire just the CHECK
 // (POST {azureHost}/overseas-app/ota/os/versionV2) for now: current car SW version + whether an update
@@ -709,10 +803,21 @@ object Inbox {
                     // Only propagate known GROUP types to the paged query. A latest-message preview
                     // can carry a subtype (e.g. charging) that doesn't apply to the rest of its group.
                     val hints = (groupHints(categoryHints(n)) + inheritedHints).distinct()
-                    (n["customTypeId"] as? JsonPrimitive)?.contentOrNull
-                        ?.takeIf { it.isNotBlank() && it != "null" }?.let { id ->
-                            categories.putIfAbsent(id, hints)
-                        }
+                    // Two kinds of category objects: a group's `noticeDTO` carries `customTypeId`; the
+                    // per-sub-type entries under `statistics` (ALERT, LOG, OTA_SERVICE, AFTER_SALES_ORDER)
+                    // carry `id`+`typeName` instead. We used to collect only `customTypeId`, so ALERT/LOG/…
+                    // were NEVER fetched -> their messages never listed and never marked read, which left
+                    // the unread badge stuck and made "Mark all read" look broken. Collect BOTH. (A
+                    // noticeDTO also has an `id` = the MESSAGE id, so only treat `id` as a category when the
+                    // object is a statistics entry, i.e. it has `typeName` and no `customTypeId`.)
+                    val customId = (n["customTypeId"] as? JsonPrimitive)?.contentOrNull
+                        ?.takeIf { it.isNotBlank() && it != "null" }
+                    val statId = if (customId == null && n["typeName"] is JsonPrimitive) {
+                        (n["id"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() && it != "null" }
+                    } else {
+                        null
+                    }
+                    (customId ?: statId)?.let { categories.putIfAbsent(it, hints) }
                     n.values.forEach { walk(it, hints) }
                 }
                 else -> {}
@@ -753,6 +858,31 @@ object Inbox {
         walk(data)
         com.openzeekr.app.util.Logx.d("inbox", "homeUnread total=$total {${breakdown.toString().trim()}}")
         return total
+    }
+
+    /**
+     * `/home` categories that actually have UNREAD messages, as customTypeId -> unread count (issue #42).
+     * Each `statistics.*` entry is `{ id, unReadNum, typeName }` and its `id` IS the `customTypeId` used to
+     * page that category. markAllRead uses this to touch only categories with unread (and know how many to
+     * chase across pages), instead of marking just page 1. Guarded on `typeName` so a `noticeDTO` (whose
+     * `id` is a MESSAGE id and which has no unReadNum) is never mistaken for a category.
+     */
+    fun unreadCategories(data: JsonElement?): Map<String, Int> {
+        val out = LinkedHashMap<String, Int>()
+        fun walk(n: JsonElement?) {
+            when (n) {
+                is JsonArray -> n.forEach(::walk)
+                is JsonObject -> {
+                    val unread = (n["unReadNum"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: 0
+                    val id = (n["id"] as? JsonPrimitive)?.contentOrNull
+                    if (unread > 0 && n["typeName"] is JsonPrimitive && !id.isNullOrBlank()) out[id] = unread
+                    n.values.forEach(::walk)
+                }
+                else -> {}
+            }
+        }
+        walk(data)
+        return out
     }
 
     /** Tolerant parse of the unread-count `data` — either { unreadNum } or a bare number. */
@@ -903,6 +1033,16 @@ data class JourneyTrackpoint(
 )
 
 object Journey {
+    /** Journey-log recording state, read from the live `getVehicleState` object (field `journalLogState`,
+     *  "1" = recording on, "0" = off). Returns true/false, or null when the field is absent/unknown.
+     *  (The dedicated remote-control state endpoint already powers sentry/valet; journey reuses it.) */
+    fun parseLoggingState(stateData: JsonElement?): Boolean? {
+        val obj = stateData as? JsonObject ?: return null
+        return (obj["journalLogState"] as? JsonPrimitive)?.contentOrNull?.let {
+            when (it) { "1" -> true; "0" -> false; else -> null }
+        }
+    }
+
     /** Tolerant parse of the (paged) listForPage `data` → newest-first trip list. */
     fun parseTrips(data: JsonElement?): List<JourneyTrip> =
         tripArray(data).mapNotNull { (it as? JsonObject)?.let(::trip) }

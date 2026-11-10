@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -90,6 +91,8 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
     var pinFor by remember { mutableStateOf<Command?>(null) }
     // Journey log takes over the whole screen (like the inbox) when opened.
     var showJourney by remember { mutableStateOf(false) }
+    // Car-sharing management (list who has access + revoke) also takes over the screen.
+    var showShare by remember { mutableStateOf(false) }
 
     // Seed the real on/off state from getVehicleState (captured 2026-09-16): sentry/guard =
     // `vstdModeState` ("1"=armed), visitor = `visitorModeState`. So the toggles reflect the car,
@@ -109,12 +112,17 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
         JourneyScreen(deps, onBack = { showJourney = false }, snackbar = snackbar, modifier = modifier)
         return
     }
+    if (showShare) {
+        CarShareScreen(deps, onBack = { showShare = false }, snackbar = snackbar, modifier = modifier)
+        return
+    }
 
-    fun fire(label: String, cmd: Command, extra: List<ServiceParameter> = emptyList()) {
+    fun fire(label: String, cmd: Command, extra: List<ServiceParameter> = emptyList(), onErr: () -> Unit = {}) {
         snackbar("$label…")
         scope.launch {
             when (val r = deps.control.send(cmd, extra)) {
-                is CallResult.Ok -> snackbar("$label ✓"); is CallResult.Err -> snackbar("$label ✗ ${r.message}")
+                is CallResult.Ok -> snackbar("$label ✓")
+                is CallResult.Err -> { snackbar("$label ✗ ${r.message}"); onErr() }
             }
         }
     }
@@ -126,7 +134,9 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 if (sentry) "Armed" else "Off") {
                 Switch(checked = sentry, onCheckedChange = { on ->
                     sentry = on
-                    fire(if (on) "Sentry on" else "Sentry off", if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF)
+                    // Revert the optimistic flip if the command is refused (e.g. #41: car not locked).
+                    fire(if (on) "Sentry on" else "Sentry off", if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF,
+                        onErr = { sentry = !on })
                 }, colors = brandSwitchColors(Brand.good))
             }
             // Auto-enable Sentry on lock (+ geofenced exclusions). Lives here next to the manual Sentry
@@ -151,6 +161,9 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 // confirmed 2026-09-16 against the stock app), so it lives inside the owner gate.
                 SecRow(Icons.Filled.Timeline, "Journey log", "Trips · distance & energy · export",
                     onClick = { showJourney = true }) { Chevron() }
+                // Car sharing: see who the car is shared with and revoke access (owner-only).
+                SecRow(Icons.Filled.Group, "Car sharing", "See who has access · revoke",
+                    onClick = { showShare = true }) { Chevron() }
             }
         }
 
@@ -300,6 +313,110 @@ private fun SentryAutoArmSection(deps: Deps) {
         onDismiss = { showPicker = false },
         onSave = { nm, la, lo, r ->
             store.addSentryExclusionZone(GeoZone(name = nm, lat = la, lng = lo, radiusMeters = r))
+            showPicker = false
+            msg = "Saved \"$nm\"."
+        },
+    )
+}
+
+/**
+ * Exclusion zones for approach-unlock / walk-away-lock (issue #42). Inside any of these circles the car
+ * is left as-is - not auto-unlocked or auto-locked - so it doesn't chirp open/closed while parked at home.
+ * Reuses the same capture / map-picker / dialogs as [SentryAutoArmSection], against the SEPARATE
+ * [com.openzeekr.app.config.SecretsConfig.proximityExclusionZones] list. Shown under the passive-entry
+ * toggles in SetupScreen; no master switch - the zones simply apply whenever approach/walk-away is on.
+ */
+@Composable
+fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sentryAutoArm: com.openzeekr.app.remote.SentryAutoArmer) {
+    val store = config
+    val cfg by store.config.collectAsState()
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    var msg by remember { mutableStateOf("") }
+    var pending by remember { mutableStateOf<android.location.Location?>(null) }
+    var showPicker by remember { mutableStateOf(false) }
+    var pickerStart by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+
+    fun hasLocationPerm(): Boolean =
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+    fun captureLocation() {
+        msg = "Getting your location…"
+        scope.launch {
+            val loc = sentryAutoArm.currentLocation()
+            if (loc == null) msg = "Couldn't get a location fix - check location permission and that location is on."
+            else { msg = ""; pending = loc }
+        }
+    }
+
+    fun openMapPicker() {
+        scope.launch {
+            val loc = if (hasLocationPerm()) runCatching { sentryAutoArm.currentLocation() }.getOrNull() else null
+            pickerStart = loc?.let { it.latitude to it.longitude }
+            showPicker = true
+        }
+    }
+
+    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.any { it }) captureLocation()
+        else msg = "Location permission is needed to add an exclusion zone."
+    }
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Exclusion zones (no auto-lock/unlock here)", color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        if (cfg.proximityExclusionZones.isEmpty()) {
+            Text("None yet. Add your home so the car isn't auto-locked or unlocked (and doesn't keep chirping) while parked there.",
+                color = Brand.faint, fontSize = 11.5.sp)
+        } else {
+            cfg.proximityExclusionZones.forEach { zone ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.surface2).padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Filled.Place, null, tint = Brand.muted, modifier = Modifier.size(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(zone.name.ifBlank { "Unnamed zone" }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                        Text("${"%.4f".format(zone.lat)}, ${"%.4f".format(zone.lng)} · ${zone.radiusMeters.toInt()} m radius",
+                            color = Brand.muted, fontSize = 11.sp)
+                    }
+                    IconButton(onClick = { store.removeProximityExclusionZone(zone) }) {
+                        Icon(Icons.Filled.Delete, "Remove zone", tint = Brand.crit, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+        }
+        OutlinedButton(
+            onClick = { if (hasLocationPerm()) captureLocation() else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
+            Text("  Add current location")
+        }
+        OutlinedButton(onClick = { openMapPicker() }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.Place, null, modifier = Modifier.size(18.dp))
+            Text("  Add on map")
+        }
+        if (msg.isNotBlank()) Text(msg, color = Brand.muted, fontSize = 11.5.sp)
+    }
+
+    pending?.let { loc ->
+        AddZoneDialog(
+            lat = loc.latitude, lng = loc.longitude,
+            onDismiss = { pending = null },
+            onConfirm = { name, radius ->
+                store.addProximityExclusionZone(GeoZone(name = name, lat = loc.latitude, lng = loc.longitude, radiusMeters = radius))
+                pending = null
+                msg = "Saved \"$name\"."
+            },
+        )
+    }
+
+    if (showPicker) ZonePickerDialog(
+        initial = pickerStart,
+        onDismiss = { showPicker = false },
+        onSave = { nm, la, lo, r ->
+            store.addProximityExclusionZone(GeoZone(name = nm, lat = la, lng = lo, radiusMeters = r))
             showPicker = false
             msg = "Saved \"$nm\"."
         },

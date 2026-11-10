@@ -29,6 +29,10 @@ enum class Command(
     val params: List<ServiceParameter> = emptyList(),
     val engStrtType: String? = null,
     val durationSec: Int? = null,
+    // The car silently refuses this command (returning a hollow cloud 200) unless it is LOCKED - e.g.
+    // Sentry guard. Issue #41: without this gate the app reported a false "done" for a no-op. When set,
+    // RemoteControlRepository.send blocks the command if the car is positively unlocked.
+    val requiresLocked: Boolean = false,
 ) {
     // ---- doors / locks ----
     // From Cmd$Companion (stock): locking = RDL/"start", unlocking/opening = RDU/"stop".
@@ -126,7 +130,7 @@ enum class Command(
     // "rsm" nested in setting.serviceParameters. Our old attempts sent uppercase "RSM" (car ignored
     // the hollow 200) or routed RSM to System B (telematics PUT → 404). Body that returns 200+sessionId:
     //   {"command":"start","serviceId":"RSM","setting":{"serviceParameters":[{"key":"rsm","value":"6"}]}}
-    SENTINEL_ON("Sentry On", Category.SECURITY, "RSM", "start", listOf(ServiceParameter("rsm", "6"))),
+    SENTINEL_ON("Sentry On", Category.SECURITY, "RSM", "start", listOf(ServiceParameter("rsm", "6")), requiresLocked = true),
     SENTINEL_OFF("Sentry Off", Category.SECURITY, "RSM", "stop", listOf(ServiceParameter("rsm", "6"))),
     LOCKER_ON("Private Locker Lock", Category.SECURITY, "RDL", "start", listOf(ServiceParameter("target", "private-lock"), ServiceParameter("password", "1234"))),
     LOCKER_OFF("Private Locker Unlock", Category.SECURITY, "RDU", "stop", listOf(ServiceParameter("target", "private-lock"), ServiceParameter("password", "1234"))),

@@ -68,6 +68,8 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var messages by remember { mutableStateOf<List<InboxMessage>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var markingAll by remember { mutableStateOf(false) } // mark-all-read in flight (button feedback)
+    var serverUnread by remember { mutableStateOf(0) }   // real unread count from /home (#42)
     var error by remember { mutableStateOf<String?>(null) }
     // Tapping a message opens it IN-APP (below) instead of firing an implicit ACTION_VIEW, which
     // was de-linking to the stock Zeekr app / a browser.
@@ -83,6 +85,10 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
             is CallResult.Ok -> { messages = r.value; error = null }
             is CallResult.Err -> error = r.message
         }
+        // The real unread count from /home - unread can sit on DEEPER pages than the one we show (#42),
+        // so drive the "Mark all read" button off this, not just the loaded page (else the button vanishes
+        // while the badge still shows unread).
+        serverUnread = (deps.inbox.unreadCount() as? CallResult.Ok)?.value ?: 0
         loading = false
     }
     LaunchedEffect(Unit) { load() }
@@ -101,13 +107,23 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
             )
             Text("Messages", fontWeight = FontWeight.Bold, fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
-            if (messages.any { !it.read }) {
+            if (serverUnread > 0 || messages.any { !it.read }) {
                 Text(
-                    "Mark all read", color = Brand.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
+                    if (markingAll) "Marking…" else "Mark all read",
+                    color = Brand.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !markingAll) {
+                        // Give immediate feedback (the button used to fire silently), report the real
+                        // outcome, and reload so the badge/list reflect what actually got marked.
+                        markingAll = true
+                        snackbar("Marking all as read…")
                         scope.launch {
-                            deps.inbox.markAllRead()
-                            messages = messages.map { it.copy(read = true) }
+                            val r = deps.inbox.markAllRead()
+                            when (r) {
+                                is CallResult.Ok -> { messages = messages.map { it.copy(read = true) }; snackbar("All marked as read ✓") }
+                                is CallResult.Err -> snackbar("Couldn't mark all read ✗ ${r.message}")
+                            }
+                            runCatching { load() }   // refresh from server so the real unread state shows
+                            markingAll = false
                         }
                     }.padding(horizontal = 8.dp, vertical = 6.dp),
                 )

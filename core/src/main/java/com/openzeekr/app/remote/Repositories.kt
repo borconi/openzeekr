@@ -88,6 +88,13 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                 // status right before the command so the TSP doesn't reject execution
                 // (037005 "execution failed, please try again"). Best-effort.
                 runCatching { com.openzeekr.app.net.AccountLogin(store).heartbeat() }
+                // Issue #41: some commands (e.g. Sentry) the car silently ignores unless it is LOCKED,
+                // yet the cloud still 200s - so the app used to report a false "done". Block only when the
+                // car is POSITIVELY unlocked; an unknown/unavailable lock state fails open (we don't want a
+                // transient status hiccup to block a command that would have worked).
+                if (cmd.requiresLocked && isCarLocked() == false) {
+                    error("The car must be locked for this to work. Lock it first, then try again.")
+                }
                 if (cmd.serviceId == "RCS") {
                     // Charging (limit / start / stop) is its OWN service — ms-charge-manage, NOT
                     // ms-remote-control. Same body shape; different path. Routing RCS through
@@ -107,6 +114,17 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                 }
             }
         }
+
+    /** Positive lock check for [Command.requiresLocked] gating (issue #41): true=locked ("1"),
+     *  false=unlocked ("0"), null=unknown (status unavailable, empty, or any other value). The caller
+     *  blocks only on a definite `false`, so a status failure fails open. Assumes [send] already
+     *  heartbeated (online), so this read is fresh. */
+    private suspend fun isCarLocked(): Boolean? =
+        runCatching {
+            client.api.vehicleStatus().data
+                ?.let { VehicleStatus.parse(it) }
+                ?.additionalVehicleStatus?.drivingSafetyStatus?.centralLockingStatus
+        }.getOrNull()?.let { when (it) { "1" -> true; "0" -> false; else -> null } }
 
     /** Per-VIN supported functions (drives button visibility). Fail-open on error. */
     suspend fun capabilities(): CallResult<com.openzeekr.app.net.model.VehicleCapabilities> = withContext(Dispatchers.IO) {
@@ -314,6 +332,80 @@ class ShareRepository(private val store: ConfigStore, private val client: ApiCli
                 invite.vin
             }
         }
+
+    /**
+     * OWNER side: the car's current OUTGOING shares (who it's shared with), so the owner can see and
+     * revoke them without the stock app. Keyed on the owner's user id (userId, falling back to the
+     * account uuid, like [pending]).
+     *
+     * This is the owner's live roster - the stock "Car sharing" (Home) list; ENDED shares live behind a
+     * separate history endpoint. We show everything the list returns and do NOT filter by `expireTime`:
+     * permanent digital-key shares (shareType 2) come back with a stale `expireTime` in the past yet are
+     * still active (the holder still has a working key), so filtering on it hid every real share (the
+     * "I can't see who I shared with" bug - the list returned 5, all got dropped).
+     */
+    suspend fun myShares(): CallResult<List<com.openzeekr.app.net.model.ShareGrant>> = withContext(Dispatchers.IO) {
+        guarded {
+            val cfg = store.current()
+            val ids = listOf(cfg.userId, cfg.accountUuid).filter { it.isNotBlank() }.distinct()
+            if (ids.isEmpty()) return@guarded emptyList()
+            var all = emptyList<com.openzeekr.app.net.model.ShareGrant>()
+            for (id in ids) {
+                all = com.openzeekr.app.net.model.ShareOwner.parseList(client.api.ownerShareList(userId = id).data)
+                com.openzeekr.app.util.Logx.d("share", "owner/list(userId=…${id.takeLast(6)}): ${all.size} share(s)")
+                if (all.isNotEmpty()) break
+            }
+            all
+        }
+    }
+
+    /** Revoke a share the owner granted (ends the other person's access). Minimal body = {shareId}. */
+    suspend fun revoke(share: com.openzeekr.app.net.model.ShareGrant): CallResult<Unit> = withContext(Dispatchers.IO) {
+        guarded {
+            val resp = client.api.ownerShareCancel(
+                com.openzeekr.app.net.model.OwnerCancelShareRequest(shareId = share.shareId),
+            )
+            val ok = resp.success || resp.code == null || resp.code == "000000"
+            if (!ok) throw IllegalStateException(resp.message ?: "revoke failed (${resp.code})")
+            com.openzeekr.app.util.Logx.d("share", "revoked shareId=${share.shareId}")
+            Unit
+        }
+    }
+
+    /**
+     * Share the car with someone by email. Minimalist: no pre-checks (we don't verify the address is a
+     * registered Zeekr account) - we just fire the create and surface whatever the server says. On
+     * success the invitee gets the share in their Zeekr inbox to accept; the digital key (if granted) is
+     * provisioned on THEIR side when they accept, so the owner's create carries no key material.
+     *
+     * Grants the same four scopes the car's existing shares use (digital-key + remote-control + location
+     * + album), shareType 2 (permanent). The owner and car are derived server-side (bearer + X-VIN
+     * header). Returns Ok on an accepted create; the UI reloads the list and shows success/fail.
+     */
+    suspend fun createShare(email: String): CallResult<Unit> = withContext(Dispatchers.IO) {
+        guarded {
+            val addr = email.trim()
+            require(addr.contains('@') && addr.length >= 3) { "Enter a valid email address" }
+            val cfg = store.current()
+            val resp = client.api.ownerShareCreate(
+                com.openzeekr.app.net.model.OwnerCreateShareRequest(
+                    toUserEmail = addr,
+                    toUserName = addr.substringBefore('@'),
+                    shareType = 2,
+                    serviceCodeList = listOf("digital-key", "remote-control", "view-vehicle-location", "view-vehicle-album"),
+                    supportSubSharing = 0,
+                    vin = cfg.vin.ifBlank { null },
+                    systemType = "GEEA2.0",
+                ),
+            )
+            val ok = resp.success || resp.code == null || resp.code == "000000"
+            if (!ok) throw IllegalStateException(
+                resp.message?.takeIf { it.isNotBlank() } ?: "the server rejected the share (code ${resp.code})",
+            )
+            com.openzeekr.app.util.Logx.d("share", "createShare(${addr.substringBefore('@')}@…) accepted")
+            Unit
+        }
+    }
 }
 
 /**
@@ -557,15 +649,36 @@ class InboxRepository(private val store: ConfigStore, private val client: ApiCli
         guarded {
             val cfg = store.current()
             require(cfg.overseasReady) { NOT_CONFIGURED }
-            val ids = when (val r = messages(page = 1)) {
-                is CallResult.Ok -> r.value.mapNotNull { it.id }.distinct()
-                is CallResult.Err -> emptyList()
+            // The ONLY verified read op is PUT /inbox/{id}. Issue #42: the old code marked just page 1 of
+            // the merged list, but unread can sit on DEEPER pages of a category (e.g. SYSTEM had 19 unread
+            // on pages 2-3 while page 1 was all-read), so the badge never cleared. Use the /home per-category
+            // `unReadNum` to target ONLY categories that actually have unread, then page through each one
+            // until we've marked that many (or run out of pages) - skipping the many all-read categories.
+            val home = client.api.inboxHome("$INBOX/home").data
+            val targets = com.openzeekr.app.net.model.Inbox.unreadCategories(home) // customTypeId -> unread count
+            var marked = 0
+            for ((cat, want) in targets) {
+                var page = 1
+                var got = 0
+                while (page <= MARK_ALL_MAX_PAGES && got < want) {
+                    val list = runCatching {
+                        com.openzeekr.app.net.model.Inbox.parse(
+                            client.api.inbox(INBOX, pageNumber = page, pageSize = MARK_PAGE_SIZE, customTypeId = cat, vin = "").data)
+                    }.getOrDefault(emptyList())
+                    if (list.isEmpty()) break
+                    for (id in list.filter { !it.read }.mapNotNull { it.id }) {
+                        runCatching { client.api.inboxMarkRead("$INBOX/$id") }
+                        got++; marked++
+                    }
+                    if (list.size < MARK_PAGE_SIZE) break // last page
+                    page++
+                }
             }
-            for (id in ids) runCatching { client.api.inboxMarkRead("$INBOX/$id") }
+            // Best-effort catch-all for anything the per-category walk missed (ignored if the route 404s).
             runCatching {
                 client.api.inboxReadAll("$INBOX/read-all", com.openzeekr.app.net.model.MarkAllReadRequest(vin = cfg.vin.ifBlank { null }))
             }
-            com.openzeekr.app.util.Logx.d("inbox", "markAllRead: PUT ${ids.size} message(s) + read-all best-effort")
+            com.openzeekr.app.util.Logx.d("inbox", "markAllRead: marked $marked across ${targets.size} categor(y/ies) with unread")
             Unit
         }
     }
@@ -584,6 +697,10 @@ class InboxRepository(private val store: ConfigStore, private val client: ApiCli
          * wired, this call reaches the right host but 401s. Tracked as back-burner.
          */
         const val NOT_CONFIGURED = "Notifications need your overseas-app keys — add them in Settings › App secrets."
+
+        // markAllRead page-walk bounds (per category with unread).
+        const val MARK_PAGE_SIZE = 30
+        const val MARK_ALL_MAX_PAGES = 40   // safety cap (~1200 msgs/category) in case unReadNum is stale
     }
 }
 
@@ -599,6 +716,51 @@ const val JOURNEY_UPSTREAM_DOWN =
 
 class JourneyRepository(private val store: ConfigStore, private val client: ApiClient) {
 
+    /**
+     * Read the car's journey-log RECORDING switch (true = recording on). The live state is carried by
+     * the same getVehicleState object that drives sentry/valet - field `journalLogState` ("1"=on/"0"=off).
+     * Returns null when the field is absent (so the UI shows "unknown" rather than a wrong state).
+     */
+    suspend fun loggingEnabled(): CallResult<Boolean?> = withContext(Dispatchers.IO) {
+        guarded {
+            val cfg = store.current()
+            require(cfg.vin.isNotBlank()) { "VIN not configured" }
+            com.openzeekr.app.net.model.Journey.parseLoggingState(client.api.remoteControlState().data)
+        }
+    }
+
+    /**
+     * Turn journey-log recording on/off. Routed through the generic remote-control request (serviceId
+     * "JOU", command start/stop) to ms-vehicle-trail's journalLog/onOff - the same body shape every other
+     * toggle uses (NOT the CN-only ihu/jou/switch paths, which 404 on the EU gateway). It is
+     * vehicle-relayed, so a 200 means ACCEPTED/queued; it applies when the car is awake and the UI
+     * re-reads [loggingEnabled] (journalLogState) to confirm.
+     */
+    suspend fun setLogging(on: Boolean): CallResult<Unit> = withContext(Dispatchers.IO) {
+        guarded {
+            val cfg = store.current()
+            require(cfg.vin.isNotBlank()) { "VIN not configured" }
+            runCatching { com.openzeekr.app.net.AccountLogin(store).heartbeat() }
+            val resp = client.api.journalLogOnOff(
+                com.openzeekr.app.net.model.RemoteControlRequest(
+                    command = if (on) "start" else "stop",
+                    serviceId = "JOU",
+                    setting = com.openzeekr.app.net.model.RemoteControlSetting(
+                        serviceParameters = listOf(
+                            // key "jou", value "1" = open/record, "2" = close/off (traced from stock
+                            // OPEN_DRIVING_LOG / CLOSE_DRIVING_LOG command builders).
+                            com.openzeekr.app.net.model.ServiceParameter(key = "jou", value = if (on) "1" else "2"),
+                        ),
+                    ),
+                ),
+            )
+            val ok = resp.success || resp.code == null || resp.code == "000000"
+            if (!ok) error(resp.message ?: "journey-log switch failed (code=${resp.code})")
+            com.openzeekr.app.util.Logx.d("journey", "setLogging(${if (on) "on" else "off"}) accepted (queued; confirm via readback)")
+            Unit
+        }
+    }
+
     /** One [page] (1-based) of trips over the last [days], newest first. Body matches the documented
      *  `ForPageRequestBean {current,pageSize,startTime,endTime,lastId}` (PROFILE_SERVICES_FINDINGS.md).
      *  The `ms-vehicle-trail` upstream is FLAKY — it 504s intermittently (the stock app hits the same
@@ -607,22 +769,41 @@ class JourneyRepository(private val store: ConfigStore, private val client: ApiC
      *  Owner-only server-side (gated in UI). */
     suspend fun trips(
         page: Int = 1, pageSize: Int = 10, days: Int = 90, attempts: Int = 20,
+        startMs: Long? = null, endMs: Long? = null,
     ): CallResult<com.openzeekr.app.net.model.JourneyPage> = withContext(Dispatchers.IO) {
         guarded {
             val cfg = store.current()
             require(cfg.vin.isNotBlank()) { "VIN not configured" }
             val now = System.currentTimeMillis()
+            // Explicit [startMs]/[endMs] (the export date-range picker) override the rolling [days] window
+            // the list view uses. Export only the chosen range so a multi-year history isn't pulled whole.
             val body = com.openzeekr.app.net.model.JourneyPageRequest(
                 current = page,
                 pageSize = pageSize,
-                startTime = now - days * 86_400_000L,
-                endTime = now,
+                startTime = startMs ?: (now - days * 86_400_000L),
+                endTime = endMs ?: now,
                 lastId = -1,
             )
             var last: Throwable? = null
             repeat(attempts) { attempt ->
                 val r = runCatching { client.api.journeyTrips(body) }
-                if (r.isSuccess) return@guarded com.openzeekr.app.net.model.Journey.parseTripsPage(r.getOrThrow().data)
+                if (r.isSuccess) {
+                    val raw = r.getOrThrow().data
+                    val pageData = com.openzeekr.app.net.model.Journey.parseTripsPage(raw)
+                    // Issue #39 diagnostic (PII-safe: counts + top-level keys only, never trip coords/
+                    // odometer). Lets a report distinguish "server returned no trips" (car-side: trip
+                    // logging / location off, or nothing in the window) from a response shape we failed to
+                    // parse (server `total` > 0 but we parsed 0). When empty, the data keys show the shape.
+                    val meta = raw as? kotlinx.serialization.json.JsonObject
+                    val total = (meta?.get("total") as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    com.openzeekr.app.util.Logx.d(
+                        "journey",
+                        "trips page=$page parsed=${pageData.trips.size} pages=${pageData.pages} " +
+                            "total=${total ?: "?"} window=${days}d" +
+                            if (pageData.trips.isEmpty()) " EMPTY data.keys=[${meta?.keys?.joinToString() ?: "not-an-object"}]" else "",
+                    )
+                    return@guarded pageData
+                }
                 last = r.exceptionOrNull()
                 val code = (last as? retrofit2.HttpException)?.code()
                 if (code != 500 && code != 502 && code != 503 && code != 504) throw last!! // real error → fail now
@@ -848,26 +1029,30 @@ class ScheduleRepository(private val store: ConfigStore, private val client: Api
 
     /** Create a departure schedule (command "start"). btId is ignored server-side for a create. */
     suspend fun createDeparture(setting: com.openzeekr.app.net.model.BookingTravelSetting): CallResult<Unit> =
-        sendTravel(CMD_CREATE, setting, verify = true)
+        sendTravel(CMD_CREATE, setting)
 
     /** Update an existing departure schedule (command "edit"); [setting].btId picks the entry. */
     suspend fun updateDeparture(setting: com.openzeekr.app.net.model.BookingTravelSetting): CallResult<Unit> =
-        sendTravel(CMD_UPDATE, setting, verify = true)
+        sendTravel(CMD_UPDATE, setting)
 
     /** Delete a departure schedule (command "stop"); [setting].btId picks the entry. */
     suspend fun deleteDeparture(setting: com.openzeekr.app.net.model.BookingTravelSetting): CallResult<Unit> =
-        sendTravel(CMD_DELETE, setting, verify = false)
+        sendTravel(CMD_DELETE, setting)
 
     /**
-     * Same async, vehicle-relayed model as [setChargePlan]: the POST only QUEUES the op
-     * (returns a sessionId); it applies only when the car is online/awake and acks it. We heartbeat
-     * (RVS) then, for create/edit, poll the readback until the plan is actually present with the
-     * requested state — otherwise the car is asleep and we return an honest error rather than a false ✓.
+     * Async, vehicle-relayed op (same model as [setChargePlan]): the POST only QUEUES the command on the
+     * cloud and it is relayed to the car when the car is online. The SERVER is authoritative about the
+     * outcome (issue #36), so we trust its response rather than polling the readback:
+     *  - a `sessionId` (or success) means the op was accepted/queued. When the car is OFFLINE the queued
+     *    create does NOT appear in getTravelPlan until the car comes online and drains the queue, so a
+     *    readback poll can never confirm it - which is exactly why the old poll always reported a false
+     *    "car asleep" and each retry left another "BookTravel"/sts=0 entry (a piled-up queued command).
+     *  - code 088028 ("vehicle not online, cached-command count exceeds the maximum") means the car is
+     *    offline AND that queue is now FULL, so nothing more can be accepted until it's cleared/drained.
      */
     private suspend fun sendTravel(
         command: String,
         setting: com.openzeekr.app.net.model.BookingTravelSetting,
-        verify: Boolean,
     ): CallResult<Unit> =
         withContext(Dispatchers.IO) {
             guarded {
@@ -876,30 +1061,12 @@ class ScheduleRepository(private val store: ConfigStore, private val client: Api
                 val resp = client.api.setTravelPlan(
                     com.openzeekr.app.net.model.SetTravelPlanRequest(command = command, serviceId = SERVICE_ID_TRAVEL, setting = setting),
                 )
-                // A travel op is accepted (queued) when the gateway returns success or a sessionId.
-                if (!resp.success && resp.data?.sessionId == null && resp.sessionId == null) {
-                    error(resp.message ?: "departure schedule failed (code=${resp.code})")
+                val sessionId = resp.data?.sessionId ?: resp.sessionId
+                when {
+                    resp.success || sessionId != null -> Unit // accepted / queued
+                    resp.code == CODE_QUEUE_FULL -> error(QUEUE_FULL)
+                    else -> error(resp.message ?: "departure schedule failed (code=${resp.code})")
                 }
-                if (verify) {
-                    // Confirm the plan actually applied on the car (match by name + requested enable state).
-                    // Diagnostic (issue #36, a regression): the readback was swallowing its errors, so a
-                    // changed/missing field in the car's BookingTravelSetting JSON (which makes the strict
-                    // model throw on parse) surfaced only as a misleading "car asleep". Log the raw outcome
-                    // so a reproduction log shows whether it's a PARSE failure, a field MISMATCH, or truly
-                    // absent (car offline).
-                    val applied = pollUntil {
-                        val plans = runCatching { client.api.getTravelPlans().data }
-                            .onFailure { com.openzeekr.app.util.Logx.w("schedule", "verify: getTravelPlans readback FAILED to parse: ${it.message}") }
-                            .getOrNull() ?: emptyList()
-                        com.openzeekr.app.util.Logx.d(
-                            "schedule",
-                            "verify: readback=${plans.map { "${it.name}/sts=${it.sts}/btId=${it.btId}" }} want name='${setting.name}' sts=${setting.sts}",
-                        )
-                        plans.any { it.name == setting.name && it.sts == setting.sts }
-                    }
-                    if (!applied) error(CAR_ASLEEP)
-                }
-                Unit
             }
         }
 
@@ -924,9 +1091,17 @@ class ScheduleRepository(private val store: ConfigStore, private val client: Api
         const val TARGET_KEEP_ON = "1"
         const val TARGET_KEEP_OFF = "2"
         const val DEFAULT_TIMER_ID = "2"      // this car's plan slot; reuse the read-back timerId on edit
+        // Charge-plan verify (charge plans ARE stored and readback-confirmable, unlike queued departures).
         const val CAR_ASLEEP =
-            "The car didn't confirm the schedule — it's asleep or offline. The cloud queued it but the " +
-                "car must be awake to store it. Wake the car (unlock it, open the Zeekr app, or plug it in " +
+            "The car didn't confirm the change in time - it's asleep or offline. The cloud queued it but the " +
+                "car must be awake to apply it. Wake the car (unlock it, open the Zeekr app, or plug it in " +
                 "to charge) and try again."
+        // Server code for "vehicle not online and the cached-command queue is full".
+        const val CODE_QUEUE_FULL = "088028"
+        const val QUEUE_FULL =
+            "The car is offline and its pending-command queue is full, so the cloud can't accept any more " +
+                "departure changes (not even deletes - those are queued too). Bring the car online (unlock " +
+                "it, open the Zeekr app, or drive it) so it drains the queue; then your schedule applies " +
+                "and you can tidy up the leftover \"BookTravel\" entries."
     }
 }

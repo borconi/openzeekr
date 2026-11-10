@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -578,36 +579,38 @@ private fun LogViewer() {
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.surface2).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Logs (${lines.size})", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Share the ENCRYPTED log as a FILE via the system share sheet (email, Drive, etc.).
-                // This is the way to send us a log: a real session log is far longer than a clipboard
-                // or a text field will hold (they cap around ~20k chars and silently truncate, which
-                // makes the encrypted blob undecryptable). A file has no such limit. On any crypto
-                // failure share NOTHING - never fall back to the plaintext log.
-                OutlinedButton(onClick = {
-                    copyMsg = shareEncryptedLog(ctx)
-                }) { Text("Share") }
-                // Clipboard copy kept as a fallback for short logs; warns that long logs truncate.
-                OutlinedButton(onClick = {
-                    val blob = com.openzeekr.app.util.LogCrypto.encryptToBase64(Logx.dump())
-                    if (blob != null && blob.length > CLIPBOARD_MAX_CHARS) {
-                        // A 5000-line log encrypts to ~1 MB: past the binder limit, so setText would
-                        // crash (TransactionTooLargeException), and no paste target keeps it intact anyway.
-                        copyMsg = "This log is too long to copy - use \"Share\" to send it as a file."
-                    } else if (blob != null) {
-                        clipboard.setText(AnnotatedString(blob))
-                        copyMsg = if (blob.length > 19_000)
-                            "Copied, but this log is long - the clipboard/paste may cut it off and " +
-                                "make it unreadable. Prefer \"Share (encrypted)\" to send it as a file."
-                        else "Copied - encrypted; only the developers can read it."
-                    } else {
-                        copyMsg = "Copy failed - nothing copied."
-                    }
-                }) { Text("Copy") }
-                OutlinedButton(onClick = { Logx.clear(); copyMsg = "" }) { Text("Clear") }
-            }
+        Text("Logs (${lines.size})", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        // Equal-weight, full-width row so none of the three labels get squeezed (the old single-row
+        // layout wrapped "Clear" to "Cle / ar" on narrow phones). Compact padding + maxLines=1.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val btnPad = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+            // Share the ENCRYPTED log as a FILE via the system share sheet (email, Drive, etc.).
+            // This is the way to send us a log: a real session log is far longer than a clipboard
+            // or a text field will hold (they cap around ~20k chars and silently truncate, which
+            // makes the encrypted blob undecryptable). A file has no such limit. On any crypto
+            // failure share NOTHING - never fall back to the plaintext log.
+            OutlinedButton(onClick = {
+                copyMsg = shareEncryptedLog(ctx)
+            }, modifier = Modifier.weight(1f), contentPadding = btnPad) { Text("Share", maxLines = 1) }
+            // Clipboard copy kept as a fallback for short logs; warns that long logs truncate.
+            OutlinedButton(onClick = {
+                val blob = com.openzeekr.app.util.LogCrypto.encryptToBase64(Logx.dump())
+                if (blob != null && blob.length > CLIPBOARD_MAX_CHARS) {
+                    // A 5000-line log encrypts to ~1 MB: past the binder limit, so setText would
+                    // crash (TransactionTooLargeException), and no paste target keeps it intact anyway.
+                    copyMsg = "This log is too long to copy - use \"Share\" to send it as a file."
+                } else if (blob != null) {
+                    clipboard.setText(AnnotatedString(blob))
+                    copyMsg = if (blob.length > 19_000)
+                        "Copied, but this log is long - the clipboard/paste may cut it off and " +
+                            "make it unreadable. Prefer \"Share (encrypted)\" to send it as a file."
+                    else "Copied - encrypted; only the developers can read it."
+                } else {
+                    copyMsg = "Copy failed - nothing copied."
+                }
+            }, modifier = Modifier.weight(1f), contentPadding = btnPad) { Text("Copy", maxLines = 1) }
+            OutlinedButton(onClick = { Logx.clear(); copyMsg = "" },
+                modifier = Modifier.weight(1f), contentPadding = btnPad) { Text("Clear", maxLines = 1) }
         }
         if (copyMsg.isNotBlank()) Text(copyMsg, color = Brand.muted, fontSize = 11.sp)
         else Text("\"Share (encrypted)\" sends the log as a file only the developers can read - the best way to report a bug.", color = Brand.faint, fontSize = 11.sp)

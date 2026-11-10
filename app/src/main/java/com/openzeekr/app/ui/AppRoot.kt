@@ -364,6 +364,7 @@ fun AppRoot(deps: Deps) {
                     lock = deps.lock,
                     config = deps.config,
                     calib = deps.calibTest,
+                    sentryAutoArm = deps.sentryAutoArm,
                     isProvisioned = { deps.dkIdentity.isProvisioned },
                     dkId = remember(provisioned) { runCatching { deps.dkIdentity.credential()?.dkId }.getOrNull() },
                     onRemoveKey = {

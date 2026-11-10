@@ -31,8 +31,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -59,6 +62,18 @@ class DkBleManager(base: Context) : DkTransport {
     private val _state = MutableStateFlow(State.IDLE)
     val state: StateFlow<State> = _state
     @Volatile var lastError: String? = null; private set
+
+    /** True while ProximityService is running its passive-listening loops (approach-unlock and/or
+     *  walk-away-lock enabled). Set by the service. Gates the demand-scan handoff: with no passive feature
+     *  active there's nothing listening in the background, so a missed demand connect just reports "not in
+     *  range" rather than promising to keep watching. */
+    @Volatile var passiveListening: Boolean = false
+
+    /** Emitted when a foreground connect scan times out with no match (the car wasn't advertising its
+     *  DK key) AND a passive feature is active. ProximityService hands this to an active WALKING presence
+     *  window so we keep listening and connect the moment the car advertises, instead of a dead-end. */
+    private val _demandScanMiss = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val demandScanMiss: SharedFlow<Unit> = _demandScanMiss.asSharedFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var inboundHandler: ((Int, ByteArray) -> Unit)? = null
@@ -508,8 +523,19 @@ class DkBleManager(base: Context) : DkTransport {
             delay(SCAN_TIMEOUT_MS)
             if (_state.value == State.SCANNING) {
                 stopScanInternal(scanner)
-                fail("no DK device matched in ${SCAN_TIMEOUT_MS / 1000}s — check the advertiser log above " +
-                    "for the car's name/MAC, then connect by MAC")
+                // The car only broadcasts its digital key in bursts, when it's awake - so a quiet,
+                // settled car has nothing to connect to (connecting by a cached MAC can't help either:
+                // the DK handshake needs a fresh broadcastRnd from a live advert). When a passive feature
+                // is active we hand off to the presence scan (an active WALKING window via ProximityService)
+                // so we connect the moment the car advertises; otherwise there's no background listener, so
+                // we just report "not in range" and don't promise to keep watching.
+                if (passiveListening) {
+                    _demandScanMiss.tryEmit(Unit)
+                    fail("Car not in range. We'll keep watching and connect as soon as it's near - or wake " +
+                        "it (touch a door handle or press the key fob) to connect right away.")
+                } else {
+                    fail("Car not in range. Wake it (touch a door handle or press the key fob) to connect.")
+                }
             }
         }
     }

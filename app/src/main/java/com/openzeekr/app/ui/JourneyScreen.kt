@@ -61,6 +61,10 @@ import java.util.Date
 import java.util.Locale
 
 
+/** Safety cap on the "Export all" page walk (pageSize 10 -> up to ~2000 trips). Stops a runaway loop
+ *  if the server keeps reporting another page. */
+private const val MAX_EXPORT_PAGES = 200
+
 /**
  * Journey log — the car's trip history (distance / energy / duration / odometer), pulled
  * from `ms-vehicle-trail/journalLog/trip/listForPage`. The whole list can be exported to a
@@ -78,6 +82,10 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
     var hasMore by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }   // initial / reload spinner
     var loadingMore by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) } // paging the chosen range for CSV export (#39)
+    var showExportRange by remember { mutableStateOf(false) } // date-range picker before export (#39)
+    var logging by remember { mutableStateOf<Boolean?>(null) } // trip-recording switch (null = unknown)
+    var settingLog by remember { mutableStateOf(false) }       // switch command in flight
     var error by remember { mutableStateOf<String?>(null) }
 
     // The trail service 504s intermittently; the repo auto-retries a page ~20× before failing, and
@@ -99,11 +107,12 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
         loading = false; loadingMore = false
     }
     LaunchedEffect(Unit) { load(reset = true) }
+    // Read the car's trip-recording switch so the toggle reflects reality (null = couldn't determine).
+    LaunchedEffect(Unit) { logging = (deps.journey.loggingEnabled() as? CallResult.Ok)?.value }
 
-    fun export() {
-        if (trips.isEmpty()) { snackbar("No trips to export"); return }
+    fun shareCsv(rows: List<JourneyTrip>) {
         runCatching {
-            val csv = buildCsv(trips, cfg.distanceUnit)
+            val csv = buildCsv(rows, cfg.distanceUnit)
             val dir = File(ctx.cacheDir, "exports").apply { mkdirs() }
             val stamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
             val file = File(dir, "zeekr-journeys-$stamp.csv")
@@ -117,6 +126,41 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             }
             ctx.startActivity(Intent.createChooser(send, "Export journeys"))
         }.onFailure { snackbar("Export failed: ${it.message ?: it.javaClass.simpleName}") }
+    }
+
+    // Issue #39: export the WHOLE history, not just the rows currently on screen. Page through from the
+    // start (de-duped, bounded) and build the CSV from everything. The trail service 504s intermittently,
+    // so a page that fails after the repo's own retries stops the walk and we export what we gathered,
+    // telling the user some pages couldn't load (they can retry for the rest).
+    fun export(startMs: Long, endMs: Long) {
+        if (exporting) return
+        scope.launch {
+            exporting = true
+            snackbar("Preparing export…")
+            val all = LinkedHashMap<String, JourneyTrip>()
+            var p = 1
+            var more = true
+            var failed = false
+            while (more && p <= MAX_EXPORT_PAGES) {
+                when (val r = deps.journey.trips(page = p, startMs = startMs, endMs = endMs)) {
+                    is CallResult.Ok -> {
+                        r.value.trips.forEach { all["${it.reportTime}-${it.tripId}"] = it }
+                        more = r.value.hasMore
+                        p++
+                    }
+                    is CallResult.Err -> { failed = true; more = false }
+                }
+            }
+            exporting = false
+            when {
+                all.isEmpty() && failed -> snackbar("Couldn't load trips to export - tap Reload, then try again")
+                all.isEmpty() -> snackbar("No trips to export")
+                else -> {
+                    shareCsv(all.values.toList())
+                    if (failed) snackbar("Exported ${all.size} trips; some pages couldn't load - retry for the rest")
+                }
+            }
+        }
     }
 
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -135,12 +179,51 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
         }
 
-        // Export button always visible at the top (disabled while there's nothing to export).
+        // Trip-recording switch: enable it from here (previously only possible in the stock app), so a
+        // car that isn't logging trips can be turned on. Vehicle-relayed command - we re-read to confirm.
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Record trips", fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    when {
+                        settingLog -> "Updating…"
+                        logging == null -> "Lets the car log your drives so they appear here."
+                        logging == true -> "On - the car is logging your drives."
+                        else -> "Off - turn on to start logging drives here."
+                    },
+                    color = Brand.muted, fontSize = 12.sp,
+                )
+            }
+            androidx.compose.material3.Switch(
+                checked = logging == true,
+                enabled = !settingLog,
+                onCheckedChange = { on ->
+                    settingLog = true
+                    logging = on // optimistic
+                    scope.launch {
+                        when (val r = deps.journey.setLogging(on)) {
+                            is CallResult.Ok -> snackbar(if (on) "Trip recording on" else "Trip recording off")
+                            is CallResult.Err -> { snackbar("Couldn't change recording ✗ ${r.message}"); logging = !on }
+                        }
+                        // Re-read to reflect the car's real state (the command is vehicle-relayed).
+                        (deps.journey.loggingEnabled() as? CallResult.Ok)?.value?.let { logging = it }
+                        settingLog = false
+                    }
+                },
+            )
+        }
+
+        // Export to CSV, but only the date range the user picks - a multi-year history would be painful
+        // to pull whole (#39). The button opens a range picker; the chosen window drives the page walk.
         PrimaryButton(
-            "Export to CSV",
+            if (exporting) "Preparing export…" else "Export to CSV",
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            enabled = trips.isNotEmpty(),
-            onClick = { export() },
+            enabled = trips.isNotEmpty() && !exporting,
+            onClick = { showExportRange = true },
         )
 
         when {
@@ -177,6 +260,73 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             }
         }
     }
+
+    if (showExportRange) {
+        ExportRangeDialog(
+            onDismiss = { showExportRange = false },
+            onPick = { startMs, endMs -> showExportRange = false; export(startMs, endMs) },
+        )
+    }
+}
+
+/** Date-range choices for the CSV export (#39). Presets plus a custom range, so a long history isn't
+ *  pulled whole. `days = null` means "custom" (handled by the date-range picker). */
+private enum class ExportRange(val label: String, val days: Int?) {
+    DAYS_30("Last 30 days", 30),
+    DAYS_90("Last 3 months", 90),
+    DAYS_180("Last 6 months", 180),
+    DAYS_365("Last 12 months", 365),
+    CUSTOM("Custom range…", null),
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ExportRangeDialog(onDismiss: () -> Unit, onPick: (startMs: Long, endMs: Long) -> Unit) {
+    var custom by remember { mutableStateOf(false) }
+    if (custom) {
+        val state = androidx.compose.material3.rememberDateRangePickerState()
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                val s = state.selectedStartDateMillis
+                val e = state.selectedEndDateMillis
+                androidx.compose.material3.TextButton(
+                    enabled = s != null && e != null,
+                    // End-of-day on the end date so that day's trips are included.
+                    onClick = { if (s != null && e != null) onPick(s, e + 86_400_000L - 1) },
+                ) { Text("Export") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        ) {
+            androidx.compose.material3.DateRangePicker(state = state, modifier = Modifier.weight(1f, fill = false))
+        }
+        return
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Export range") },
+        text = {
+            Column {
+                ExportRange.entries.forEach { r ->
+                    Text(
+                        r.label,
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {
+                            if (r.days == null) {
+                                custom = true
+                            } else {
+                                val now = System.currentTimeMillis()
+                                onPick(now - r.days * 86_400_000L, now)
+                            }
+                        }.padding(vertical = 12.dp, horizontal = 4.dp),
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

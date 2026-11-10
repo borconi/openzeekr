@@ -367,12 +367,39 @@ private fun EmptyRow(text: String) =
 private val DAY_LABELS = arrayOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
 
 /**
- * Stock's far-future placeholder for a RECURRING plan's `temporaryTime` (format
- * "yyyy:MM:dd:HH:mm:ss"). The server REJECTS an empty temporaryTime ("单次出行时间不能为空"),
- * so a recurring plan still carries this placeholder — exactly as the stock app does
- * (BookTravelParamsV2.<init> seeds temporaryTime = "2099:12:12:08:00:00").
+ * Fallback `temporaryTime` (format "yyyy:MM:dd:HH:mm:ss"). The cloud rejects an EMPTY temporaryTime
+ * ("单次出行时间不能为空"), so we always send one. We used the stock-looking far-future placeholder
+ * "2099:12:12:08:00:00" here, which passed the cloud's non-empty check (returning a misleading
+ * sessionId) but the CAR then refused every plan with FCM code 6074 "Time too close to departure time":
+ * the car doesn't use a placeholder date, it falls back to the cycle `time` against TODAY, sees today's
+ * time already passed, and rejects as past/imminent. So a recurring plan now computes a REAL next-
+ * occurrence anchor ([nextDepartureAnchor]); this constant is only the last-resort fallback.
  */
 private const val TRAVEL_TEMP_PLACEHOLDER = "2099:12:12:08:00:00"
+
+/**
+ * The next real occurrence datetime ("yyyy:MM:dd:HH:mm:ss") of the earliest [selectedDays] weekday at
+ * [time] ("HH:mm[:ss]"), used as a recurring plan's `temporaryTime` first-departure anchor so the car
+ * accepts it (fixes FCM 6074 "too close"). ISO weekdays: 1=Mon … 7=Sun (matches java.time.DayOfWeek).
+ * If a day's time today has already passed, that day rolls to next week; we take the soonest across all
+ * selected days. Empty selection falls back to tomorrow at [time].
+ */
+private fun nextDepartureAnchor(selectedDays: Set<Int>, time: String): String {
+    val p = time.split(":")
+    val hh = (p.getOrNull(0)?.toIntOrNull() ?: 8).coerceIn(0, 23)
+    val mm = (p.getOrNull(1)?.toIntOrNull() ?: 0).coerceIn(0, 59)
+    val now = java.time.LocalDateTime.now()
+    val days = selectedDays.filter { it in 1..7 }
+    val candidates = days.map { d ->
+        var c = now.toLocalDate()
+            .with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.of(d)))
+            .atTime(hh, mm)
+        if (!c.isAfter(now)) c = c.plusWeeks(1) // today's slot already passed -> next week
+        c
+    }
+    val t = candidates.minOrNull() ?: now.plusDays(1).withHour(hh).withMinute(mm).withSecond(0)
+    return "%04d:%02d:%02d:%02d:%02d:00".format(t.year, t.monthValue, t.dayOfMonth, t.hour, t.minute)
+}
 
 /** Stock seat-heat/venti location codes (HeatSetting/VentiSetting.location):
  *  heat = FL/FR/RL/RR = {1,2,3,5}; venti (front only) = {1,2}. */
@@ -403,7 +430,9 @@ private fun newRecurringDeparture(
     sts = 1,
     displaySts = 1,
     bookingType = 1,         // 1 = recurring (uses cycleTimes); 0 = one-off (requires a real temporaryTime)
-    temporaryTime = TRAVEL_TEMP_PLACEHOLDER,
+    // A REAL future anchor, not a placeholder: the car rejects a placeholder date with FCM 6074
+    // "too close to departure time" (see [TRAVEL_TEMP_PLACEHOLDER]).
+    temporaryTime = nextDepartureAnchor(selectedDays, time),
     // day is 1-based (1..7) on the wire — confirmed in the live trace (NOT 0..6).
     cycleTimes = (1..7).map { CycleTime(day = it, sts = if (it in selectedDays) 1 else 0, time = time) },
     preHeatSts = if (preheat) 1 else 0,
@@ -422,7 +451,16 @@ private fun newRecurringDeparture(
  */
 private fun BookingTravelSetting.sanitizedForWrite(): BookingTravelSetting = copy(
     btId = if (btId < 1) 1 else btId,
-    temporaryTime = temporaryTime.ifBlank { TRAVEL_TEMP_PLACEHOLDER },
+    // Recompute a REAL future anchor for a recurring plan so an edit/delete re-send isn't refused with
+    // FCM 6074 "too close" the way a stale/placeholder temporaryTime is (see [nextDepartureAnchor]).
+    temporaryTime = run {
+        val enabled = cycleTimes.filter { it.sts == 1 }
+        if (bookingType == 1 && enabled.isNotEmpty()) {
+            nextDepartureAnchor(enabled.map { it.day }.toSet(), enabled.first().time)
+        } else {
+            temporaryTime.ifBlank { TRAVEL_TEMP_PLACEHOLDER }
+        }
+    },
     csSetting = csSetting ?: TravelClimateSetting(duration = 10, sts = 0, temp = "22.0"),
     ventiSettings = ventiSettings.ifEmpty { VENTI_LOCATIONS.map { TravelSeatSetting(10, 1, it, 0) } },
     heatSettings = heatSettings.ifEmpty { HEAT_LOCATIONS.map { TravelSeatSetting(10, 1, it, 0) } },

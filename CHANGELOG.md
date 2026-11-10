@@ -3,6 +3,37 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.4] - 2026-11-10
+
+### Added
+- **Share your car by email.** A new Car sharing screen (Security tab) lets you see everyone the car is
+  shared with, share it with someone new just by entering their email, and revoke anyone's access - all
+  without opening the stock Zeekr app. The person you share with gets an invite in their Zeekr app to
+  accept.
+- **Turn trip logging on or off, and export your trips.** The Journey log screen gains a "Record trips"
+  switch and a CSV export with a date-range picker (last 30 / 90 / 180 / 365 days, or a custom range), so
+  an export stays manageable even after years of driving. (#39)
+- **Rapid cool / rapid heat.** One-tap buttons to quickly cool or warm the cabin. (#24)
+
+### Changed
+- **Clearer "Car not in range" message** when a Bluetooth lock/unlock can't find the car, and it only
+  hands off to background proximity scanning when you actually have an approach/walk-away feature on.
+- **Password-manager friendly sign-in** and an updated build toolchain (Kotlin 2.1 / newer Compose). (#31)
+
+### Fixed
+- **Setting up a digital key on a shared car works again.** A regression had broken Bluetooth-key setup
+  on cars shared to you (it was using the owner-only path and getting rejected); OpenZeekr now uses the
+  correct shared-key path.
+- **Departure schedules are no longer rejected as "too close to departure time."** A departure set days
+  ahead was being refused by the car; it now sends a real next-occurrence time and takes effect. (#36)
+- **Actions that need the car locked now say so.** Sentry and other lock-only functions no longer report
+  success when the car is unlocked - OpenZeekr checks first and asks you to lock the car. (#41)
+- **"Mark all as read" actually clears the badge.** It now marks every unread message across all inbox
+  pages and categories, with on-screen confirmation.
+- **Force-unlock panel no longer pops up when a call wakes the screen.**
+- **Departure day picker** no longer clips Saturday and Sunday off the edge of the dialog.
+- **The "Clear" button** in Settings no longer wraps to "Cle / ar".
+
 ## [0.2.3] - 2026-11-01
 
 ### Added

@@ -166,16 +166,16 @@ class DkProvisioning(
             var bookId: String? = null
             var shareStatus: Int? = null
             if (entry == null) {
-                // Empty key-list = this account has no key on this car yet, so mint one. On Zeekr
-                // there is NO "share a key" action in the app (confirmed on a shared account), which
-                // means every account - owner OR shared - creates its OWN BLE key via
-                // create-owner-blu-key. So we no longer pre-gate on isOwner; we attempt the mint and
-                // let the server decide. If the cloud really does restrict non-owner minting it will
-                // return a specific code, which is far more useful than a client-side guess. (See
-                // [[dk-real-eu-api]]: shared acct can create keys.)
+                // Empty key-list = this account has no key on this car yet, so mint one. The MINT
+                // endpoint differs by ownership: the OWNER account uses create-owner-blu-key, but a
+                // SHARED (non-owner) account is NOT authorized there - the gateway returns 401 079001
+                // "[SDK] this interface is not authorized" (live-confirmed on a shared CX1E car). The
+                // stock app mints a sharee's key via create-share-key instead (identical body). So we
+                // branch on isOwner: owner -> create-owner-blu-key, sharee -> create-share-key.
                 _state.value = State(Step.BIND)
-                Logx.d("provision", "step 3 create-owner-blu-key (owner=$owner, empty key-list) …")
-                val cr = createOwnerBluKeyWithRetry(deviceId, sig)
+                val mintLabel = if (owner) "create-owner-blu-key" else "create-share-key"
+                Logx.d("provision", "step 3 $mintLabel (owner=$owner, empty key-list) …")
+                val cr = createBluKeyWithRetry(owner, deviceId, sig)
                 val od = cr.data
                 if (od != null) {
                     dkId = od.dkId; bookId = od.bookId
@@ -186,7 +186,7 @@ class DkProvisioning(
                     // RESPONSE while the upstream actually created the key, so the backoff-retry collides
                     // with the now-existing key (exactly the 429 -> retry -> 036902 seen in the wild), or
                     // from a prior provisioning run. Re-read key-list and adopt the existing key.
-                    Logx.w("provision", "create-owner-blu-key 036902 (already activated) — re-reading key-list to adopt the existing key")
+                    Logx.w("provision", "$mintLabel 036902 (already activated) — re-reading key-list to adopt the existing key")
                     val kl2 = api.keyList(KeyListReq(deviceId = deviceId, dkType = 2, signature = sig()))
                     val e2 = (kl2.data?.firstOrNull { it.dkType == 2 } ?: kl2.data?.firstOrNull())
                         ?: error("create reported the key is already activated (036902) but key-list is still empty — wait a few seconds and provision again")
@@ -292,30 +292,36 @@ class DkProvisioning(
     }
 
     /**
-     * create-owner-blu-key, retrying the gateway rate-limit. The APISIX gateway 429s
-     * (`00A29` "Requests are too frequent") the FIRST create-owner-blu-key when it lands right
-     * after the cert/key-list burst — CONFIRMED identical in the stock app (frida capture
+     * Mint this account's BLE key, retrying the gateway rate-limit. [owner] picks the endpoint:
+     * create-owner-blu-key for the owner, create-share-key for a sharee (the owner endpoint is
+     * 079001 "not authorized" for non-owners; both take the identical {deviceId, proprietary,
+     * signature} body).
+     *
+     * The APISIX gateway 429s (`00A29` "Requests are too frequent") the FIRST mint when it lands
+     * right after the cert/key-list burst — CONFIRMED identical in the stock app (frida capture
      * 2026-09-15): stock's first call also 429s and it simply waits ~5s and retries → 200. It's a
      * short sliding window, not an account/daily cap, and no intervening call "clears" it (a
      * key-list preceded both stock's failed and successful create) — only time. So re-sign (fresh
      * ECDSA signature, like stock) and retry with a ~5s backoff.
      */
-    private suspend fun createOwnerBluKeyWithRetry(deviceId: String, sign: () -> String): DkResp<KeyItem> {
+    private suspend fun createBluKeyWithRetry(owner: Boolean, deviceId: String, sign: () -> String): DkResp<KeyItem> {
+        val label = if (owner) "create-owner-blu-key" else "create-share-key"
         var last: retrofit2.HttpException? = null
         for (attempt in 1..OWNER_CREATE_ATTEMPTS) {
             try {
-                return api.createOwnerBluKey(OwnerKeyReq(deviceId = deviceId, proprietary = "", signature = sign()))
+                val body = OwnerKeyReq(deviceId = deviceId, proprietary = "", signature = sign())
+                return if (owner) api.createOwnerBluKey(body) else api.createShareBluKey(body)
             } catch (e: retrofit2.HttpException) {
                 if (e.code() == 429) {
                     last = e
-                    Logx.w("provision", "create-owner-blu-key 429 (gateway rate-limit 00A29) — " +
+                    Logx.w("provision", "$label 429 (gateway rate-limit 00A29) — " +
                         "backoff ${OWNER_CREATE_BACKOFF_MS}ms, retry $attempt/$OWNER_CREATE_ATTEMPTS …")
                     if (attempt < OWNER_CREATE_ATTEMPTS) kotlinx.coroutines.delay(OWNER_CREATE_BACKOFF_MS)
                 } else throw e
             }
         }
         throw IllegalStateException(
-            "create-owner-blu-key kept returning 429 (gateway rate-limit). Wait ~10s and try again.", last)
+            "$label kept returning 429 (gateway rate-limit). Wait ~10s and try again.", last)
     }
 
     /**
@@ -428,10 +434,17 @@ interface DkApi {
     @POST("$DKC/share-key")
     suspend fun shareKey(@Body body: ShareKeyReq): DkResp<kotlinx.serialization.json.JsonElement>
 
-    /** Mint this account's own BLE key (proprietary=""). Used whenever the key-list is empty,
-     *  for owner AND shared accounts (Zeekr has no in-app key-sharing; each account mints its own). */
+    /** Mint the OWNER account's own BLE key (proprietary=""). Used when the key-list is empty and
+     *  this account owns the car. A non-owner must use [createShareBluKey] instead. */
     @POST("$DKC/create-owner-blu-key")
     suspend fun createOwnerBluKey(@Body body: OwnerKeyReq): DkResp<KeyItem>
+
+    /** Mint a SHAREE's own BLE key on a car shared to this (non-owner) account. The owner endpoint
+     *  create-owner-blu-key returns 401 079001 "[SDK] this interface is not authorized" for
+     *  non-owners (live-confirmed); the stock app uses create-share-key here. Identical body
+     *  ({deviceId, proprietary, signature}) so we reuse [OwnerKeyReq]. */
+    @POST("$DKC/create-share-key")
+    suspend fun createShareBluKey(@Body body: OwnerKeyReq): DkResp<KeyItem>
 
     @GET("$DKC/key-info")
     suspend fun keyInfo(

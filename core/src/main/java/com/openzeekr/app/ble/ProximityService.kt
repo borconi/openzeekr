@@ -105,6 +105,7 @@ class ProximityService : Service() {
         ensureBtExitReceiver(deps)   // SIGMOTION: car-BT disconnect = exited the car
 
         if (loops?.isActive != true) {
+            deps.ble.passiveListening = true   // gates the demand-scan handoff (see DkBleManager)
             loops = scope.launch {
                 launch { keepConnected(deps) }
                 launch { runApproach(deps) }
@@ -112,6 +113,11 @@ class ProximityService : Service() {
                 launch { sigMotionBaseline(deps) }
                 launch { deps.motion.significantMotion.collect { enterSigActive(deps, lowLatency = true, "sig-motion") } }
                 launch { deps.proximity.walkAwayLocked.collect { enterSigActive(deps, lowLatency = false, "walk-away-lock") } }
+                // A demand connect (e.g. "At the car") that found nothing hands off here: open an active
+                // WALKING window so we keep listening and connect the instant the car starts advertising,
+                // instead of leaving the user at a dead-end. The surrounding machine still follows the
+                // sensor-dependent path (wake-up step detector vs sig-motion vs always-on baseline).
+                launch { deps.ble.demandScanMiss.collect { enterSigActive(deps, lowLatency = true, "scan-miss") } }
                 launch { manageWakeLock(deps) }
                 launch { pollCarMessages(deps) }
             }
@@ -142,6 +148,7 @@ class ProximityService : Service() {
     override fun onDestroy() {
         loops?.cancel(); loops = null
         (application as? DepsHolder)?.deps?.let {
+            it.ble.passiveListening = false
             it.proximity.stop()
             runCatching { it.ble.disarmPresenceScan() }
         }

@@ -144,6 +144,31 @@ interface TspApi {
         @Body body: com.openzeekr.app.net.model.ShareAcceptRequest,
     ): BaseResponse<kotlinx.serialization.json.JsonElement>
 
+    // ---- car share (OWNER side): list the car's active shares + revoke one ----
+    // Owner's outgoing shares (who the car is shared WITH). `id` on each item is the shareId used by
+    // cancel. Tolerant JsonElement parse (ShareOwner.parseList). Decompiled: owner/authorize/list.
+    @GET("ms-tsp-user-vehicle/api/v2/veh/owner/authorize/list")
+    suspend fun ownerShareList(
+        @Query("userId") userId: String,
+        @Query("current") current: Int = 1,
+        @Query("pageSize") pageSize: Int = 50,
+    ): BaseResponse<kotlinx.serialization.json.JsonElement>
+
+    // Revoke/end a share. Minimal body = {"shareId":"<id>"} (digtalKeyReqVO only for DK shares).
+    @POST("ms-tsp-user-vehicle/api/v2/veh/owner/authorize/cancel")
+    suspend fun ownerShareCancel(
+        @Body body: com.openzeekr.app.net.model.OwnerCancelShareRequest,
+    ): BaseResponse<kotlinx.serialization.json.JsonElement>
+
+    // Create a new outgoing share (invite someone by email). Body is the owner create bean; the stock
+    // request is null-dominated, so we send only the essentials and let the server derive owner + car
+    // (VIN via X-VIN header). Response data carries the new shareId on success. Decompiled:
+    // owner/authorize/create <- VehicleOwnerCreateCarShareRequestBean.
+    @POST("ms-tsp-user-vehicle/api/v2/veh/owner/authorize/create")
+    suspend fun ownerShareCreate(
+        @Body body: com.openzeekr.app.net.model.OwnerCreateShareRequest,
+    ): BaseResponse<kotlinx.serialization.json.JsonElement>
+
     // ---- member inbox / message center ----
     // NOT on the TSP gateway — the inbox lives on the Geely overseas app-BFF host
     // (overseas-app.lynkco.com), so these take an absolute @Url (built by InboxRepository).
@@ -209,7 +234,21 @@ interface TspApi {
         @Body body: com.openzeekr.app.net.model.JourneyPageRequest,
     ): BaseResponse<kotlinx.serialization.json.JsonElement>
 
+    // ---- journey-log RECORDING switch (serviceId "JOU" on ms-vehicle-trail) ----
+    // Enables/disables trip recording on the car. The stock overseas app routes this through the generic
+    // remote-control request (serviceId "JOU", command "start"/"stop") to ms-vehicle-trail's journalLog
+    // service - NOT the ecarx /remote-control/ihu/jou/* paths, which are CN-only and 404 on the EU gateway
+    // (verified live: 00A01). Body is the same RemoteControlRequest shape as every other toggle; VIN rides
+    // in the X-VIN header. (decompiled RemoteService.commonOff + Cmd$Companion OPEN/CLOSE_DRIVING_LOG.)
+    // Vehicle-relayed, so a 200 is "accepted"; the real state is read back from getVehicleState
+    // (journalLogState) via [remoteControlState].
+    @POST("ms-vehicle-trail/v1.0/journalLog/onOff")
+    suspend fun journalLogOnOff(
+        @Body body: RemoteControlRequest,
+    ): BaseResponse<RemoteControlResponse>
+
     // Per-trip GPS track (optional detail). Keyed by the trip's reportTime + tripId.
+
     @GET("ms-vehicle-trail/v1.0/journalLog/trackpoint/list")
     suspend fun journeyTrackpoints(
         @Query("tripReportTime") tripReportTime: Long,

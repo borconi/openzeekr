@@ -14,6 +14,9 @@ clean-room app and is not affiliated with Zeekr.
   switch and a CSV export with a date-range picker (last 30 / 90 / 180 / 365 days, or a custom range), so
   an export stays manageable even after years of driving. (#39)
 - **Rapid cool / rapid heat.** One-tap buttons to quickly cool or warm the cabin. (#24)
+- **Trusted areas can keep the car unlocked (experimental, not fully tested).** The geofenced zones you
+  set for Sentry (home, work) can now also hold off walk-away auto-lock there, so the car stays unlocked
+  on your own driveway. This one is new and not fully tested yet. (#42)
 
 ### Changed
 - **Clearer "Car not in range" message** when a Bluetooth lock/unlock can't find the car, and it only

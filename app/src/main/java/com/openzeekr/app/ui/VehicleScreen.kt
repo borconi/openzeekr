@@ -81,12 +81,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import android.graphics.BitmapFactory
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.openzeekr.app.R
 import com.openzeekr.app.Deps
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.config.Units
@@ -180,7 +182,11 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     val windowsVenting = climate?.windowsVenting == true
     val windowsOpen = climate?.windowsOpen == true
     val windowIcon = if (windowsVenting) Icons.Filled.Air else OzIcons.CarWindow
-    val windowLabel = when { windowsVenting -> "Vent"; windowsOpen -> "Open"; else -> "Windows" }
+    val windowLabel = when {
+        windowsVenting -> stringResource(R.string.ui_veh_tile_vent)
+        windowsOpen -> stringResource(R.string.ui_veh_tile_open)
+        else -> stringResource(R.string.ui_veh_tile_windows)
+    }
     val windowTint = if (windowsVenting) Brand.accent else Brand.energy
 
     val locked = safety?.centralLockingStatus?.let { it == "1" } ?: true
@@ -208,11 +214,11 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     // climate…) catches up once the car applies the command, instead of lagging to the next routine
     // poll. Deduped inside the holder: overlapping commands replace the in-flight burst.
     fun fire(label: String, block: suspend () -> CallResult<*>) {
-        snackbar("$label…")
+        snackbar(ctx.getString(R.string.ui_veh_action_loading, label))
         scope.launch {
             when (val r = block()) {
-                is CallResult.Ok -> { snackbar("$label ✓"); deps.vehicleState.refreshAfterCommand() }
-                is CallResult.Err -> snackbar("$label ✗ ${r.message}")
+                is CallResult.Ok -> { snackbar(ctx.getString(R.string.ui_veh_action_success, label)); deps.vehicleState.refreshAfterCommand() }
+                is CallResult.Err -> snackbar(ctx.getString(R.string.ui_veh_action_failed, label, r.message ?: ""))
             }
         }
     }
@@ -223,13 +229,13 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         scope.launch {
             when (val r = block()) {
                 is CallResult.Ok -> deps.vehicleState.refreshAfterCommand()
-                is CallResult.Err -> snackbar("$label ✗ ${r.message}")
+                is CallResult.Err -> snackbar(ctx.getString(R.string.ui_veh_action_failed, label, r.message ?: ""))
             }
         }
     }
     // BLE-first (confirmed) then cloud fallback, via the shared dispatcher.
     fun door(lockIt: Boolean) {
-        val n = if (lockIt) "Lock" else "Unlock"
+        val n = if (lockIt) ctx.getString(R.string.ui_veh_lock) else ctx.getString(R.string.ui_veh_unlock)
         fire(n) { deps.vehicleControl.send(if (lockIt) Command.LOCK else Command.UNLOCK) }
     }
 
@@ -238,13 +244,15 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
             speedUnit = heroSpeedUnit, loading = info == null)
 
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            StatItem("Central lock", if (locked) "Locked" else "Unlocked", if (locked) Brand.good else Brand.energy, Modifier.weight(1f))
-            StatItem("Battery", soc?.let { "${fmt(it)}%" } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-            StatItem("Range", rangeStr?.let { s -> s.toDoubleOrNull()?.let { Units.distance(it, cfg.distanceUnit) } ?: "$s km" } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+            StatItem(stringResource(R.string.ui_veh_stat_central_lock),
+                if (locked) stringResource(R.string.ui_veh_stat_locked) else stringResource(R.string.ui_veh_stat_unlocked),
+                if (locked) Brand.good else Brand.energy, Modifier.weight(1f))
+            StatItem(stringResource(R.string.ui_veh_stat_battery), soc?.let { "${fmt(it)}%" } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+            StatItem(stringResource(R.string.ui_veh_stat_range), rangeStr?.let { s -> s.toDoubleOrNull()?.let { Units.distance(it, cfg.distanceUnit) } ?: stringResource(R.string.ui_veh_val_km, s) } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
             // Live average energy consumption (ElectricStatusVo.averPowerConsumption); unit is the
             // car's own — assume kWh/100km. "Ø" = average (compact so the label stays on ONE line in
             // the narrow 1/4-width stat column, instead of wrapping like "Avg · kWh/100km" did).
-            StatItem("Ø kWh/100km", elec?.avgConsumption?.let { fmt1(it) } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+            StatItem(stringResource(R.string.ui_veh_stat_avg_consumption), elec?.avgConsumption?.let { fmt1(it) } ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
         }
         Divider()
 
@@ -256,9 +264,10 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
             // deps.vehicleControl (BLE-first, cloud fallback). Trunk is ALWAYS shown; its sheet offers
             // Open/Close on a powered tailgate, else latch unlock/lock, and reflects live state.
             val tiles = buildList<@Composable RowScope.() -> Unit> {
-                add { Ctl(if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen, if (locked) "Locked" else "Unlocked",
+                add { Ctl(if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen,
+                    if (locked) stringResource(R.string.ui_veh_stat_locked) else stringResource(R.string.ui_veh_stat_unlocked),
                     tint = if (locked) Brand.good else Brand.energy, active = true, modifier = Modifier.weight(1f)) { door(!locked) } }
-                add { Ctl(climateIcon, "Climate", tint = climateTint, active = acOn, modifier = Modifier.weight(1f)) { showClimate = true } }
+                add { Ctl(climateIcon, stringResource(R.string.ui_veh_tile_climate), tint = climateTint, active = acOn, modifier = Modifier.weight(1f)) { showClimate = true } }
                 // Always open the sheet — charge limit, battery pre-conditioning (a PRE-charge action)
                 // and the charge-port control all live there, so it must be reachable when unplugged too.
                 add { ChargeCtl(charging, plugged, soc, powerKw, elec?.chargePhases, elec?.timeToFullyCharged, Modifier.weight(1f)) { showCharge = true } }
@@ -267,11 +276,11 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                 // flash + honk together), so it's BLE-first (instant in range) with cloud fallback.
                 // Flash-only has NO BLE opcode, so it always goes via the cloud. (There is no honk-only
                 // action — the car only supports flash-only and flash+honk together.)
-                add { Ctl(Icons.Filled.Campaign, "Flash+Honk", modifier = Modifier.weight(1f)) { fire("Locate") { deps.vehicleControl.send(Command.FLASH_HORN) } } }
-                add { Ctl(Icons.Filled.FlashOn, "Flash", modifier = Modifier.weight(1f)) { fire("Flash") { deps.vehicleControl.send(Command.FLASH) } } }
-                add { Ctl(Icons.Filled.Luggage, if (trunkOpen) "Open" else "Trunk", tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) { showTrunk = true } }
-                if (caps.fridge) add { Ctl(Icons.Filled.Kitchen, "Fridge", tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) { showFridge = true } }
-                if (caps.frunk) add { Ctl(Icons.Filled.Inventory2, "Frunk", modifier = Modifier.weight(1f)) { fire("Frunk") { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
+                add { Ctl(Icons.Filled.Campaign, stringResource(R.string.ui_veh_tile_flash_honk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.ui_veh_fire_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } } }
+                add { Ctl(Icons.Filled.FlashOn, stringResource(R.string.ui_veh_tile_flash), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.ui_veh_tile_flash)) { deps.vehicleControl.send(Command.FLASH) } } }
+                add { Ctl(Icons.Filled.Luggage, if (trunkOpen) stringResource(R.string.ui_veh_tile_open_status) else stringResource(R.string.ui_veh_tile_trunk), tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) { showTrunk = true } }
+                if (caps.fridge) add { Ctl(Icons.Filled.Kitchen, stringResource(R.string.ui_veh_tile_fridge), tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) { showFridge = true } }
+                if (caps.frunk) add { Ctl(Icons.Filled.Inventory2, stringResource(R.string.ui_veh_tile_frunk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.ui_veh_tile_frunk)) { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
             }
             tiles.chunked(4).forEach { rowTiles ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -284,12 +293,12 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         }
 
         // tyres — real values: MaintenanceStatusVo.tyreStatus* is pressure in kPa.
-        SectionLabel("Tyre pressure · ${Units.pressureSuffix(cfg.pressureUnit)}")
+        SectionLabel(stringResource(R.string.ui_veh_section_tyre_pressure, Units.pressureSuffix(cfg.pressureUnit)))
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tyre("Front L", maint?.tyreStatusDriver, cfg.pressureUnit, Modifier.weight(1f)); Tyre("Front R", maint?.tyreStatusPassenger, cfg.pressureUnit, Modifier.weight(1f))
+            Tyre(stringResource(R.string.ui_veh_tyre_front_l), maint?.tyreStatusDriver, cfg.pressureUnit, Modifier.weight(1f)); Tyre(stringResource(R.string.ui_veh_tyre_front_r), maint?.tyreStatusPassenger, cfg.pressureUnit, Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tyre("Rear L", maint?.tyreStatusDriverRear, cfg.pressureUnit, Modifier.weight(1f)); Tyre("Rear R", maint?.tyreStatusPassengerRear, cfg.pressureUnit, Modifier.weight(1f))
+            Tyre(stringResource(R.string.ui_veh_tyre_rear_l), maint?.tyreStatusDriverRear, cfg.pressureUnit, Modifier.weight(1f)); Tyre(stringResource(R.string.ui_veh_tyre_rear_r), maint?.tyreStatusPassengerRear, cfg.pressureUnit, Modifier.weight(1f))
         }
 
         // Connectivity data plan (eSIM "traffic volume"). The car reports total/usage/remain
@@ -299,12 +308,12 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
             val total = tr.total?.toFloatOrNull()
             val remain = tr.remain?.toFloatOrNull()
             if (used != null || total != null || remain != null) {
-                fun gb(v: Float?) = v?.let { "%.1f GB".format(it) } ?: "—"
-                SectionLabel("Connectivity data")
+                fun gb(v: Float?) = v?.let { ctx.getString(R.string.ui_veh_val_gb, it) } ?: "—"
+                SectionLabel(stringResource(R.string.ui_veh_section_connectivity_data))
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatItem("Used", gb(used), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-                    StatItem("Total", gb(total), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-                    StatItem("Remaining", gb(remain),
+                    StatItem(stringResource(R.string.ui_veh_stat_used), gb(used), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                    StatItem(stringResource(R.string.ui_veh_stat_total), gb(total), MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                    StatItem(stringResource(R.string.ui_veh_stat_remaining), gb(remain),
                         if (remain != null && remain < 1f) Brand.energy else Brand.good, Modifier.weight(1f))
                 }
             }
@@ -315,22 +324,22 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         maint?.let { m ->
             val odo = m.odometer?.let { Units.distance(it.toDouble(), cfg.distanceUnit) }
             val svcKm = m.distanceToService?.let { Units.distance(it.toDouble(), cfg.distanceUnit) }
-            val svcTime = m.daysToService?.let { d -> if (d >= 60) "~${d / 30} mo" else "$d days" }
+            val svcTime = m.daysToService?.let { d -> if (d >= 60) ctx.getString(R.string.ui_veh_stat_service_months, d / 30) else ctx.getString(R.string.ui_veh_stat_service_days, d) }
             val lvBatt = m.lowVoltageBattery
-            val volts = lvBatt?.let { "%.1f V".format(it) }
+            val volts = lvBatt?.let { stringResource(R.string.ui_veh_val_volts, it) }
             if (odo != null || svcKm != null || svcTime != null || volts != null) {
-                SectionLabel("Vehicle")
+                SectionLabel(stringResource(R.string.ui_veh_section_vehicle))
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatItem("Odometer", odo ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                    StatItem(stringResource(R.string.ui_veh_stat_odometer), odo ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
                     // 12 V rests ~12.4-12.8 V (higher while the DC-DC is charging it); warn under ~11.9 V,
                     // where a weak/flat aux battery can leave the car unable to wake or start.
-                    StatItem("12V battery", volts ?: "—",
+                    StatItem(stringResource(R.string.ui_veh_stat_12v_battery), volts ?: "—",
                         if (lvBatt != null && lvBatt < 11.9) Brand.energy else Brand.good,
                         Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatItem("Service in", svcKm ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-                    StatItem("Service due", svcTime ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                    StatItem(stringResource(R.string.ui_veh_stat_service_in), svcKm ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                    StatItem(stringResource(R.string.ui_veh_stat_service_due), svcTime ?: "—", MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
                 }
             }
         }
@@ -339,13 +348,13 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     if (showCharge) ChargeSheet(status, soc, powerKw, charging, plugged, elec,
         initialLimitPct = cfg.chargeLimitPct,
         devMode = cfg.devMode,
-        onCmd = { c, extra -> fire("Charge") { deps.control.send(c, extra) } },
+        onCmd = { c, extra -> fire(ctx.getString(R.string.ui_veh_fire_charge)) { deps.control.send(c, extra) } },
         onLimitSet = { pct -> deps.config.update { it.copy(chargeLimitPct = pct) } },
         onDismiss = { showCharge = false })
     if (showClimate) ClimateSheet(status?.additionalVehicleStatus?.climateStatus,
         initialTemp = targetTemp, showSeatCool = caps.seatCool, showRearSeatCool = caps.rearSeatCool,
         onTempChange = { t -> targetTemp = t; writeTargetTemp(ctx, t) },
-        onCmd = { c, extra -> fireQuiet("Climate") { deps.control.send(c, extra) } }, onDismiss = { showClimate = false })
+        onCmd = { c, extra -> fireQuiet(ctx.getString(R.string.ui_veh_fire_climate)) { deps.control.send(c, extra) } }, onDismiss = { showClimate = false })
     // Window/trunk actions close the sheet first, THEN fire — the snackbar host lives behind the modal
     // sheet, so a toast raised while the sheet is open isn't visible until it's dismissed.
     if (showWindows) WindowsSheet(
@@ -362,7 +371,7 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         isOn = fridgeOn, initialTemp = fridgeTemp,
         onTempChange = { t -> fridgeTemp = t; writeFridgeTemp(ctx, t) },
         onSetOn = { on -> fridgeOn = on },
-        onCmd = { c, extra -> fireQuiet("Fridge") { deps.control.send(c, extra) } },
+        onCmd = { c, extra -> fireQuiet(ctx.getString(R.string.ui_veh_fire_fridge)) { deps.control.send(c, extra) } },
         onDismiss = { showFridge = false })
 }
 
@@ -383,7 +392,7 @@ private fun Hero(
         if (loading) {
             CircularProgressIndicator(Modifier.size(34.dp).align(Alignment.Center), color = Brand.muted, strokeWidth = 3.dp)
             Row(Modifier.align(Alignment.BottomStart).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Loading…", color = Brand.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ui_veh_hero_loading), color = Brand.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
             }
             return@Box
         }
@@ -410,7 +419,7 @@ private fun Hero(
                     Text(speedUnit, color = Color.White.copy(alpha = .85f), fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 3.dp))
                 } else {
-                    Text("Driving", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.ui_veh_hero_driving), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -458,8 +467,12 @@ private fun Ctl(icon: ImageVector, label: String, tint: Color = MaterialTheme.co
 }
 
 /** "6.4 kW · 3-phase" (or just "6.4 kW" when the phase count is unknown / DC), or null when no power. */
+@Composable
 private fun chargePowerLabel(powerKw: Double?, phases: Int?): String? =
-    powerKw?.let { "${fmt1(it)} kW" + (phases?.let { p -> " · ${p}-phase" } ?: "") }
+    powerKw?.let {
+        if (phases != null) stringResource(R.string.ui_veh_charge_power_phases, fmt1(it), phases)
+        else stringResource(R.string.ui_veh_charge_power, fmt1(it))
+    }
 
 @Composable
 private fun ChargeCtl(
@@ -478,20 +491,24 @@ private fun ChargeCtl(
             } else {
                 Box(Modifier.size(60.dp).clip(CircleShape).background(Brand.surface2).border(1.dp, Brand.line, CircleShape))
             }
-            Icon(Icons.Filled.Bolt.takeIf { charging } ?: Icons.Filled.Power, "Charging",
+            Icon(Icons.Filled.Bolt.takeIf { charging } ?: Icons.Filled.Power, stringResource(R.string.ui_veh_charge_bolt_cd),
                 tint = if (charging) Brand.energy else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(if (charging) 18.dp else 24.dp))
         }
         Text(
             // Idle label hints that the sheet holds ALL the charge settings (limit, scheduled charging,
             // battery pre-conditioning, port open/close), which users missed under the bare "Charge port".
-            when { charging -> chargePowerLabel(powerKw, phases) ?: "Charging"; plugged -> "Plugged in"; else -> "Charge & more" },
+            when {
+                charging -> chargePowerLabel(powerKw, phases) ?: stringResource(R.string.ui_veh_status_charging)
+                plugged -> stringResource(R.string.ui_veh_status_plugged_in)
+                else -> stringResource(R.string.ui_veh_status_charge_and_more)
+            },
             // Match the lightning-bolt colour while charging (energy amber); muted otherwise.
             color = if (charging) Brand.energy else Brand.muted, fontSize = 11.sp, textAlign = TextAlign.Center,
         )
         // Live countdown to a full/limited charge, ticking down under the bolt (car reports minutes).
         if (charging) chargeCountdown(timeToFullMin)?.let {
-            Text("$it to full", color = Brand.energy, fontSize = 10.5.sp,
+            Text(stringResource(R.string.ui_veh_charge_time_to_full, it), color = Brand.energy, fontSize = 10.5.sp,
                 fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
         }
     }
@@ -511,7 +528,8 @@ private fun chargeCountdown(totalMinutes: Int?): String? {
     LaunchedEffect(totalMinutes) { while (true) { delay(1000); now = System.currentTimeMillis() } }
     val remaining = (totalMinutes * 60L - (now - anchorMs) / 1000L).coerceAtLeast(0L)
     val h = remaining / 3600; val m = (remaining % 3600) / 60; val s = remaining % 60
-    return if (h > 0) "%d:%02d h".format(h, m) else "%d:%02d".format(m, s)
+    return if (h > 0) stringResource(R.string.ui_veh_charge_countdown_hours, h, m)
+           else stringResource(R.string.ui_veh_charge_countdown_minutes, m, s)
 }
 
 @Composable
@@ -547,17 +565,17 @@ private fun ChargeSheet(
     var limit by remember { mutableStateOf(initialLimitPct.toFloat().coerceIn(50f, 100f)) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 26.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Charging", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.ui_veh_charge_title), fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(soc?.let { "${fmt(it)}%" } ?: "—", fontSize = 30.sp, fontWeight = FontWeight.Bold)
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(if (charging) (chargePowerLabel(powerKw, elec?.chargePhases) ?: "Charging") else if (plugged) "Plugged in" else "Unplugged",
+                    Text(if (charging) (chargePowerLabel(powerKw, elec?.chargePhases) ?: stringResource(R.string.ui_veh_status_charging)) else if (plugged) stringResource(R.string.ui_veh_status_plugged_in) else stringResource(R.string.ui_veh_status_unplugged),
                         color = if (charging) Brand.energy else Brand.muted, fontWeight = FontWeight.SemiBold)
-                    status?.additionalVehicleStatus?.electricVehicleStatus?.distanceToEmptyOnBatteryOnly?.let { Text("$it km range", color = Brand.muted, fontSize = 12.sp) }
+                    status?.additionalVehicleStatus?.electricVehicleStatus?.distanceToEmptyOnBatteryOnly?.let { Text(stringResource(R.string.ui_veh_charge_range_km, it), color = Brand.muted, fontSize = 12.sp) }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Charge limit (target)", fontWeight = FontWeight.SemiBold); Text("${limit.toInt()}%", color = Brand.muted, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ui_veh_charge_limit_title), fontWeight = FontWeight.SemiBold); Text("${limit.toInt()}%", color = Brand.muted, fontWeight = FontWeight.SemiBold)
             }
             // Full 0–100 scale so the fill reads as the ACTUAL target % (an 80% limit fills 80% of
             // the bar), but dragging is clamped to ≥50 — the 0–50 region is a fixed floor you can't
@@ -594,35 +612,35 @@ private fun ChargeSheet(
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("AC charge current (dev / car-gated)", fontWeight = FontWeight.SemiBold)
-                        Text(elec?.acSettingCurrent?.let { "Car reports: $it A" } ?: "Car reports: not set yet",
+                        Text(stringResource(R.string.ui_veh_charge_current_dev_title), fontWeight = FontWeight.SemiBold)
+                        Text(elec?.acSettingCurrent?.let { stringResource(R.string.ui_veh_charge_current_reported, it) } ?: stringResource(R.string.ui_veh_charge_current_not_set),
                             color = Brand.muted, fontSize = 11.5.sp)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         StepBtn("−") { current = (current - 1).coerceAtLeast(AC_CURRENT_MIN) }
-                        Text("$current A", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.widthIn(min = 44.dp), textAlign = TextAlign.Center)
+                        Text(stringResource(R.string.ui_veh_val_amps, current), fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.widthIn(min = 44.dp), textAlign = TextAlign.Center)
                         StepBtn("+") { current = (current + 1).coerceAtMost(AC_CURRENT_MAX) }
                     }
                 }
-                PrimaryButton("Set charge current ($current A)", Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                PrimaryButton(stringResource(R.string.ui_veh_charge_set_current_btn, current), Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     onCmd(Command.SET_CHARGE_CURRENT, listOf(ServiceParameter("rcs.ac.current", current.toString())))
                 }
             }
 
-            SheetToggleRow("Battery temp regulation", "Precondition the pack — run before charging",
+            SheetToggleRow(stringResource(R.string.ui_veh_battery_preheat_title), stringResource(R.string.ui_veh_battery_preheat_desc),
                 checked = elec?.hvBatteryPreHeatingActive == true) { on ->
                 onCmd(if (on) Command.BATTERY_PREHEAT_ON else Command.BATTERY_PREHEAT_OFF, emptyList())
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Charge port", fontWeight = FontWeight.SemiBold)
-                Text(if (portOpen) "Open" else "Closed", color = if (portOpen) Brand.good else Brand.muted, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ui_veh_charge_port_title), fontWeight = FontWeight.SemiBold)
+                Text(if (portOpen) stringResource(R.string.ui_veh_port_open) else stringResource(R.string.ui_veh_port_closed), color = if (portOpen) Brand.good else Brand.muted, fontWeight = FontWeight.SemiBold)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                GhostButton("Open port", Modifier.weight(1f), enabled = !portOpen, tint = Brand.good) { onCmd(Command.CHARGE_LID_OPEN, emptyList()) }
-                GhostButton("Close port", Modifier.weight(1f), enabled = portOpen) { onCmd(Command.CHARGE_LID_CLOSE, emptyList()) }
+                GhostButton(stringResource(R.string.ui_veh_charge_port_open_btn), Modifier.weight(1f), enabled = !portOpen, tint = Brand.good) { onCmd(Command.CHARGE_LID_OPEN, emptyList()) }
+                GhostButton(stringResource(R.string.ui_veh_charge_port_close_btn), Modifier.weight(1f), enabled = portOpen) { onCmd(Command.CHARGE_LID_CLOSE, emptyList()) }
             }
-            if (charging) GhostButton("Stop charging", Modifier.fillMaxWidth().padding(top = 12.dp), tint = Brand.crit) { onCmd(Command.CHARGING_OFF, emptyList()) }
-            else PrimaryButton("Start charging", Modifier.fillMaxWidth().padding(top = 12.dp)) { onCmd(Command.CHARGING_ON, emptyList()) }
+            if (charging) GhostButton(stringResource(R.string.ui_veh_charge_stop_btn), Modifier.fillMaxWidth().padding(top = 12.dp), tint = Brand.crit) { onCmd(Command.CHARGING_OFF, emptyList()) }
+            else PrimaryButton(stringResource(R.string.ui_veh_charge_start_btn), Modifier.fillMaxWidth().padding(top = 12.dp)) { onCmd(Command.CHARGING_ON, emptyList()) }
         }
     }
 }
@@ -635,32 +653,33 @@ private fun WindowsSheet(
     onCmd: (Command, String) -> Unit, onDismiss: () -> Unit,
 ) {
     val sheet = rememberModalBottomSheetState()
+    val ctx = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 26.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Windows", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(when { windowsVenting -> "Venting"; windowsOpen -> "Open"; else -> "Closed" },
+                Text(stringResource(R.string.ui_veh_windows_title), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(when { windowsVenting -> stringResource(R.string.ui_veh_windows_status_venting); windowsOpen -> stringResource(R.string.ui_veh_windows_status_open); else -> stringResource(R.string.ui_veh_windows_status_closed) },
                     color = if (windowsOpen) Brand.energy else Brand.muted, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 // Filled = the current state (from winPos%): fully-down → Open, cracked → Vent, else Close.
-                StateBtn("Open", active = windowsOpen && !windowsVenting, Modifier.weight(1f)) { onCmd(Command.WINDOW_OPEN, "Windows open") }
-                StateBtn("Vent", active = windowsVenting, Modifier.weight(1f)) { onCmd(Command.WINDOW_VENT, "Windows vent") }
-                StateBtn("Close", active = !windowsOpen, Modifier.weight(1f), tint = Brand.good) { onCmd(Command.WINDOW_CLOSE, "Windows close") }
+                StateBtn(stringResource(R.string.ui_veh_btn_open), active = windowsOpen && !windowsVenting, Modifier.weight(1f)) { onCmd(Command.WINDOW_OPEN, ctx.getString(R.string.ui_veh_fire_windows_open)) }
+                StateBtn(stringResource(R.string.ui_veh_btn_vent), active = windowsVenting, Modifier.weight(1f)) { onCmd(Command.WINDOW_VENT, ctx.getString(R.string.ui_veh_fire_windows_vent)) }
+                StateBtn(stringResource(R.string.ui_veh_btn_close), active = !windowsOpen, Modifier.weight(1f), tint = Brand.good) { onCmd(Command.WINDOW_CLOSE, ctx.getString(R.string.ui_veh_fire_windows_close)) }
             }
             if (sunroof) {
-                Text("Sunroof", color = Brand.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ui_veh_sunroof_title), color = Brand.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StateBtn("Open", active = sunroofOpen, Modifier.weight(1f)) { onCmd(Command.SUNROOF_OPEN, "Sunroof open") }
-                    StateBtn("Close", active = !sunroofOpen, Modifier.weight(1f), tint = Brand.good) { onCmd(Command.SUNROOF_CLOSE, "Sunroof close") }
+                    StateBtn(stringResource(R.string.ui_veh_btn_open), active = sunroofOpen, Modifier.weight(1f)) { onCmd(Command.SUNROOF_OPEN, ctx.getString(R.string.ui_veh_fire_sunroof_open)) }
+                    StateBtn(stringResource(R.string.ui_veh_btn_close), active = !sunroofOpen, Modifier.weight(1f), tint = Brand.good) { onCmd(Command.SUNROOF_CLOSE, ctx.getString(R.string.ui_veh_fire_sunroof_close)) }
                 }
             }
             if (sunshade) {
                 // Stock's English label for the sunshade (res sunshade_name) is "Sun-shield".
-                Text("Sun-shield", color = Brand.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ui_veh_sunshade_title), color = Brand.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton("Open", Modifier.weight(1f)) { onCmd(Command.SUNSHADE_OPEN, "Sunshade open") }
-                    GhostButton("Close", Modifier.weight(1f), tint = Brand.good) { onCmd(Command.SUNSHADE_CLOSE, "Sunshade close") }
+                    GhostButton(stringResource(R.string.ui_veh_btn_open), Modifier.weight(1f)) { onCmd(Command.SUNSHADE_OPEN, ctx.getString(R.string.ui_veh_fire_sunshade_open)) }
+                    GhostButton(stringResource(R.string.ui_veh_btn_close), Modifier.weight(1f), tint = Brand.good) { onCmd(Command.SUNSHADE_CLOSE, ctx.getString(R.string.ui_veh_fire_sunshade_close)) }
                 }
             }
         }
@@ -678,22 +697,23 @@ private fun StateBtn(text: String, active: Boolean, modifier: Modifier = Modifie
 @Composable
 private fun TrunkSheet(poweredOpen: Boolean, trunkOpen: Boolean, onCmd: (Command, String) -> Unit, onDismiss: () -> Unit) {
     val sheet = rememberModalBottomSheetState()
+    val ctx = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 26.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Trunk", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text(if (trunkOpen) "Currently open" else "Currently closed", color = Brand.muted, fontSize = 12.sp)
+            Text(stringResource(R.string.ui_veh_trunk_title), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(if (trunkOpen) stringResource(R.string.ui_veh_trunk_currently_open) else stringResource(R.string.ui_veh_trunk_currently_closed), color = Brand.muted, fontSize = 12.sp)
             if (poweredOpen) {
                 // Powered tailgate: Open = RDU_2/start, Close = RDL_2/start (the stock app toggles by
                 // trunkOpenStatus - see TRUNK_CHARGEPORT_FINDINGS.md), so these are open/close, not latch.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton("Open", Modifier.weight(1f)) { onCmd(Command.TRUNK_OPEN, "Trunk open") }
-                    GhostButton("Close", Modifier.weight(1f), tint = Brand.good) { onCmd(Command.TRUNK_LOCK, "Trunk close") }
+                    GhostButton(stringResource(R.string.ui_veh_btn_open), Modifier.weight(1f)) { onCmd(Command.TRUNK_OPEN, ctx.getString(R.string.ui_veh_fire_trunk_open)) }
+                    GhostButton(stringResource(R.string.ui_veh_btn_close), Modifier.weight(1f), tint = Brand.good) { onCmd(Command.TRUNK_LOCK, ctx.getString(R.string.ui_veh_fire_trunk_close)) }
                 }
             } else {
                 // No powered tailgate: only the latch unlock (pop) + lock are available.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton("Unlock", Modifier.weight(1f)) { onCmd(Command.TRUNK_UNLOCK, "Trunk unlock") }
-                    GhostButton("Lock", Modifier.weight(1f), tint = Brand.good) { onCmd(Command.TRUNK_LOCK, "Trunk lock") }
+                    GhostButton(stringResource(R.string.ui_veh_btn_unlock), Modifier.weight(1f)) { onCmd(Command.TRUNK_UNLOCK, ctx.getString(R.string.ui_veh_fire_trunk_unlock)) }
+                    GhostButton(stringResource(R.string.ui_veh_btn_lock), Modifier.weight(1f), tint = Brand.good) { onCmd(Command.TRUNK_LOCK, ctx.getString(R.string.ui_veh_fire_trunk_lock)) }
                 }
             }
         }
@@ -760,34 +780,34 @@ private fun ClimateSheet(
                         onCmd(if (steerOn) Command.STEER_WHEEL_ON else Command.STEER_WHEEL_OFF, emptyList())
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Cabin", color = Brand.faint, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                        Text(cabinTemp?.let { "$it°C" } ?: "—", fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                        Text(outsideTemp?.let { "Outside $it°C" } ?: "", color = Brand.muted, fontSize = 11.sp)
+                        Text(stringResource(R.string.ui_veh_climate_cabin), color = Brand.faint, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(cabinTemp?.let { stringResource(R.string.ui_veh_val_temp_c_simple, it) } ?: "—", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        Text(outsideTemp?.let { stringResource(R.string.ui_veh_climate_outside_temp, it) } ?: "", color = Brand.muted, fontSize = 11.sp)
                     }
                     DefrostPill(climate?.defrostOn == true) { on -> onCmd(if (on) Command.DEFROST_ON else Command.DEFROST_OFF, emptyList()) }
                 }
                 // front row — copper-trimmed console between the seats
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    SeatCabinTile("Driver", "11", climate?.drvHeatSts, climate?.drvVentDetail, showSeatCool, Modifier.weight(1f), onCmd)
+                    SeatCabinTile(stringResource(R.string.ui_veh_seat_driver), "11", climate?.drvHeatSts, climate?.drvVentDetail, showSeatCool, Modifier.weight(1f), onCmd)
                     Box(Modifier.width(20.dp).height(104.dp).clip(RoundedCornerShape(8.dp))
                         .background(Brush.verticalGradient(listOf(ZCopper.copy(alpha = .5f), ZConsole))))
-                    SeatCabinTile("Passenger", "19", climate?.passHeatingSts, climate?.passVentDetail, showSeatCool, Modifier.weight(1f), onCmd)
+                    SeatCabinTile(stringResource(R.string.ui_veh_seat_passenger), "19", climate?.passHeatingSts, climate?.passVentDetail, showSeatCool, Modifier.weight(1f), onCmd)
                 }
                 // rear row
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SeatCabinTile("Rear L", "21", climate?.rlHeatingSts, climate?.rlVentDetail, showRearSeatCool, Modifier.weight(1f), onCmd)
+                    SeatCabinTile(stringResource(R.string.ui_veh_seat_rear_l), "21", climate?.rlHeatingSts, climate?.rlVentDetail, showRearSeatCool, Modifier.weight(1f), onCmd)
                     Spacer(Modifier.width(20.dp))
-                    SeatCabinTile("Rear R", "29", climate?.rrHeatingSts, climate?.rrVentDetail, showRearSeatCool, Modifier.weight(1f), onCmd)
+                    SeatCabinTile(stringResource(R.string.ui_veh_seat_rear_r), "29", climate?.rrHeatingSts, climate?.rrVentDetail, showRearSeatCool, Modifier.weight(1f), onCmd)
                 }
             }
 
             // ---- rapid presets: one tap = A/C on at the coldest / warmest setpoint (#24) ----
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                CabinActionButton(Icons.Filled.AcUnit, "Rapid cool", acOn && temp <= 16.01, Brand.accent) {
+                CabinActionButton(Icons.Filled.AcUnit, stringResource(R.string.ui_veh_climate_rapid_cool), acOn && temp <= 16.01, Brand.accent) {
                     temp = 16.0; tempDirty = true   // triggers the debounced A/C-on-at-temp command below
                 }
                 Spacer(Modifier.width(28.dp))
-                CabinActionButton(Icons.Filled.Whatshot, "Rapid heat", acOn && temp >= 27.99, Brand.energy) {
+                CabinActionButton(Icons.Filled.Whatshot, stringResource(R.string.ui_veh_climate_rapid_heat), acOn && temp >= 27.99, Brand.energy) {
                     temp = 28.0; tempDirty = true
                 }
             }
@@ -795,22 +815,22 @@ private fun ClimateSheet(
             // ---- bottom bar: temperature stepper · Ventilate · Climate power ----
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Set the temperature", color = Brand.muted, fontSize = 12.sp)
+                    Text(stringResource(R.string.ui_veh_climate_set_temp), color = Brand.muted, fontSize = 12.sp)
                     Row(
                         Modifier.padding(top = 4.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         StepBtn("−") { if (temp > 15.5) { temp -= 0.5; tempDirty = true } }
-                        Text("${fmt1(temp)}°C", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text(stringResource(R.string.ui_veh_val_temp_c_simple, fmt1(temp)), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         StepBtn("+") { if (temp < 28.5) { temp += 0.5; tempDirty = true } }
                     }
                 }
-                CabinActionButton(Icons.Filled.Air, "Ventilate", ventOn, Brand.accent) {
+                CabinActionButton(Icons.Filled.Air, stringResource(R.string.ui_veh_climate_ventilate), ventOn, Brand.accent) {
                     ventOn = !ventOn
                     onCmd(if (ventOn) Command.CABIN_ON else Command.CABIN_OFF, emptyList())
                 }
                 Spacer(Modifier.width(12.dp))
-                CabinActionButton(Icons.Filled.PowerSettingsNew, "Climate", acOn, Brand.good) {
+                CabinActionButton(Icons.Filled.PowerSettingsNew, stringResource(R.string.ui_veh_climate_power), acOn, Brand.good) {
                     if (acOn) onCmd(Command.CLIMATE_ZAF, listOf(ServiceParameter("AC", "false")))
                     else onCmd(Command.CLIMATE_ZAF, acOnParams())
                 }
@@ -850,30 +870,30 @@ private fun FridgeSheet(
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Refrigerator", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(stringResource(R.string.ui_veh_fridge_title), fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
                     .background(Brush.verticalGradient(listOf(Color(0xFF141A1E), Color(0xFF0C1013)))).padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(Icons.Filled.Kitchen, null, tint = if (on) Brand.accent else Brand.faint, modifier = Modifier.size(30.dp))
-                Text("${temp.toInt()}°C", fontSize = 34.sp, fontWeight = FontWeight.Bold)
-                Text(if (on) (if (constTemp) "Holding target" else "Running") else "Off", color = Brand.muted, fontSize = 12.sp)
+                Text(stringResource(R.string.ui_veh_val_temp_c_simple, temp.toInt()), fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Text(if (on) (if (constTemp) stringResource(R.string.ui_veh_fridge_status_holding) else stringResource(R.string.ui_veh_fridge_status_running)) else stringResource(R.string.ui_veh_fridge_status_off), color = Brand.muted, fontSize = 12.sp)
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Set the temperature (−6 to 50 °C)", color = Brand.muted, fontSize = 12.sp)
+                    Text(stringResource(R.string.ui_veh_fridge_set_temp_range), color = Brand.muted, fontSize = 12.sp)
                     Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         StepBtn("−") { if (temp > -6.0) { temp -= 1.0; dirty = true } }
-                        Text("${temp.toInt()}°C", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text(stringResource(R.string.ui_veh_val_temp_c_simple, temp.toInt()), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         StepBtn("+") { if (temp < 50.0) { temp += 1.0; dirty = true } }
                     }
                 }
-                CabinActionButton(Icons.Filled.AcUnit, "Const. temp", constTemp, Brand.accent) {
+                CabinActionButton(Icons.Filled.AcUnit, stringResource(R.string.ui_veh_fridge_const_temp), constTemp, Brand.accent) {
                     constTemp = !constTemp; if (on) dirty = true   // re-sends via the LaunchedEffect (constTemp is a key)
                 }
                 Spacer(Modifier.width(12.dp))
-                CabinActionButton(Icons.Filled.PowerSettingsNew, "Fridge", on, Brand.good) {
+                CabinActionButton(Icons.Filled.PowerSettingsNew, stringResource(R.string.ui_veh_fridge_power), on, Brand.good) {
                     on = !on; onSetOn(on)
                     if (on) { dirty = true; onCmd(Command.FRIDGE_ON, onParams()) } else onCmd(Command.FRIDGE_OFF, emptyList())
                 }
@@ -1037,8 +1057,8 @@ private fun DefrostPill(active: Boolean, onToggle: (Boolean) -> Unit) {
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Icon(Icons.Filled.AcUnit, "Defrost", tint = if (on) Brand.accent else Brand.muted, modifier = Modifier.size(15.dp))
-        Text("Defrost", color = if (on) Brand.accent else Brand.muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        Icon(Icons.Filled.AcUnit, stringResource(R.string.ui_veh_climate_defrost), tint = if (on) Brand.accent else Brand.muted, modifier = Modifier.size(15.dp))
+        Text(stringResource(R.string.ui_veh_climate_defrost), color = if (on) Brand.accent else Brand.muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

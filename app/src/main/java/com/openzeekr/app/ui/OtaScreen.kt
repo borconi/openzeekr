@@ -28,11 +28,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.net.model.OtaStatus
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.ui.theme.Brand
@@ -47,27 +49,28 @@ private const val POST_ACTION_POLL_MS = 5_000L
 private const val POST_ACTION_POLLS = 20
 
 /** Friendly label for the stock OTA `newStatus` (hyphen or underscore form; see stock enum `rf/b`). */
+@Composable
 private fun phaseLabel(newStatus: String?): String = when (newStatus?.uppercase()?.replace('-', '_')) {
-    null, "" -> "Checking…"
-    "NEWBORN", "NEW" -> "Update assigned"
-    "DOWNLOAD_CONSENT_GRANTED" -> "Download starting…"
-    "DOWNLOAD_STARTED", "DOWNLOAD_PROGRESS" -> "Downloading…"
-    "DOWNLOAD_PAUSE", "DOWNLOAD_DISTRIBUTE_PAUSE" -> "Download paused"
-    "DOWNLOAD_COMPLETED" -> "Downloaded"
-    "DOWNLOAD_FAILED", "DOWNLOAD_FAILED_DISTRIBUTE", "FAILED" -> "Download failed"
-    "DOWNLOAD_ABORTED", "ABORTED" -> "Download cancelled"
-    "READY" -> "Ready to install"
-    "INSTALLATION_CONSENT_SCHEDULED" -> "Install scheduled"
-    "INSTALLATION_CONSENT_GRANTED" -> "Preparing install…"
-    "INSTALLATION_PENDING", "INSTALLATION_DEFERRED" -> "Vehicle self-check…"   // stock: "Vehicle self inspection in progress"
-    "INSTALLATION_STARTED", "INSTALLATION_PROGRESS", "INSTALLING", "UPGRADING" -> "Installing…"
-    "POSTINSTALLATION_START", "POSTINSTALLATION_STARTED" -> "Finalizing…"
-    "INSTALLATION_COMPLETED", "INSTALLATION_FINISHED", "POSTINSTALLATION_COMPLETED", "COMPLETED", "INSTALLED" -> "Installed"
-    "INSTALLATION_FAILED", "INSTALLATION_FAILED_CRITICAL" -> "Install failed"
-    "INSTALLATION_ABORTED" -> "Install aborted"
-    "INSTALLATION_CONSENT_REVOKED", "USER_REVOKES_CONSENT_FOR_SCHEDULED" -> "Install cancelled"
-    "TIMEOUT" -> "Timed out"
-    else -> newStatus
+    null, "" -> stringResource(R.string.ui_ota_phase_checking)
+    "NEWBORN", "NEW" -> stringResource(R.string.ui_ota_phase_assigned)
+    "DOWNLOAD_CONSENT_GRANTED" -> stringResource(R.string.ui_ota_phase_download_starting)
+    "DOWNLOAD_STARTED", "DOWNLOAD_PROGRESS" -> stringResource(R.string.ui_ota_phase_downloading)
+    "DOWNLOAD_PAUSE", "DOWNLOAD_DISTRIBUTE_PAUSE" -> stringResource(R.string.ui_ota_phase_download_paused)
+    "DOWNLOAD_COMPLETED" -> stringResource(R.string.ui_ota_phase_downloaded)
+    "DOWNLOAD_FAILED", "DOWNLOAD_FAILED_DISTRIBUTE", "FAILED" -> stringResource(R.string.ui_ota_phase_download_failed)
+    "DOWNLOAD_ABORTED", "ABORTED" -> stringResource(R.string.ui_ota_phase_download_cancelled)
+    "READY" -> stringResource(R.string.ui_ota_phase_ready)
+    "INSTALLATION_CONSENT_SCHEDULED" -> stringResource(R.string.ui_ota_phase_install_scheduled)
+    "INSTALLATION_CONSENT_GRANTED" -> stringResource(R.string.ui_ota_phase_preparing_install)
+    "INSTALLATION_PENDING", "INSTALLATION_DEFERRED" -> stringResource(R.string.ui_ota_phase_vehicle_self_check)   // stock: "Vehicle self inspection in progress"
+    "INSTALLATION_STARTED", "INSTALLATION_PROGRESS", "INSTALLING", "UPGRADING" -> stringResource(R.string.ui_ota_phase_installing)
+    "POSTINSTALLATION_START", "POSTINSTALLATION_STARTED" -> stringResource(R.string.ui_ota_phase_finalizing)
+    "INSTALLATION_COMPLETED", "INSTALLATION_FINISHED", "POSTINSTALLATION_COMPLETED", "COMPLETED", "INSTALLED" -> stringResource(R.string.ui_ota_phase_installed)
+    "INSTALLATION_FAILED", "INSTALLATION_FAILED_CRITICAL" -> stringResource(R.string.ui_ota_phase_install_failed)
+    "INSTALLATION_ABORTED" -> stringResource(R.string.ui_ota_phase_install_aborted)
+    "INSTALLATION_CONSENT_REVOKED", "USER_REVOKES_CONSENT_FOR_SCHEDULED" -> stringResource(R.string.ui_ota_phase_install_cancelled)
+    "TIMEOUT" -> stringResource(R.string.ui_ota_phase_timed_out)
+    else -> newStatus ?: ""
 }
 
 /**
@@ -95,7 +98,7 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
     suspend fun refresh() {
         when (val r = deps.ota.checkUpdate()) {
             is CallResult.Ok -> { status = r.value; error = null }
-            is CallResult.Err -> { error = "Couldn't check for updates (${r.message})." }
+            is CallResult.Err -> { error = context.getString(R.string.ui_ota_err_check, r.message) }
         }
     }
 
@@ -104,7 +107,11 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
         scope.launch {
             when (val r = deps.ota.install(now = now, scheduledTime = scheduledTime)) {
                 is CallResult.Ok -> { status = r.value; error = null }
-                is CallResult.Err -> error = "Couldn't ${if (now) "start" else "schedule"} the install (${r.message})."
+                is CallResult.Err -> error = if (now) {
+                    context.getString(R.string.ui_ota_err_install_start, r.message)
+                } else {
+                    context.getString(R.string.ui_ota_err_install_schedule, r.message)
+                }
             }
             installing = false
             // The server takes ~20s to actually move the assignment (INSTALLATION-CONSENT-SCHEDULED ->
@@ -147,7 +154,7 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
         scope.launch {
             when (val r = deps.ota.cancel()) {
                 is CallResult.Ok -> { status = r.value; error = null }
-                is CallResult.Err -> error = "Couldn't cancel the update (${r.message})."
+                is CallResult.Err -> error = context.getString(R.string.ui_ota_err_cancel, r.message)
             }
             cancelling = false
             // Poll briefly - the cloud takes a moment to drop out of the INSTALLATION-* state after a cancel.
@@ -197,7 +204,7 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        SectionHeader("Software updates")
+        SectionHeader(stringResource(R.string.ui_ota_section_title))
 
         // Status card.
         CockpitCard {
@@ -206,20 +213,20 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
                     Icon(Icons.Filled.SystemUpdate, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Vehicle software", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("Check the cloud for a new software version for your car.", color = Brand.muted, fontSize = 12.sp)
+                    Text(stringResource(R.string.ui_ota_vehicle_software), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(stringResource(R.string.ui_ota_check_cloud_subtitle), color = Brand.muted, fontSize = 12.sp)
                 }
             }
 
             status?.let { s ->
                 Spacer(Modifier.height(2.dp))
-                Text("Current version", color = Brand.muted, fontSize = 12.sp)
-                Text(s.currentVersion ?: "Unknown", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(stringResource(R.string.ui_ota_current_version), color = Brand.muted, fontSize = 12.sp)
+                Text(s.currentVersion ?: stringResource(R.string.ui_ota_version_unknown), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 if (s.updateAvailable) {
-                    Text("Update available" + (s.targetVersion?.let { " - $it" } ?: ""),
+                    Text(stringResource(R.string.ui_ota_update_available) + (s.targetVersion?.let { " - $it" } ?: ""),
                         color = Brand.good, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 } else {
-                    Text("Up to date", color = Brand.muted, fontSize = 13.sp)
+                    Text(stringResource(R.string.ui_ota_up_to_date), color = Brand.muted, fontSize = 13.sp)
                 }
 
                 // Live phase + progress bar - tracks BOTH the download and the install (the car does the work;
@@ -241,9 +248,9 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
                         LinearProgressIndicator(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)))
                     }
                     s.totalInstallationTimeSec?.takeIf { s.downloading || s.readyToInstall }?.let {
-                        Text("Est. install time once downloaded: ~${it / 60} min", color = Brand.faint, fontSize = 11.sp)
+                        Text(stringResource(R.string.ui_ota_est_install_time, it / 60), color = Brand.faint, fontSize = 11.sp)
                     }
-                    if (s.installing) Text("Keep the car parked - it's installing and will be unavailable briefly.",
+                    if (s.installing) Text(stringResource(R.string.ui_ota_keep_parked_installing),
                         color = Brand.faint, fontSize = 11.sp)
                 }
 
@@ -253,27 +260,26 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
                     Spacer(Modifier.height(8.dp))
                     if (s.installScheduled) {
                         s.scheduledTime?.takeIf { it.isNotBlank() }?.let {
-                            Text("Scheduled for $it", color = Brand.accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text("You can install it now or pick a different time.", color = Brand.muted, fontSize = 12.sp)
+                            Text(stringResource(R.string.ui_ota_scheduled_for, it), color = Brand.accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(stringResource(R.string.ui_ota_scheduled_options), color = Brand.muted, fontSize = 12.sp)
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         androidx.compose.material3.Checkbox(checked = disclaimerAccepted, onCheckedChange = { disclaimerAccepted = it })
-                        Text("I understand that installing now takes the car offline for about " +
-                            "${(s.totalInstallationTimeSec ?: 0L) / 60} min, and it should be parked.",
+                        Text(stringResource(R.string.ui_ota_disclaimer, (s.totalInstallationTimeSec ?: 0L) / 60),
                             color = Brand.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     }
                     // Install now needs the disclaimer (starts the flash immediately); rescheduling is for later
                     // so it isn't gated behind it.
-                    PrimaryButton(if (installing) "Working…" else "Install now", Modifier.fillMaxWidth(),
+                    PrimaryButton(if (installing) stringResource(R.string.ui_ota_btn_working) else stringResource(R.string.ui_ota_btn_install_now), Modifier.fillMaxWidth(),
                         enabled = disclaimerAccepted && !installing) { doInstall(now = true, scheduledTime = null) }
                     Spacer(Modifier.height(6.dp))
-                    PrimaryButton(if (s.installScheduled) "Change schedule…" else "Schedule install…",
+                    PrimaryButton(if (s.installScheduled) stringResource(R.string.ui_ota_btn_change_schedule) else stringResource(R.string.ui_ota_btn_schedule_install),
                         Modifier.fillMaxWidth(), tint = Brand.muted, enabled = !installing) { pickScheduleAndInstall() }
                 }
                 if (s.installed) {
                     Spacer(Modifier.height(6.dp))
-                    Text("Installed ✓", color = Brand.good, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text(stringResource(R.string.ui_ota_installed_check), color = Brand.good, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
                 if (s.failed) {
                     Spacer(Modifier.height(6.dp))
@@ -282,7 +288,7 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
 
                 if (s.releaseNotes.isNotEmpty()) {
                     Spacer(Modifier.height(2.dp))
-                    Text("Release notes", color = Brand.muted, fontSize = 12.sp)
+                    Text(stringResource(R.string.ui_ota_release_notes), color = Brand.muted, fontSize = 12.sp)
                     s.releaseNotes.forEach { note ->
                         Text("- ${note.trim()}", color = Brand.faint, fontSize = 12.sp)
                     }
@@ -291,18 +297,18 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
             error?.let { Text(it, color = Brand.crit, fontSize = 12.5.sp) }
 
             val busy = checking || downloading || installing
-            PrimaryButton(if (checking) "Checking…" else "Refresh", Modifier.fillMaxWidth(), enabled = !busy) {
+            PrimaryButton(if (checking) stringResource(R.string.ui_ota_btn_checking) else stringResource(R.string.ui_ota_btn_refresh), Modifier.fillMaxWidth(), enabled = !busy) {
                 checking = true; error = null
                 scope.launch { refresh(); checking = false }
             }
             // Manual download kick - only when an update is assigned but the car hasn't auto-started it.
             status?.takeIf { it.canStartDownload }?.let {
-                PrimaryButton(if (downloading) "Starting…" else "Start download", Modifier.fillMaxWidth(), enabled = !busy) {
+                PrimaryButton(if (downloading) stringResource(R.string.ui_ota_btn_starting) else stringResource(R.string.ui_ota_btn_start_download), Modifier.fillMaxWidth(), enabled = !busy) {
                     downloading = true; error = null
                     scope.launch {
                         when (val r = deps.ota.startDownload()) {
                             is CallResult.Ok -> { status = r.value; error = null }
-                            is CallResult.Err -> error = "Couldn't start the download (${r.message})."
+                            is CallResult.Err -> error = context.getString(R.string.ui_ota_err_download_start, r.message)
                         }
                         downloading = false
                     }
@@ -315,7 +321,7 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
                     onClick = { showCancelConfirm = true },
                     enabled = !busy && !cancelling,
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (cancelling) "Cancelling…" else "Cancel update (dev)", color = Brand.crit, fontSize = 13.sp) }
+                ) { Text(if (cancelling) stringResource(R.string.ui_ota_btn_cancelling) else stringResource(R.string.ui_ota_btn_cancel_dev), color = Brand.crit, fontSize = 13.sp) }
             }
         }
     }
@@ -323,22 +329,20 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
     if (showCancelConfirm) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showCancelConfirm = false },
-            title = { Text("Cancel update?") },
+            title = { Text(stringResource(R.string.ui_ota_dialog_cancel_title)) },
             text = {
                 Text(
-                    "Developer tool. This ABORTS the update assignment on the cloud to clear a stuck install - " +
-                        "it does not finish the update. Only use it if the car has actually completed the update " +
-                        "but the app is frozen (e.g. stuck at a percentage) and remote control is blocked.",
+                    stringResource(R.string.ui_ota_dialog_cancel_desc),
                     fontSize = 13.sp,
                 )
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = { showCancelConfirm = false; doCancel() }) {
-                    Text("Cancel update", color = Brand.crit)
+                    Text(stringResource(R.string.ui_ota_dialog_cancel_confirm), color = Brand.crit)
                 }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showCancelConfirm = false }) { Text("Keep") }
+                androidx.compose.material3.TextButton(onClick = { showCancelConfirm = false }) { Text(stringResource(R.string.ui_ota_dialog_cancel_dismiss)) }
             },
         )
     }

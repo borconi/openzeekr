@@ -47,11 +47,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.net.model.InboxMessage
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.ui.theme.Brand
@@ -101,26 +103,26 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack, "Back",
+                Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.ui_inbox_cd_back),
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { onBack() }.padding(8.dp),
             )
-            Text("Messages", fontWeight = FontWeight.Bold, fontSize = 18.sp,
+            Text(stringResource(R.string.ui_inbox_title), fontWeight = FontWeight.Bold, fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
             if (serverUnread > 0 || messages.any { !it.read }) {
                 Text(
-                    if (markingAll) "Marking…" else "Mark all read",
+                    if (markingAll) stringResource(R.string.ui_inbox_marking_all) else stringResource(R.string.ui_inbox_mark_all_read),
                     color = Brand.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !markingAll) {
                         // Give immediate feedback (the button used to fire silently), report the real
                         // outcome, and reload so the badge/list reflect what actually got marked.
                         markingAll = true
-                        snackbar("Marking all as read…")
+                        snackbar(ctx.getString(R.string.ui_inbox_snack_marking_all))
                         scope.launch {
                             val r = deps.inbox.markAllRead()
                             when (r) {
-                                is CallResult.Ok -> { messages = messages.map { it.copy(read = true) }; snackbar("All marked as read ✓") }
-                                is CallResult.Err -> snackbar("Couldn't mark all read ✗ ${r.message}")
+                                is CallResult.Ok -> { messages = messages.map { it.copy(read = true) }; snackbar(ctx.getString(R.string.ui_inbox_snack_all_marked_read)) }
+                                is CallResult.Err -> snackbar(ctx.getString(R.string.ui_inbox_snack_mark_all_failed, r.message))
                             }
                             runCatching { load() }   // refresh from server so the real unread state shows
                             markingAll = false
@@ -136,13 +138,13 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
             }
             error != null && messages.isEmpty() -> InboxEmpty(
                 Icons.Filled.NotificationsNone,
-                "Couldn't load messages",
-                error ?: "Unknown error",
+                stringResource(R.string.ui_inbox_empty_err_title),
+                error ?: stringResource(R.string.ui_inbox_unknown_error),
             )
             messages.isEmpty() -> InboxEmpty(
                 Icons.Filled.NotificationsNone,
-                "No messages",
-                "Alerts from your car — charging, security, parking — will show up here.",
+                stringResource(R.string.ui_inbox_empty_title),
+                stringResource(R.string.ui_inbox_empty_desc),
             )
             else -> LazyColumn(
                 Modifier.fillMaxSize(),
@@ -172,7 +174,7 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
                 // Only http(s) links reach here (see the dialog) — an explicit user tap, opened in
                 // the browser. zeekr:// deeplinks are never auto-followed.
                 runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                    .onFailure { snackbar("Couldn't open the link") }
+                    .onFailure { snackbar(ctx.getString(R.string.ui_inbox_snack_open_link_failed)) }
                 selected = null
             },
         )
@@ -186,24 +188,24 @@ private fun MessageDetailDialog(m: InboxMessage, onDismiss: () -> Unit, onOpenLi
     val webLink = m.redirectUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(m.title?.takeIf { it.isNotBlank() } ?: "Message", fontWeight = FontWeight.Bold) },
+        title = { Text(m.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.ui_inbox_default_message_title), fontWeight = FontWeight.Bold) },
         text = {
             Column(Modifier.verticalScrollDetail()) {
                 Text(
-                    m.body?.takeIf { it.isNotBlank() } ?: "No details.",
+                    m.body?.takeIf { it.isNotBlank() } ?: stringResource(R.string.ui_inbox_no_details),
                     color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp,
                 )
             }
         },
         confirmButton = {
             if (webLink != null) {
-                androidx.compose.material3.TextButton(onClick = { onOpenLink(webLink) }) { Text("Open link") }
+                androidx.compose.material3.TextButton(onClick = { onOpenLink(webLink) }) { Text(stringResource(R.string.ui_inbox_btn_open_link)) }
             } else {
-                androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") }
+                androidx.compose.material3.TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_inbox_btn_close)) }
             }
         },
         dismissButton = if (webLink != null) {
-            { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") } }
+            { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_inbox_btn_close)) } }
         } else null,
     )
 }
@@ -215,6 +217,7 @@ private fun Modifier.verticalScrollDetail(): Modifier =
 
 @Composable
 private fun MessageRow(m: InboxMessage, onClick: () -> Unit) {
+    val ctx = LocalContext.current
     val (icon, tint) = categoryLook(m)
     Row(
         Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -228,7 +231,7 @@ private fun MessageRow(m: InboxMessage, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    m.title ?: "Message",
+                    m.title ?: stringResource(R.string.ui_inbox_default_message_title),
                     fontWeight = if (m.read) FontWeight.SemiBold else FontWeight.Bold,
                     color = if (m.read) Brand.muted else MaterialTheme.colorScheme.onSurface,
                     fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
@@ -244,7 +247,7 @@ private fun MessageRow(m: InboxMessage, onClick: () -> Unit) {
             }
             m.timeMs?.let {
                 Spacer(Modifier.size(5.dp))
-                Text(relativeTime(it), color = Brand.faint, fontSize = 11.5.sp)
+                Text(relativeTime(ctx, it), color = Brand.faint, fontSize = 11.5.sp)
             }
         }
     }
@@ -280,17 +283,17 @@ private fun categoryLook(m: InboxMessage): Pair<ImageVector, Color> {
 }
 
 /** Compact relative time ("just now", "3h", "2d", else a date). */
-private fun relativeTime(ms: Long): String {
+private fun relativeTime(ctx: android.content.Context, ms: Long): String {
     val diff = System.currentTimeMillis() - ms
-    if (diff < 0) return "just now"
+    if (diff < 0) return ctx.getString(R.string.ui_inbox_time_just_now)
     val min = diff / 60_000
     val hr = diff / 3_600_000
     val day = diff / 86_400_000
     return when {
-        min < 1 -> "just now"
-        min < 60 -> "${min}m ago"
-        hr < 24 -> "${hr}h ago"
-        day < 7 -> "${day}d ago"
+        min < 1 -> ctx.getString(R.string.ui_inbox_time_just_now)
+        min < 60 -> ctx.getString(R.string.ui_inbox_time_min_ago, min)
+        hr < 24 -> ctx.getString(R.string.ui_inbox_time_hr_ago, hr)
+        day < 7 -> ctx.getString(R.string.ui_inbox_time_day_ago, day)
         else -> {
             val d = java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault())
             d.format(java.util.Date(ms))

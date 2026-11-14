@@ -7,12 +7,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import com.openzeekr.app.R
 
 internal enum class LoginFieldKind { Email, Password }
 
@@ -33,7 +35,7 @@ internal fun LoginField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(if (isPassword) "Password" else "Email") },
+        label = { Text(stringResource(if (isPassword) R.string.ui_login_password else R.string.ui_login_email)) },
         singleLine = true,
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(

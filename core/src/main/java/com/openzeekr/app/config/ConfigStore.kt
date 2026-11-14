@@ -53,13 +53,28 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
     private fun backfillBakedSecrets(cfg: SecretsConfig): SecretsConfig {
         val d = SecretsConfig.fromBuildDefaults()
         return cfg.copy(
-            hmacAccessKey = cfg.hmacAccessKey.ifBlank { d.hmacAccessKey },
-            hmacSecretKey = cfg.hmacSecretKey.ifBlank { d.hmacSecretKey },
-            passwordPublicKey = cfg.passwordPublicKey.ifBlank { d.passwordPublicKey },
-            prodSecret = cfg.prodSecret.ifBlank { d.prodSecret },
-            vinKey = cfg.vinKey.ifBlank { d.vinKey },
-            vinIv = cfg.vinIv.ifBlank { d.vinIv },
-            xchangerSignSecret = cfg.xchangerSignSecret.ifBlank { d.xchangerSignSecret },
+            hmacAccessKey = d.hmacAccessKey.ifBlank { cfg.hmacAccessKey },
+            hmacSecretKey = d.hmacSecretKey.ifBlank { cfg.hmacSecretKey },
+            passwordPublicKey = d.passwordPublicKey.ifBlank { cfg.passwordPublicKey },
+            prodSecret = d.prodSecret.ifBlank { cfg.prodSecret },
+            vinKey = d.vinKey.ifBlank { cfg.vinKey },
+            vinIv = d.vinIv.ifBlank { cfg.vinIv },
+            xchangerSignSecret = d.xchangerSignSecret.ifBlank { cfg.xchangerSignSecret },
+            email = cfg.email.trim().ifBlank { d.email },
+            vin = cfg.vin.ifBlank { d.vin },
+            vehicles = cfg.vehicles.ifEmpty { d.vehicles },
+            isOwner = if (cfg.vin.isBlank()) d.isOwner else cfg.isOwner,
+            userId = cfg.userId.ifBlank { d.userId },
+            accountUuid = cfg.accountUuid.ifBlank { d.accountUuid },
+            accessToken = cfg.accessToken.ifBlank { d.accessToken },
+            baseUrl = d.baseUrl,
+            regionCode = d.regionCode,
+            countryCode = d.countryCode,
+            projectId = d.projectId,
+            azureHost = d.azureHost,
+            xchangerHost = d.xchangerHost,
+            snsRegion = d.snsRegion,
+            appInstanceId = cfg.appInstanceId.ifBlank { d.appInstanceId },
         )
     }
 

@@ -260,10 +260,12 @@ data class SecretsConfig(
     /** True when the mandatory app-global secrets (non-account) are present and valid. */
     val secretsValid: Boolean get() {
         if (hmacAccessKey.isBlank() || hmacSecretKey.isBlank() || passwordPublicKey.isBlank() || prodSecret.isBlank()) return false
-        val vkLen = vinKey.toByteArray(Charsets.UTF_8).size
-        if (vinKey.isNotEmpty() && vkLen != 16) return false
-        val viLen = vinIv.toByteArray(Charsets.UTF_8).size
-        if (vinIv.isNotEmpty() && viLen != 16) return false
+        if (!vinKey.startsWith("B64:")) {
+            val vkLen = vinKey.toByteArray(Charsets.UTF_8).size
+            if (vinKey.isNotEmpty() && vkLen != 16) return false
+            val viLen = vinIv.toByteArray(Charsets.UTF_8).size
+            if (vinIv.isNotEmpty() && viLen != 16) return false
+        }
         return true
     }
 
@@ -287,12 +289,14 @@ data class SecretsConfig(
 
         // AES length constraints (AES-128 requires 16 bytes). Note: we check byte length, not char
         // length, to catch multi-byte characters or bad ASCII lengths (see reversing notes).
-        val vkLen = vinKey.toByteArray(Charsets.UTF_8).size
-        if (vinKey.isNotEmpty() && vkLen != 16)
-            add("vin_key must be exactly 16 bytes (got $vkLen)")
-        val viLen = vinIv.toByteArray(Charsets.UTF_8).size
-        if (vinIv.isNotEmpty() && viLen != 16)
-            add("vin_iv must be exactly 16 bytes (got $viLen)")
+        if (!vinKey.startsWith("B64:")) {
+            val vkLen = vinKey.toByteArray(Charsets.UTF_8).size
+            if (vinKey.isNotEmpty() && vkLen != 16)
+                add("vin_key must be exactly 16 bytes (got $vkLen)")
+            val viLen = vinIv.toByteArray(Charsets.UTF_8).size
+            if (vinIv.isNotEmpty() && viLen != 16)
+                add("vin_iv must be exactly 16 bytes (got $viLen)")
+        }
     }
 
     /** Throws IllegalArgumentException if the configuration is invalid. */
@@ -318,17 +322,29 @@ data class SecretsConfig(
      * on SEA 404s the whole login at step 1. LA/ME segments are unverified - default to the EU form.
      */
     val usercenterUrl: String get() {
-        val seg = if (regionCode.equals("SEA", ignoreCase = true)) "zeekr-cuc-idaas-sea" else "zeekr-cuc-idaas"
+        val seg = when (regionCode.uppercase()) {
+            "SEA" -> "zeekr-cuc-idaas-sea"
+            "LA" -> "zeekr-cuc-idaas-la"
+            "ME" -> "zeekr-cuc-idaas-uae"
+            else -> "zeekr-cuc-idaas"
+        }
         return "$azureBase/$seg/"
     }
     /** App-server base, trailing slash (e.g. …/overseas-app/). */
     val appServerUrl: String get() = "$azureBase/overseas-app/"
     /** Message-centre service root (no trailing slash) for FCM push registration. */
-    val messageCoreUrl: String get() = "$azureBase/zom-message-core"
+    val messageCoreUrl: String get() {
+        val seg = when (regionCode.uppercase()) {
+            "LA" -> "la-message-core"
+            "SEA" -> "sea-message-core"
+            "ME" -> "uae-message-core"
+            else -> "zom-message-core"
+        }
+        return "$azureBase/$seg"
+    }
     /** Inbox base (no trailing slash) — sub-paths /home, /read-all appended by callers. */
     val inboxUrl: String get() = "$azureBase/overseas-app/member/inbox"
-    /** xchanger DK-backend session/secure URL (full, with the identity_type query). */
-    val xchangerSessionUrl: String get() =
+    /** xchanger DK-backend session/secure URL (full, with the identity_type query). */    val xchangerSessionUrl: String get() =
         "${xchangerHost.trimEnd('/')}/auth/account/session/secure?identity_type=zeekr"
 
     /** True once the overseas-app HMAC AK/SK are present, i.e. the message inbox can auth. */

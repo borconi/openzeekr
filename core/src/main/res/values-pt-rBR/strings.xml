@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="attribution_proximity">Proximidade da chave digital e BLE</string>
+    <string name="notification_channel_charging">Carregamento e bateria</string>
+    <string name="notification_channel_charging_description">Progresso de carregamento, problemas na recarga e alertas da bateria</string>
+    <string name="notification_channel_security">Segurança e estacionamento</string>
+    <string name="notification_channel_security_description">Alarmes de segurança, intrusão, reboque e alertas de estacionamento anormal</string>
+    <string name="notification_channel_vehicle">Controles do veículo</string>
+    <string name="notification_channel_vehicle_description">Mensagens de travamento, portas, janelas, climatização e controle remoto</string>
+    <string name="notification_channel_updates">Atualizações de software</string>
+    <string name="notification_channel_updates_description">Atualizações de software do veículo e resultados de instalação</string>
+    <string name="notification_channel_service">Lembretes de serviço</string>
+    <string name="notification_channel_service_description">Mensagens de manutenção, revisão e pós-venda</string>
+    <string name="notification_channel_news">Novidades e ofertas</string>
+    <string name="notification_channel_news_description">Novidades da Zeekr, eventos e mensagens promocionais</string>
+    <string name="notification_channel_other">Alertas do carro (sem categoria)</string>
+    <string name="notification_channel_other_description">Pode incluir alarmes de segurança recebidos em segundo plano e outros alertas sem categoria reconhecida</string>
+</resources>

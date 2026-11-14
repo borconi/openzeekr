@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.app.DownloadManager
@@ -42,6 +43,7 @@ import android.net.Uri
 import android.os.Environment
 import androidx.compose.material.icons.filled.Download
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.net.model.SentryVideoDetail
 import com.openzeekr.app.remote.CallResult
 import kotlinx.coroutines.launch
@@ -67,15 +69,15 @@ fun SentryScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = Mo
         val ready = e.alarmVideoUrl
         if (!ready.isNullOrBlank()) {
             enqueueDownload(context, ready, "sentry_$id")
-            snackbar("Downloading clip $id…")
+            snackbar(context.getString(R.string.ui_sen_downloading_clip, id))
             return
         }
-        snackbar("Asking car to upload clip $id…")
+        snackbar(context.getString(R.string.ui_sen_asking_upload, id))
         scope.launch {
             val end = System.currentTimeMillis()
             when (val r = deps.sentry.prepareDownload(id, end - 24L * 3600 * 1000, end)) {
-                is CallResult.Ok -> { enqueueDownload(context, r.value, "sentry_$id"); snackbar("Downloading clip $id…") }
-                is CallResult.Err -> snackbar("✗ ${r.message}")
+                is CallResult.Ok -> { enqueueDownload(context, r.value, "sentry_$id"); snackbar(context.getString(R.string.ui_sen_downloading_clip, id)) }
+                is CallResult.Err -> snackbar(context.getString(R.string.ui_sen_error_format, r.message ?: ""))
             }
         }
     }
@@ -89,34 +91,34 @@ fun SentryScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = Mo
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = {
-                        snackbar("Loading events…")
+                        snackbar(context.getString(R.string.ui_sen_loading_events))
                         scope.launch {
                             val end = System.currentTimeMillis()
                             when (val r = deps.sentry.events(end - 24L * 3600 * 1000, end)) {
-                                is CallResult.Ok -> { events = r.value; loaded = true; snackbar("${r.value.size} events") }
-                                is CallResult.Err -> snackbar("✗ ${r.message}")
+                                is CallResult.Ok -> { events = r.value; loaded = true; snackbar(context.getString(R.string.ui_sen_events_count, r.value.size)) }
+                                is CallResult.Err -> snackbar(context.getString(R.string.ui_sen_error_format, r.message ?: ""))
                             }
                         }
                     },
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(18.dp))
-                    Text("  Last 24h")
+                    Text("  " + stringResource(R.string.ui_sen_last_24h))
                 }
                 OutlinedButton(
                     onClick = {
-                        snackbar("Requesting live token…")
+                        snackbar(context.getString(R.string.ui_sen_requesting_live_token))
                         scope.launch {
                             when (val r = deps.sentry.liveToken(deps.config.current().vin)) {
-                                is CallResult.Ok -> snackbar("Live token ✓ (needs RTC SDK)")
-                                is CallResult.Err -> snackbar("✗ ${r.message}")
+                                is CallResult.Ok -> snackbar(context.getString(R.string.ui_sen_live_token_success))
+                                is CallResult.Err -> snackbar(context.getString(R.string.ui_sen_error_format, r.message ?: ""))
                             }
                         }
                     },
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.Videocam, null, modifier = Modifier.size(18.dp))
-                    Text("  Live")
+                    Text("  " + stringResource(R.string.ui_sen_live))
                 }
             }
         }
@@ -144,12 +146,12 @@ private fun SentryEventCard(e: SentryVideoDetail, time: String, onDownload: () -
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Filled.Shield, null, tint = MaterialTheme.colorScheme.primary) }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Level ${e.alarmLevel ?: "?"} event", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ui_sen_level_event, e.alarmLevel?.toString() ?: "?"), fontWeight = FontWeight.SemiBold)
                 Text(time, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = onDownload, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
                     Icon(if (ready) Icons.Filled.Download else Icons.Filled.CloudUpload, null, modifier = Modifier.size(16.dp))
-                    Text(if (ready) "  Download clip" else "  Upload + download")
+                    Text(if (ready) "  " + stringResource(R.string.ui_sen_download_clip) else "  " + stringResource(R.string.ui_sen_upload_and_download))
                 }
             }
         }
@@ -162,7 +164,7 @@ private fun enqueueDownload(context: Context, url: String, name: String) {
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val req = DownloadManager.Request(Uri.parse(url))
             .setTitle("$name.mp4")
-            .setDescription("OpenZeekr sentry clip")
+            .setDescription(context.getString(R.string.ui_sen_notification_desc))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "$name.mp4")
         dm.enqueue(req)
@@ -182,9 +184,9 @@ private fun EmptyState(loaded: Boolean) {
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Videocam, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(34.dp)) }
-        Text(if (loaded) "No sentry events in range" else "Load sentry events to begin",
+        Text(if (loaded) stringResource(R.string.ui_sen_no_events) else stringResource(R.string.ui_sen_load_to_begin),
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Cloud footage via sentinel-monitoring-service. Live view needs the RTC provider SDK (not identified yet).",
+        Text(stringResource(R.string.ui_sen_cloud_footage_note),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp))
     }

@@ -3,6 +3,7 @@ package com.openzeekr.app.ui
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import com.openzeekr.app.R
 import com.openzeekr.app.util.LogCrypto
 import com.openzeekr.app.util.Logx
 import java.io.File
@@ -19,7 +20,7 @@ import java.io.File
  */
 fun shareEncryptedLog(ctx: Context): String {
     val blob = LogCrypto.encryptToBase64(Logx.dump())
-        ?: return "Share failed - nothing shared."
+        ?: return ctx.getString(R.string.ui_log_share_failed_nothing)
     return runCatching {
         val dir = File(ctx.cacheDir, "exports").apply { mkdirs() }
         val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
@@ -28,13 +29,13 @@ fun shareEncryptedLog(ctx: Context): String {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "OpenZeekr encrypted log $stamp")
-            putExtra(Intent.EXTRA_TEXT, "OpenZeekr encrypted debug log attached (readable only by the developers).")
+            putExtra(Intent.EXTRA_SUBJECT, ctx.getString(R.string.ui_log_share_subject, stamp))
+            putExtra(Intent.EXTRA_TEXT, ctx.getString(R.string.ui_log_share_body))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        val chooser = Intent.createChooser(send, "Send encrypted log")
+        val chooser = Intent.createChooser(send, ctx.getString(R.string.ui_log_share_chooser_title))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)  // launched from a non-Activity context
         ctx.startActivity(chooser)
-        "Encrypted log ready to send - pick your email app."
-    }.getOrElse { "Share failed: ${it.message}" }
+        ctx.getString(R.string.ui_log_share_ready)
+    }.getOrElse { ctx.getString(R.string.ui_log_share_failed, it.message ?: "") }
 }

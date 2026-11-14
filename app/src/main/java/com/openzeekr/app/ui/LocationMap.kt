@@ -26,9 +26,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.ui.theme.Brand
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -71,7 +73,7 @@ fun CarMap(lat: Double?, lng: Double?, modifier: Modifier = Modifier, interactiv
         if (lat != null && lng != null) {
             // Pin: tip sits at the map centre (offset up by half its height).
             Icon(
-                Icons.Filled.LocationOn, contentDescription = "Car location",
+                Icons.Filled.LocationOn, contentDescription = stringResource(R.string.ui_map_cd_car_location),
                 tint = Brand.accent,
                 modifier = Modifier.align(Alignment.Center).size(38.dp).offset(y = (-19).dp),
             )
@@ -131,7 +133,7 @@ fun ZonePickerMap(
         }
         // Fixed centre crosshair = the chosen location.
         Icon(
-            Icons.Filled.LocationOn, contentDescription = "Zone centre",
+            Icons.Filled.LocationOn, contentDescription = stringResource(R.string.ui_map_cd_zone_centre),
             tint = Brand.accent,
             modifier = Modifier.align(Alignment.Center).size(38.dp).offset(y = (-19).dp),
         )
@@ -142,7 +144,7 @@ fun ZonePickerMap(
  * Hand off turn-by-turn navigation to the phone's nav app (free): Google Maps
  * navigation intent first, plain geo: fallback otherwise.
  */
-fun navigateToCar(context: Context, lat: Double, lng: Double, label: String = "My Zeekr") {
+fun navigateToCar(context: Context, lat: Double, lng: Double, label: String = context.getString(R.string.ui_map_my_zeekr)) {
     val nav = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$lat,$lng"))
         .setPackage("com.google.android.apps.maps")
     val geo = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(label)})"))
@@ -162,11 +164,11 @@ fun CarLocationSection(deps: Deps, modifier: Modifier = Modifier) {
     val lo = p?.longitude
     val pos = if (la != null && lo != null) la to lo else null
     CockpitCard(modifier) {
-        SectionHeader("Where's my car")
+        SectionHeader(stringResource(R.string.ui_map_section_wheres_my_car))
         Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(14.dp))) {
             CarMap(pos?.first, pos?.second, Modifier.matchParentSize())
         }
-        if (pos != null) PrimaryButton("Navigate to car", Modifier.fillMaxWidth(), tint = Brand.good) { navigateToCar(ctx, pos.first, pos.second) }
-        else GhostButton("Location unavailable", Modifier.fillMaxWidth(), enabled = false, tint = Brand.muted) {}
+        if (pos != null) PrimaryButton(stringResource(R.string.ui_map_btn_navigate_to_car), Modifier.fillMaxWidth(), tint = Brand.good) { navigateToCar(ctx, pos.first, pos.second) }
+        else GhostButton(stringResource(R.string.ui_map_btn_location_unavailable), Modifier.fillMaxWidth(), enabled = false, tint = Brand.muted) {}
     }
 }

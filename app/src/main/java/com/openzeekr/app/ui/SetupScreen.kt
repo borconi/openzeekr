@@ -51,10 +51,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.openzeekr.app.R
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.ble.DkLockController
 import com.openzeekr.app.ble.DkProvisioning
@@ -111,14 +113,14 @@ fun SetupScreen(
     }
     fun hasBlePerms() = blePerms.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.all { it }) { ble.resetHandshakeBackoff(); ble.connect(null, diagnostic = true) } else snackbar("Bluetooth permission denied — enable it in system settings")
+        if (result.values.all { it }) { ble.resetHandshakeBackoff(); ble.connect(null, diagnostic = true) } else snackbar(context.getString(R.string.ui_setup_ble_perm_denied))
     }
     fun connect() { if (hasBlePerms()) ble.connect(null, diagnostic = true) else permLauncher.launch(blePerms) }
     fun provision() {
         scope.launch {
             provisioning.provision(owner)
-                .onSuccess { snackbar("Digital key provisioned") }
-                .onFailure { snackbar("Provisioning failed: ${it.message}") }
+                .onSuccess { snackbar(context.getString(R.string.ui_setup_provision_success)) }
+                .onFailure { snackbar(context.getString(R.string.ui_setup_provision_failed, it.message ?: "")) }
         }
     }
 
@@ -126,7 +128,7 @@ fun SetupScreen(
         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        SectionHeader("Digital key")
+        SectionHeader(stringResource(R.string.ui_setup_header_digital_key))
 
         // Adaptive card: compact "Key active" when provisioned, else the provisioning stepper.
         CockpitCard {
@@ -136,32 +138,31 @@ fun SetupScreen(
                         Icon(Icons.Filled.VpnKey, null, tint = Brand.good, modifier = Modifier.size(23.dp))
                     }
                     Column(Modifier.weight(1f)) {
-                        Text("Key active · BLE", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(stringResource(R.string.ui_setup_key_active), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(
                             dkId?.takeIf { it.isNotBlank() }
-                                ?.let { "Offline lock / unlock · dkId ••••${it.takeLast(4).uppercase()}" }
-                                ?: "Offline lock / unlock at the car",
+                                ?.let { stringResource(R.string.ui_setup_key_active_dkid, it.takeLast(4).uppercase()) }
+                                ?: stringResource(R.string.ui_setup_key_active_desc),
                             color = Brand.muted, fontSize = 12.sp,
                         )
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton("Re-provision", Modifier.weight(1f), tint = Brand.muted) { provision() }
-                    GhostButton("Remove key", Modifier.weight(1f), tint = Brand.crit) { confirmRemove = true }
+                    GhostButton(stringResource(R.string.ui_setup_btn_reprovision), Modifier.weight(1f), tint = Brand.muted) { provision() }
+                    GhostButton(stringResource(R.string.ui_setup_btn_remove_key), Modifier.weight(1f), tint = Brand.crit) { confirmRemove = true }
                 }
             } else {
-                SectionHeader("Provision this phone")
-                StepRow("Enrol certificate", prov.step, DkProvisioning.Step.CERT)
-                StepRow("Bind device to key", prov.step, DkProvisioning.Step.BIND)
-                StepRow("Fetch key list", prov.step, DkProvisioning.Step.KEY_LIST)
-                StepRow("Fetch key material", prov.step, DkProvisioning.Step.KEY_INFO)
+                SectionHeader(stringResource(R.string.ui_setup_header_provision_phone))
+                StepRow(stringResource(R.string.ui_setup_step_cert), prov.step, DkProvisioning.Step.CERT)
+                StepRow(stringResource(R.string.ui_setup_step_bind), prov.step, DkProvisioning.Step.BIND)
+                StepRow(stringResource(R.string.ui_setup_step_key_list), prov.step, DkProvisioning.Step.KEY_LIST)
+                StepRow(stringResource(R.string.ui_setup_step_key_info), prov.step, DkProvisioning.Step.KEY_INFO)
                 prov.message?.let { Text(it, color = Brand.muted, fontSize = 12.sp) }
                 Text(
-                    if (owner) "This account owns the car — an owner key will be created."
-                    else "Shared account — using a key the owner has shared with you.",
+                    stringResource(if (owner) R.string.ui_setup_owner_note else R.string.ui_setup_shared_note),
                     color = Brand.muted, fontSize = 12.sp,
                 )
-                PrimaryButton(if (busy) "Provisioning…" else "Set up digital key", Modifier.fillMaxWidth(), enabled = !busy) { provision() }
+                PrimaryButton(if (busy) stringResource(R.string.ui_setup_btn_provisioning) else stringResource(R.string.ui_setup_btn_setup_key), Modifier.fillMaxWidth(), enabled = !busy) { provision() }
             }
         }
 
@@ -171,16 +172,16 @@ fun SetupScreen(
             val connected = sessionReady || bleState == DkBleManager.State.CONNECTED
             val connecting = bleState == DkBleManager.State.CONNECTING || bleState == DkBleManager.State.SCANNING
             val (statusText, statusColor) = when {
-                connected -> "Connected — ready at the car" to Brand.good
-                connecting -> "Connecting…" to Brand.accent
-                bleState == DkBleManager.State.ERROR -> (ble.lastError?.let { "Error: $it" } ?: "Error") to Brand.crit
-                else -> "Not connected" to Brand.faint
+                connected -> stringResource(R.string.ui_setup_status_connected) to Brand.good
+                connecting -> stringResource(R.string.ui_setup_status_connecting) to Brand.accent
+                bleState == DkBleManager.State.ERROR -> (ble.lastError?.let { stringResource(R.string.ui_setup_status_error_detail, it) } ?: stringResource(R.string.ui_setup_status_error)) to Brand.crit
+                else -> stringResource(R.string.ui_setup_status_not_connected) to Brand.faint
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(9.dp).clip(CircleShape).background(statusColor))
                     Column {
-                        Text("At the car", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(stringResource(R.string.ui_setup_at_the_car), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Text(statusText, color = statusColor, fontSize = 12.sp)
                     }
                 }
@@ -194,7 +195,7 @@ fun SetupScreen(
                     if (connecting) CircularProgressIndicator(Modifier.size(18.dp), color = Brand.accent, strokeWidth = 2.dp)
                     else Icon(
                         if (connected) Icons.Filled.BluetoothConnected else Icons.Filled.Bluetooth,
-                        if (connected) "Disconnect" else "Connect",
+                        if (connected) stringResource(R.string.ui_setup_cd_disconnect) else stringResource(R.string.ui_setup_cd_connect),
                         tint = if (connected) Brand.good else Brand.accent, modifier = Modifier.size(22.dp),
                     )
                 }
@@ -203,7 +204,7 @@ fun SetupScreen(
             // Only meaningful with a live session; never sent in normal operation.
             if (sessionReady) {
                 GhostButton(
-                    if (probing) "Probing…" else "Probe RPA start (0x0A)",
+                    if (probing) stringResource(R.string.ui_setup_btn_probing) else stringResource(R.string.ui_setup_btn_probe_rpa),
                     Modifier.fillMaxWidth(), tint = Brand.muted,
                 ) {
                     if (!probing) {
@@ -211,7 +212,7 @@ fun SetupScreen(
                         scope.launch {
                             val reply = runCatching { lock.probeRpaStart() }.getOrElse { "error: ${it.message}" }
                             probing = false
-                            snackbar("Car reply: $reply")
+                            snackbar(context.getString(R.string.ui_setup_probe_reply, reply))
                         }
                     }
                 }
@@ -221,15 +222,15 @@ fun SetupScreen(
         // Passive entry. Approach-unlock is GATED on a one-time at-the-car calibration: the digital key
         // can be provisioned from the cloud, but the phone's RSSI thresholds can only be learned at the
         // car, so without calibration the feature stays unavailable (the calibrate button sits on top).
-        SectionHeader("Passive entry")
+        SectionHeader(stringResource(R.string.ui_setup_header_passive_entry))
         CockpitCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Brand.surface2), contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Sensors, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Approach unlock & walk-away lock", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("Unlock as you near the car, lock when you leave.", color = Brand.muted, fontSize = 12.sp)
+                    Text(stringResource(R.string.ui_setup_passive_entry_title), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(stringResource(R.string.ui_setup_passive_entry_desc), color = Brand.muted, fontSize = 12.sp)
                 }
                 // Only togglable once calibrated; the switch reads off until then.
                 Switch(
@@ -242,23 +243,22 @@ fun SetupScreen(
 
             // --- Calibration: the prerequisite, prominent on top of the feature ---
             if (cfg.isProximityCalibrated) {
-                Text("✓ Calibrated at your car · door ${cfg.calibNearRssi} dBm · 6 m ${cfg.calibFarRssi} dBm",
+                Text(stringResource(R.string.ui_setup_calibrated_summary, cfg.calibNearRssi, cfg.calibFarRssi),
                     color = Brand.good, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SelectChip("Re-calibrate", selected = false) {
+                    SelectChip(stringResource(R.string.ui_setup_btn_recalibrate), selected = false) {
                         if (sessionReady) showCalib = true
-                        else { connect(); snackbar("Connecting to the car — try Calibrate again once linked") }
+                        else { connect(); snackbar(context.getString(R.string.ui_setup_connecting_retry_calib)) }
                     }
-                    SelectChip("Reset", selected = false) {
-                        config.clearProximityCalibration(); snackbar("Calibration cleared — approach unlock turned off")
+                    SelectChip(stringResource(R.string.ui_setup_btn_reset_calib), selected = false) {
+                        config.clearProximityCalibration(); snackbar(context.getString(R.string.ui_setup_calib_cleared))
                     }
                 }
             } else {
-                Text("Approach unlock needs a one-time calibration walk at your car (~2 min). " +
-                    "Until then it stays off.", color = Brand.faint, fontSize = 11.5.sp)
-                PrimaryButton("Calibrate at your car", Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.ui_setup_calib_needed), color = Brand.faint, fontSize = 11.5.sp)
+                PrimaryButton(stringResource(R.string.ui_setup_btn_calibrate_at_car), Modifier.fillMaxWidth()) {
                     if (sessionReady) showCalib = true
-                    else { connect(); snackbar("Connecting to the car — try Calibrate again once linked") }
+                    else { connect(); snackbar(context.getString(R.string.ui_setup_connecting_retry_calib)) }
                 }
             }
 
@@ -267,11 +267,11 @@ fun SetupScreen(
             // which half actually actuates (both default on, so an upgrade keeps the old behaviour). ---
             if (cfg.proximityEnabled && cfg.isProximityCalibrated) {
                 PassiveToggle(
-                    "Auto-unlock on approach", "Unlock as you walk up to the car",
+                    stringResource(R.string.ui_setup_auto_unlock_title), stringResource(R.string.ui_setup_auto_unlock_desc),
                     checked = cfg.autoUnlockOnApproach, enabled = true,
                 ) { on -> config.update { it.copy(autoUnlockOnApproach = on) } }
                 PassiveToggle(
-                    "Auto-lock on walk-away", "Lock the car as you leave",
+                    stringResource(R.string.ui_setup_auto_lock_title), stringResource(R.string.ui_setup_auto_lock_desc),
                     checked = cfg.autoLockOnWalkAway, enabled = true,
                 ) { on -> config.update { it.copy(autoLockOnWalkAway = on) } }
                 // #42: zones (e.g. Home) where approach-unlock / walk-away-lock are suppressed.
@@ -280,17 +280,21 @@ fun SetupScreen(
 
             // --- Sensitivity: only meaningful once enabled (and thus calibrated) ---
             if (cfg.proximityEnabled && cfg.isProximityCalibrated) {
-                Text("Sensitivity - how close before it unlocks", color = Brand.muted, fontSize = 12.sp)
+                Text(stringResource(R.string.ui_setup_sensitivity_title), color = Brand.muted, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("veryclose" to "Very close", "close" to "Close", "far" to "Far").forEach { (key, label) ->
+                    listOf(
+                        "veryclose" to stringResource(R.string.ui_setup_sens_very_close),
+                        "close" to stringResource(R.string.ui_setup_sens_close),
+                        "far" to stringResource(R.string.ui_setup_sens_far),
+                    ).forEach { (key, label) ->
                         SelectChip(label, selected = cfg.proximitySensitivity == key) { config.update { it.copy(proximitySensitivity = key) } }
                     }
                 }
                 Text(
                     when (cfg.proximitySensitivity) {
-                        "veryclose" -> "Unlocks within arm's reach · most secure"
-                        "far" -> "Unlocks farthest out · most convenient"
-                        else -> "Unlocks about halfway · locks as you walk away"
+                        "veryclose" -> stringResource(R.string.ui_setup_sens_very_close_desc)
+                        "far" -> stringResource(R.string.ui_setup_sens_far_desc)
+                        else -> stringResource(R.string.ui_setup_sens_close_desc)
                     },
                     color = Brand.faint, fontSize = 11.5.sp,
                 )
@@ -304,22 +308,21 @@ fun SetupScreen(
             }
 
             Text(
-                "Runs a low-power scan, then connects & unlocks over the BLE key. Uses a foreground " +
-                    "service - allow unrestricted background for reliability.",
+                stringResource(R.string.ui_setup_passive_service_note),
                 color = Brand.faint, fontSize = 11.sp,
             )
         }
 
         // --- Force unlock: volume-button combo on the lock screen ---
-        SectionHeader("Force unlock")
+        SectionHeader(stringResource(R.string.ui_setup_header_force_unlock))
         CockpitCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Brand.surface2), contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.VpnKey, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Lock-screen volume shortcut", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text("Double-press volume up to unlock the car, volume down to lock it - from the lock screen.", color = Brand.muted, fontSize = 12.sp)
+                    Text(stringResource(R.string.ui_setup_force_unlock_title), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(stringResource(R.string.ui_setup_force_unlock_desc), color = Brand.muted, fontSize = 12.sp)
                 }
                 Switch(
                     // Only ON when a secure lock exists; turning it ON routes through the warning dialog first.
@@ -333,11 +336,10 @@ fun SetupScreen(
                 )
             }
             if (!deviceSecure) {
-                Text("Needs a secure screen lock (PIN, pattern or password). Set one in system settings to use this.",
+                Text(stringResource(R.string.ui_setup_force_unlock_needs_secure),
                     color = Brand.faint, fontSize = 11.5.sp)
             } else {
-                Text("For ~4 s after the screen turns on while locked, a double-press of volume up unlocks (or " +
-                    "volume down locks) the car over the BLE key - without unlocking the phone.", color = Brand.faint, fontSize = 11.5.sp)
+                Text(stringResource(R.string.ui_setup_force_unlock_note), color = Brand.faint, fontSize = 11.5.sp)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -352,36 +354,32 @@ fun SetupScreen(
 
     if (confirmForceUnlock) AlertDialog(
         onDismissRequest = { confirmForceUnlock = false },
-        title = { Text("Enable lock-screen car control?") },
+        title = { Text(stringResource(R.string.ui_setup_dialog_force_unlock_title)) },
         text = {
             Text(
-                "Anyone who is holding this phone while it is locked, and who knows the gesture (double-press " +
-                    "volume up to unlock, volume down to lock), can control the car WITHOUT unlocking the phone.\n\n" +
-                    "The window is only open for about 4 seconds each time the screen turns on while locked, " +
-                    "and it closes the moment you unlock the phone or the screen turns off. Only enable this if " +
-                    "you accept that trade-off.",
+                stringResource(R.string.ui_setup_dialog_force_unlock_msg),
             )
         },
         confirmButton = {
             TextButton(onClick = {
                 config.update { it.copy(forceUnlockKeyCombo = true) }
                 confirmForceUnlock = false
-                snackbar("Enabled - double-press volume up to unlock, down to lock")
-            }) { Text("Enable", color = Brand.crit) }
+                snackbar(context.getString(R.string.ui_setup_force_unlock_enabled))
+            }) { Text(stringResource(R.string.ui_setup_btn_enable), color = Brand.crit) }
         },
-        dismissButton = { TextButton(onClick = { confirmForceUnlock = false }) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = { confirmForceUnlock = false }) { Text(stringResource(R.string.ui_setup_btn_cancel)) } },
     )
 
     if (confirmRemove) AlertDialog(
         onDismissRequest = { confirmRemove = false },
-        title = { Text("Remove digital key?") },
-        text = { Text("This forgets the key on this phone. You can re-provision it later from your account.") },
+        title = { Text(stringResource(R.string.ui_setup_dialog_remove_title)) },
+        text = { Text(stringResource(R.string.ui_setup_dialog_remove_msg)) },
         confirmButton = {
-            TextButton(onClick = { onRemoveKey(); confirmRemove = false; snackbar("Digital key removed") }) {
-                Text("Remove", color = Brand.crit)
+            TextButton(onClick = { onRemoveKey(); confirmRemove = false; snackbar(context.getString(R.string.ui_setup_remove_key_snackbar)) }) {
+                Text(stringResource(R.string.ui_setup_btn_remove), color = Brand.crit)
             }
         },
-        dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.ui_setup_btn_cancel)) } },
     )
 }
 
@@ -400,10 +398,8 @@ private fun ProximityCalibrationWalk(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("Calibrate proximity", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text("Walk to 4 spots around your car once. We measure this phone's real signal at the door and " +
-            "at ~6 m and use those as your unlock / walk-away thresholds — so approach-unlock works for " +
-            "YOUR phone and car, not a generic guess. Carry the phone the way you normally do.",
+        Text(stringResource(R.string.ui_setup_calib_title), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text(stringResource(R.string.ui_setup_calib_desc),
             color = Brand.muted, fontSize = 12.5.sp)
 
         if (cs.message.isNotBlank()) {
@@ -413,23 +409,28 @@ private fun ProximityCalibrationWalk(
         }
         if (cs.step in 1..cs.totalSteps) {
             if (cs.measuring) {
-                PrimaryButton("Measuring… ${cs.secondsLeft}s — hold still", Modifier.fillMaxWidth(), enabled = false) {}
+                PrimaryButton(stringResource(R.string.ui_setup_calib_measuring, cs.secondsLeft), Modifier.fillMaxWidth(), enabled = false) {}
             } else {
-                PrimaryButton("I'm in position — Continue", Modifier.fillMaxWidth()) { calib.advanceStep() }
+                PrimaryButton(stringResource(R.string.ui_setup_calib_btn_continue), Modifier.fillMaxWidth()) { calib.advanceStep() }
             }
         }
 
         val done = cs.phase == com.openzeekr.app.ble.CalibrationTestController.Phase.DONE
+        val startCalibLabel = when {
+            cs.busy -> stringResource(R.string.ui_setup_calib_btn_running)
+            done -> stringResource(R.string.ui_setup_calib_btn_again)
+            else -> stringResource(R.string.ui_setup_calib_btn_start)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton(
-                if (cs.busy) "Running…" else if (done) "Calibrate again" else "Start calibration",
+                startCalibLabel,
                 Modifier.weight(1f), enabled = !cs.busy,
             ) { calib.runCalibration() }
-            GhostButton(if (cs.busy) "Cancel" else "Close", Modifier.weight(1f), tint = Brand.muted) {
+            GhostButton(if (cs.busy) stringResource(R.string.ui_setup_btn_cancel) else stringResource(R.string.ui_setup_calib_btn_close), Modifier.weight(1f), tint = Brand.muted) {
                 if (cs.busy) calib.cancel() else onClose()
             }
         }
-        Text("Stay near the car for the whole walk and keep the area clear of other people.",
+        Text(stringResource(R.string.ui_setup_calib_footer),
             color = Brand.faint, fontSize = 11.sp)
     }
 }
@@ -456,11 +457,11 @@ private fun CarSidePassiveEntry(
             approachOn = approach; walkAwayOn = walk; config.setPassiveEntry(approach, walk)
         }
     }
-    Text("Car-side passive entry (developer)", color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-    PassiveToggle("Approach unlock (car-side)", "Car unlocks as you walk up", approachOn, enabled) {
+    Text(stringResource(R.string.ui_setup_dev_carside_title), color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+    PassiveToggle(stringResource(R.string.ui_setup_dev_carside_approach_title), stringResource(R.string.ui_setup_dev_carside_approach_desc), approachOn, enabled) {
         approachOn = it; config.setPassiveEntry(it, walkAwayOn); calib.setApproachUnlock(it)
     }
-    PassiveToggle("Walk-away auto-lock (car-side)", "Car locks itself as you leave", walkAwayOn, enabled) {
+    PassiveToggle(stringResource(R.string.ui_setup_dev_carside_walkaway_title), stringResource(R.string.ui_setup_dev_carside_walkaway_desc), walkAwayOn, enabled) {
         walkAwayOn = it; config.setPassiveEntry(approachOn, it); calib.setWalkAwayLock(it)
     }
 }

@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.ble.rpa.RpaController
 import com.openzeekr.app.ble.rpa.RpaReq
 import com.openzeekr.app.ui.theme.Brand
@@ -85,54 +87,54 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
             Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Brand.accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.LocalParking, null, tint = Brand.accent, modifier = Modifier.size(21.dp))
             }
-            Text("Remote Parking", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.ui_park_remote_parking), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
             PhasePill(phase, connecting)
         }
         state.message?.let {
             Text(it, color = if (phase == RpaController.Phase.ERROR) Brand.crit else Brand.muted, fontSize = 12.5.sp)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton(if (connecting) "Connecting…" else "Connect", Modifier.weight(1f), enabled = canConnect) { rpa.begin() }
-            GhostButton("Stop", Modifier.weight(1f), enabled = active, tint = Brand.crit) { rpa.stop() }
+            PrimaryButton(if (connecting) stringResource(R.string.ui_park_connecting) else stringResource(R.string.ui_park_connect), Modifier.weight(1f), enabled = canConnect) { rpa.begin() }
+            GhostButton(stringResource(R.string.ui_park_stop), Modifier.weight(1f), enabled = active, tint = Brand.crit) { rpa.stop() }
         }
 
         // DEBUG: fire every maneuver opcode once (skips the REQ_MODE→SYNC gate) to learn if
         // any command downstream gets a non-0x100a response. RPA is absent from stock Android
         // (iOS/DK3.0/UWB-gated), so this is exploratory. ⚠️ Keep clear space around the car.
-        GhostButton("Blind probe (debug) — watch logcat", Modifier.fillMaxWidth(), tint = Brand.energy) { rpa.blindProbe() }
-        Text("Fires all park/move opcodes once, ignoring the car's gate. Only run with clear space around the car — if the car accepts an autonomous command it can move.",
+        GhostButton(stringResource(R.string.ui_park_blind_probe), Modifier.fillMaxWidth(), tint = Brand.energy) { rpa.blindProbe() }
+        Text(stringResource(R.string.ui_park_blind_probe_warning),
             color = Brand.faint, fontSize = 11.sp)
 
-        SectionHeader("Park in")
+        SectionHeader(stringResource(R.string.ui_park_section_park_in))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile("Search", Modifier.weight(1f)) { rpa.searchSlot() }
-            Tile("Park in", Modifier.weight(1f)) { rpa.startParkIn() }
-            Tile("Continue", Modifier.weight(1f)) { rpa.continueParking() }
+            Tile(stringResource(R.string.ui_park_tile_search), Modifier.weight(1f)) { rpa.searchSlot() }
+            Tile(stringResource(R.string.ui_park_tile_park_in), Modifier.weight(1f)) { rpa.startParkIn() }
+            Tile(stringResource(R.string.ui_park_tile_continue), Modifier.weight(1f)) { rpa.continueParking() }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile("Pause", Modifier.weight(1f)) { rpa.pause() }
-            Tile("Undo", Modifier.weight(1f)) { rpa.undo() }
+            Tile(stringResource(R.string.ui_park_tile_pause), Modifier.weight(1f)) { rpa.pause() }
+            Tile(stringResource(R.string.ui_park_tile_undo), Modifier.weight(1f)) { rpa.undo() }
             Spacer(Modifier.weight(1f))
         }
 
-        SectionHeader("Park out")
+        SectionHeader(stringResource(R.string.ui_park_section_park_out))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
-                "Parallel R" to RpaReq.PARALLEL_RIGHT_OUT,
-                "Parallel L" to RpaReq.PARALLEL_LEFT_OUT,
-                "Head-Perp R" to RpaReq.HEAD_PERPENDICULAR_RIGHT_OUT,
-                "Head-Perp L" to RpaReq.HEAD_PERPENDICULAR_LEFT_OUT,
-                "Tail-Perp R" to RpaReq.TAIL_PERPENDICULAR_RIGHT_OUT,
-                "Tail-Perp L" to RpaReq.TAIL_PERPENDICULAR_LEFT_OUT,
+                stringResource(R.string.ui_park_maneuver_parallel_r) to RpaReq.PARALLEL_RIGHT_OUT,
+                stringResource(R.string.ui_park_maneuver_parallel_l) to RpaReq.PARALLEL_LEFT_OUT,
+                stringResource(R.string.ui_park_maneuver_head_perp_r) to RpaReq.HEAD_PERPENDICULAR_RIGHT_OUT,
+                stringResource(R.string.ui_park_maneuver_head_perp_l) to RpaReq.HEAD_PERPENDICULAR_LEFT_OUT,
+                stringResource(R.string.ui_park_maneuver_tail_perp_r) to RpaReq.TAIL_PERPENDICULAR_RIGHT_OUT,
+                stringResource(R.string.ui_park_maneuver_tail_perp_l) to RpaReq.TAIL_PERPENDICULAR_LEFT_OUT,
             ).forEach { (label, dir) -> Chip(label) { rpa.startParkOut(dir) } }
         }
 
-        SectionHeader("Hold to move")
-        Text("Press and hold; release stops instantly (the car halts the moment the 500 ms heartbeat drops).",
+        SectionHeader(stringResource(R.string.ui_park_section_hold_to_move))
+        Text(stringResource(R.string.ui_park_hold_to_move_hint),
             color = Brand.muted, fontSize = 12.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HoldPad("Forward", Icons.Filled.ArrowUpward, Modifier.weight(1f), onHold = { rpa.holdMove(true) }, onRelease = { rpa.releaseMove() })
-            HoldPad("Backward", Icons.Filled.ArrowDownward, Modifier.weight(1f), onHold = { rpa.holdMove(false) }, onRelease = { rpa.releaseMove() })
+            HoldPad(stringResource(R.string.ui_park_move_forward), Icons.Filled.ArrowUpward, Modifier.weight(1f), onHold = { rpa.holdMove(true) }, onRelease = { rpa.releaseMove() })
+            HoldPad(stringResource(R.string.ui_park_move_backward), Icons.Filled.ArrowDownward, Modifier.weight(1f), onHold = { rpa.holdMove(false) }, onRelease = { rpa.releaseMove() })
         }
     }
 }
@@ -140,13 +142,13 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
 @Composable
 private fun PhasePill(phase: RpaController.Phase, connecting: Boolean) {
     val (label, color) = when (phase) {
-        RpaController.Phase.READY -> "Ready" to Brand.good
-        RpaController.Phase.MOVING, RpaController.Phase.PARKING_IN, RpaController.Phase.PARKING_OUT -> "Active" to Brand.accent
-        RpaController.Phase.PAUSED -> "Paused" to Brand.energy
-        RpaController.Phase.DONE -> "Done" to Brand.good
-        RpaController.Phase.ERROR -> "Error" to Brand.crit
-        RpaController.Phase.CONNECTING -> "Connecting" to Brand.accent
-        else -> "Idle" to Brand.faint
+        RpaController.Phase.READY -> stringResource(R.string.ui_park_phase_ready) to Brand.good
+        RpaController.Phase.MOVING, RpaController.Phase.PARKING_IN, RpaController.Phase.PARKING_OUT -> stringResource(R.string.ui_park_phase_active) to Brand.accent
+        RpaController.Phase.PAUSED -> stringResource(R.string.ui_park_phase_paused) to Brand.energy
+        RpaController.Phase.DONE -> stringResource(R.string.ui_park_phase_done) to Brand.good
+        RpaController.Phase.ERROR -> stringResource(R.string.ui_park_phase_error) to Brand.crit
+        RpaController.Phase.CONNECTING -> stringResource(R.string.ui_park_phase_connecting) to Brand.accent
+        else -> stringResource(R.string.ui_park_phase_idle) to Brand.faint
     }
     Row(
         Modifier.clip(CircleShape).background(color.copy(alpha = 0.16f)).padding(horizontal = 11.dp, vertical = 6.dp),

@@ -1,5 +1,6 @@
 package com.openzeekr.app.ui
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,10 +41,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.net.model.ShareGrant
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.ui.theme.Brand
@@ -60,6 +64,7 @@ import java.util.Locale
 @Composable
 fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modifier: Modifier = Modifier) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val context = LocalContext.current
     BackHandler { onBack() }
     var shares by remember { mutableStateOf<List<ShareGrant>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -87,14 +92,14 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack, "Back",
+                Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.ui_share_cd_back),
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { onBack() }.padding(8.dp),
             )
-            Text("Car sharing", fontWeight = FontWeight.Bold, fontSize = 18.sp,
+            Text(stringResource(R.string.ui_share_title), fontWeight = FontWeight.Bold, fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
             Icon(
-                Icons.Filled.PersonAdd, "Share car",
+                Icons.Filled.PersonAdd, stringResource(R.string.ui_share_cd_share_car),
                 tint = Brand.accent,
                 modifier = Modifier.size(40.dp).clip(CircleShape)
                     .clickable { shareEmail = ""; showShare = true }.padding(8.dp),
@@ -105,11 +110,11 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
             loading && shares.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator(color = Brand.accent)
             }
-            error != null && shares.isEmpty() -> ShareEmpty("Couldn't load shares", error ?: "Unknown error") {
+            error != null && shares.isEmpty() -> ShareEmpty(stringResource(R.string.ui_share_empty_load_failed), error ?: stringResource(R.string.ui_share_unknown_error)) {
                 scope.launch { load() }
             }
-            shares.isEmpty() -> ShareEmpty("Not shared with anyone",
-                "Tap the add-person icon to share this car by email. Anyone you share with shows up here and you can revoke their access.") {
+            shares.isEmpty() -> ShareEmpty(stringResource(R.string.ui_share_empty_none_title),
+                stringResource(R.string.ui_share_empty_none_desc)) {
                 scope.launch { load() }
             }
             else -> LazyColumn(
@@ -125,22 +130,25 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
     confirm?.let { s ->
         AlertDialog(
             onDismissRequest = { if (!revoking) confirm = null },
-            title = { Text("Revoke access?") },
-            text = { Text("End ${s.toName ?: s.toContact ?: "this person"}'s access to the car? They'll need a new invite to use it again.") },
+            title = { Text(stringResource(R.string.ui_share_dialog_revoke_title)) },
+            text = {
+                val targetName = s.toName ?: s.toContact ?: stringResource(R.string.ui_share_this_person)
+                Text(stringResource(R.string.ui_share_dialog_revoke_message, targetName))
+            },
             confirmButton = {
                 TextButton(enabled = !revoking, onClick = {
                     revoking = true
                     scope.launch {
                         when (val r = deps.share.revoke(s)) {
-                            is CallResult.Ok -> { snackbar("Access revoked"); load() }
-                            is CallResult.Err -> snackbar("Couldn't revoke ✗ ${r.message}")
+                            is CallResult.Ok -> { snackbar(context.getString(R.string.ui_share_snackbar_revoked)); load() }
+                            is CallResult.Err -> snackbar(context.getString(R.string.ui_share_snackbar_revoke_failed, r.message ?: ""))
                         }
                         revoking = false
                         confirm = null
                     }
-                }) { Text(if (revoking) "Revoking…" else "Revoke") }
+                }) { Text(if (revoking) stringResource(R.string.ui_share_revoking) else stringResource(R.string.ui_share_revoke)) }
             },
-            dismissButton = { TextButton(enabled = !revoking, onClick = { confirm = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(enabled = !revoking, onClick = { confirm = null }) { Text(stringResource(R.string.ui_share_cancel)) } },
         )
     }
 
@@ -148,10 +156,10 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
         val canSend = shareEmail.trim().let { it.contains('@') && it.length >= 3 } && !sharing
         AlertDialog(
             onDismissRequest = { if (!sharing) showShare = false },
-            title = { Text("Share this car") },
+            title = { Text(stringResource(R.string.ui_share_dialog_share_title)) },
             text = {
                 Column {
-                    Text("Enter the email of the person to share with. They'll get an invite in their Zeekr app to accept.",
+                    Text(stringResource(R.string.ui_share_dialog_share_desc),
                         color = Brand.muted, fontSize = 13.sp)
                     Spacer(Modifier.size(12.dp))
                     OutlinedTextField(
@@ -159,7 +167,7 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
                         onValueChange = { shareEmail = it },
                         singleLine = true,
                         enabled = !sharing,
-                        label = { Text("Email") },
+                        label = { Text(stringResource(R.string.ui_share_email_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -171,24 +179,25 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
                     val addr = shareEmail.trim()
                     scope.launch {
                         when (val r = deps.share.createShare(addr)) {
-                            is CallResult.Ok -> { snackbar("Shared with $addr ✓"); showShare = false; load() }
-                            is CallResult.Err -> snackbar("Couldn't share ✗ ${r.message}")
+                            is CallResult.Ok -> { snackbar(context.getString(R.string.ui_share_snackbar_shared_success, addr)); showShare = false; load() }
+                            is CallResult.Err -> snackbar(context.getString(R.string.ui_share_snackbar_share_failed, r.message ?: ""))
                         }
                         sharing = false
                     }
-                }) { Text(if (sharing) "Sharing…" else "Share") }
+                }) { Text(if (sharing) stringResource(R.string.ui_share_sharing) else stringResource(R.string.ui_share_share)) }
             },
-            dismissButton = { TextButton(enabled = !sharing, onClick = { showShare = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(enabled = !sharing, onClick = { showShare = false }) { Text(stringResource(R.string.ui_share_cancel)) } },
         )
     }
 }
 
 @Composable
 private fun ShareCard(s: ShareGrant, onRevoke: () -> Unit) {
+    val context = LocalContext.current
     CockpitCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(s.toName?.takeIf { it.isNotBlank() } ?: s.toContact ?: "Shared user",
+                Text(s.toName?.takeIf { it.isNotBlank() } ?: s.toContact ?: stringResource(R.string.ui_share_shared_user_fallback),
                     fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                 s.toContact?.takeIf { it != s.toName }?.let {
                     Text(it, color = Brand.muted, fontSize = 12.sp)
@@ -196,9 +205,9 @@ private fun ShareCard(s: ShareGrant, onRevoke: () -> Unit) {
                 s.functionNames?.takeIf { it.isNotBlank() }?.let {
                     Text(it, color = Brand.muted, fontSize = 11.5.sp)
                 }
-                shareWindow(s)?.let { Text(it, color = Brand.faint, fontSize = 11.sp) }
+                shareWindow(context, s)?.let { Text(it, color = Brand.faint, fontSize = 11.sp) }
             }
-            TextButton(onClick = onRevoke) { Text("Revoke", color = Brand.crit) }
+            TextButton(onClick = onRevoke) { Text(stringResource(R.string.ui_share_revoke), color = Brand.crit) }
         }
     }
 }
@@ -213,7 +222,7 @@ private fun ShareEmpty(title: String, body: String, onReload: () -> Unit) {
             Spacer(Modifier.size(4.dp))
             Text(body, color = Brand.muted, fontSize = 12.5.sp)
             Spacer(Modifier.size(16.dp))
-            PrimaryButton("Reload", modifier = Modifier.fillMaxWidth(), onClick = onReload)
+            PrimaryButton(stringResource(R.string.ui_share_reload), modifier = Modifier.fillMaxWidth(), onClick = onReload)
         }
     }
 }
@@ -221,10 +230,10 @@ private fun ShareEmpty(title: String, body: String, onReload: () -> Unit) {
 /** "Until 12 Mar 2027" from a genuine FUTURE end/expiry (epoch s-or-ms tolerant). Permanent digital-key
  *  shares (shareType 2) come back with a stale past `expireTime` that is not a real cutoff, so a past
  *  date is suppressed - showing "Until <past date>" on a still-active share reads as expired. */
-private fun shareWindow(s: ShareGrant): String? {
+private fun shareWindow(context: Context, s: ShareGrant): String? {
     fun ms(t: Long?) = t?.let { if (it < 100_000_000_000L) it * 1000 else it }
     val end = ms(s.endTime) ?: ms(s.expireTime) ?: return null
     if (end <= System.currentTimeMillis()) return null
     val fmt = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
-    return "Until ${fmt.format(Date(end))}"
+    return context.getString(R.string.ui_share_until_date, fmt.format(Date(end)))
 }

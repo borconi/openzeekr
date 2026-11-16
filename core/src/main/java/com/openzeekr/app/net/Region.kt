@@ -79,14 +79,14 @@ data class Region(
         )
 
         val LA = Region(
-            code = "LA", displayName = "Latin America (LA)",
+            code = "LA", displayName = "Latin America (LA / BR)",
             tspBaseUrl = "https://la-snc-tsp-api-gw.zeekrlife.com",
             azureHost = "https://gateway-pub-hw-em-mx.zeekrlife.com",
-            // Best-effort: LA rides the NA (.ecloudus.com) DK infra. Correct via override if wrong.
-            xchangerHost = "https://api-zk.ecloudus.com",
-            projectId = "ZEEKR_LA", countryCode = "MX", snsRegion = "us-east-1",
-            // Secrets come from the "EM" (Emerging Markets) umbrella — no distinct LA secret exists.
-            extractorRegion = "EM", verified = false,
+            // Verified from com.zeekr.global 1.6.8 live logcat (areaType=NA, baseurl=https://api.ecloudeu.com).
+            xchangerHost = "https://api-zk.ecloudeu.com",
+            projectId = "ZEEKR_LA", countryCode = "BR", snsRegion = "us-east-1",
+            // Secrets come from the "EM" / "LA" (Emerging Markets) set.
+            extractorRegion = "EM", verified = true,
         )
 
         val ME = Region(

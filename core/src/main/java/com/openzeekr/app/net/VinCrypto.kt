@@ -15,7 +15,9 @@ import javax.crypto.spec.SecretKeySpec
  */
 object VinCrypto {
     fun encryptVin(vin: String, key: String, iv: String): String {
-        if (vin.isBlank() || key.isBlank() || iv.isBlank()) return vin
+        if (vin.isBlank()) return vin
+        if (key.startsWith("B64:") && key.length > 4) return key.removePrefix("B64:")
+        if (key.isBlank() || iv.isBlank()) return vin
         val keyBytes = key.toByteArray(Charsets.UTF_8)
         val ivBytes = iv.toByteArray(Charsets.UTF_8)
         if (keyBytes.size != 16 || ivBytes.size != 16) {

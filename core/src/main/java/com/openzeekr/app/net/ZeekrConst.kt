@@ -43,7 +43,12 @@ object ZeekrConst {
     // exchangerHostChanger rewrites api.xchanger.cn -> api-zk.{regional suffix} per host.txt
     // (EU/ZEEKR: gen2SingleAuthPrefix "https://api-zk" + suffix ".ecloudeu.com"; APAC ".ecloudkr.com";
     // NA ".ecloudus.com"). The .cn host is the CN gateway and rejects overseas apps (1440 "验签APP不存在").
-    const val XCHANGER_APP_ID = "8bbb65c1c4a288a28152c36dfa792014"   // from the xchanger JWT appId
+    const val XCHANGER_APP_ID = "8bbb65c1c4a288a28152c36dfa792014"   // from the EU xchanger JWT appId
+    const val XCHANGER_APP_ID_GLOBAL = "7d46f4c500fa4e92bef2a92cd6aeebcd" // from com.zeekr.global getCommonConfig.appid
+    fun xchangerAppId(regionCode: String): String = when (regionCode.uppercase()) {
+        "EU" -> XCHANGER_APP_ID
+        else -> XCHANGER_APP_ID_GLOBAL
+    }
     const val XCHANGER_OPERATOR = "ZEEKR"
     /** Stock Accept header value on the HF calls — part of the signed header set. */
     const val XCHANGER_ACCEPT = "application/json;responseformat=3"

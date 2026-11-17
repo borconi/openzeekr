@@ -503,7 +503,7 @@ private fun SecretsSection(cfg: SecretsConfig, set: ((SecretsConfig) -> SecretsC
 private fun importExport(store: com.openzeekr.app.config.ConfigStore, onChanged: () -> Unit) {
     var importText by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf("") }
-    val clipboard = LocalClipboardManager.current
+    var includeCredentials by remember { mutableStateOf(false) }
     val ctx = LocalContext.current
     SettingsCard {
         CardTitle(stringResource(R.string.settings_import_export))
@@ -515,10 +515,16 @@ private fun importExport(store: com.openzeekr.app.config.ConfigStore, onChanged:
             Button(onClick = { msg = store.importJson(importText).fold({ onChanged(); ctx.getString(R.string.settings_imported) }, { ctx.getString(R.string.settings_import_failed, it.message) }) }) { Text(stringResource(R.string.settings_import_btn)) }
             // Export copies to the clipboard instead of rendering the secrets on screen - the config
             // holds your password, tokens and keys, and an on-screen dump is a shoulder-surf/screenshot leak.
+            // The clip is flagged sensitive, and the account password + session tokens are left out
+            // unless the user ticks the box below.
             OutlinedButton(onClick = {
-                clipboard.setText(AnnotatedString(store.exportJson()))
-                msg = ctx.getString(R.string.settings_export_copied)
+                SensitiveClipboard.copy(ctx, "OpenZeekr config", store.exportJson(includeAccountCredentials = includeCredentials))
+                msg = ctx.getString(if (includeCredentials) R.string.settings_export_copied else R.string.settings_export_copied_no_credentials)
             }) { Text(stringResource(R.string.settings_export_btn)) }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(checked = includeCredentials, onCheckedChange = { includeCredentials = it })
+            Text(stringResource(R.string.settings_export_include_credentials), fontSize = 13.sp)
         }
         if (msg.isNotBlank()) Text(msg, color = Brand.muted, fontSize = 12.sp)
     }

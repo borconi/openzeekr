@@ -284,7 +284,12 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
         persist(merged)
     }
 
-    fun exportJson(): String = json.encodeToString(SecretsConfig.serializer(), _config.value)
+    /** Export the config as JSON. Account credentials (password + session tokens) are left out
+     *  unless [includeAccountCredentials] is set; see [SecretsConfig.withoutAccountCredentials]. */
+    fun exportJson(includeAccountCredentials: Boolean = false): String {
+        val cfg = _config.value
+        return json.encodeToString(SecretsConfig.serializer(), if (includeAccountCredentials) cfg else cfg.withoutAccountCredentials())
+    }
 
     companion object {
         private const val FILE = "openzeekr_secure_config"

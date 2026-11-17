@@ -274,6 +274,15 @@ data class SecretsConfig(
         return true
     }
 
+    /**
+     * Copy with the per-account session material blanked: password, access/azure/xchanger tokens and
+     * the xchanger client id. Used for the default config export so the clipboard never carries a
+     * working login. [ConfigStore.importJson] only merges non-blank fields, so this still imports.
+     */
+    fun withoutAccountCredentials(): SecretsConfig = copy(
+        password = "", accessToken = "", azureToken = "", xchangerToken = "", xchangerClientId = "",
+    )
+
     /** Validates constraints on the configuration. Returns a list of error messages (empty if valid). */
     fun validate(): List<String> = buildList {
         // Mandatory fields

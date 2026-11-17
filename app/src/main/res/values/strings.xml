@@ -208,6 +208,8 @@
     <string name="settings_import_btn">Import</string>
     <string name="settings_export_copied">Copied to clipboard - it contains your password, tokens and keys, so paste it somewhere safe.</string>
     <string name="settings_export_btn">Export to clipboard</string>
+    <string name="settings_export_include_credentials">Include account password and session tokens</string>
+    <string name="settings_export_copied_no_credentials">Copied to clipboard without your password or session tokens. It still contains the app keys, so paste it somewhere safe.</string>
     <string name="settings_logs_count">Logs (%1$d)</string>
     <string name="settings_log_share">Share</string>
     <string name="settings_log_too_long">This log is too long to copy - use \"Share\" to send it as a file.</string>

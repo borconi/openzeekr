@@ -95,13 +95,7 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
      * app keys (so the app stays configured and can log in again) — NOT the account. The digital key
      * is wiped separately via Remove key (which also revokes it cloud-side).
      */
-    fun signOut() = update {
-        it.copy(
-            email = "", password = "", accessToken = "", userId = "", accountUuid = "",
-            vin = "", carNickname = "", vehicles = emptyList(),
-            deviceIdentifier = "", appInstanceId = "",
-        )
-    }
+    fun signOut() = update { it.signedOut() }
 
     /**
      * Switch the ACTIVE car (multi-car). Repoints [SecretsConfig.vin]/isOwner/carNickname to the

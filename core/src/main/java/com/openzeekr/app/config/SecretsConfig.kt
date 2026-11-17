@@ -262,6 +262,29 @@ data class SecretsConfig(
      *  the set value locally and seed the charge slider from it instead of a fixed 80%. */
     val chargeLimitPct: Int = 80,
 ) {
+    /**
+     * Copy of this config with every account-identifying or account-authenticating value cleared,
+     * for [ConfigStore.signOut]. Kept: app-global secrets and endpoint/region settings (not tied to
+     * the account), BLE RSSI calibration, and UI preferences.
+     *
+     * The geofence zones hold the user's home/work coordinates, so they are cleared. Because a
+     * cleared zone list would make auto-Sentry and proximity lock/unlock fire everywhere after the
+     * next sign-in, those two features are switched off as well.
+     */
+    fun signedOut(): SecretsConfig = copy(
+        // credentials + session tokens (TSP, azure/overseas, xchanger DK backend)
+        email = "", password = "", accessToken = "",
+        azureToken = "", xchangerToken = "", xchangerClientId = "",
+        // account / vehicle identity
+        userId = "", accountUuid = "", isOwner = false,
+        vin = "", carNickname = "", vehicles = emptyList(),
+        deviceIdentifier = "", appInstanceId = "",
+        // location + car BLE identity
+        sentryExclusionZones = emptyList(), proximityExclusionZones = emptyList(),
+        proximityDeviceMac = "",
+        autoSentryOnLock = false, proximityEnabled = false,
+    )
+
     /** True when the mandatory app-global secrets (non-account) are present and valid. */
     val secretsValid: Boolean get() {
         if (hmacAccessKey.isBlank() || hmacSecretKey.isBlank() || passwordPublicKey.isBlank() || prodSecret.isBlank()) return false

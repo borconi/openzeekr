@@ -279,7 +279,7 @@ class AccountLogin(private val store: ConfigStore) {
             Logx.d("login", "step 5/6 bearer_login loginDeviceId=$loginDeviceId")
             val bearer = bearerData?.get("accessToken")?.jsonPrimitive?.contentOrNull
                 ?: cfg.accessToken.takeIf { it.isNotBlank() }
-                ?: "eyJraWQiOiI3MTdjOTQ1NjQ5MWE0YjI5YmMxZDk5NWViYzI5NGYzMSIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiIwZDhhNzBjYzNmZjM0N2FjODA4ZGU1NmZjZDdlYzUyYiIsIm9wZW5JZCI6IjBkOGE3MGNjM2ZmMzQ3YWM4MDhkZTU2ZmNkN2VjNTJiIiwiaXNzIjoiaHR0cHM6Ly9sYS1zbmMtYXBpLWd3LWlubmVyLnplZWtybGlmZS5jb20vYXV0aC1zZXJ2aWNlL2lubmVyL3YxL29hdXRoL2luZm8iLCJ0eXAiOiJCZWFyZXIiLCJ1c2VySWQiOiIxNDEwdzNGMjI1ZGNmZDNjIiwic2lkIjoiZjlmODA4OWYtMmJkMC00YjMxLWI1NmQtYTFiOWU4OTBiZWQ4IiwiYXVkIjoidXNlcl9jZW50ZXJfY2xpZW50X3Bob25lIiwiYWNyIjoiMSIsIm5iZiI6MTc5NDYwMDQ4MywiYXpwIjoidXNlcl9jZW50ZXJfY2xpZW50X3Bob25lIiwic2NvcGUiOiIiLCJleHAiOjE3OTUyMDUyODMsInNlc3Npb25fc3RhdGUiOiJmOWY4MDg5Zi0yYmQwLTRiMzEtYjU2ZC1hMWI5ZTg5MGJlZDgiLCJpYXQiOjE3OTQ2MDA0ODMsImp0aSI6ImRmMmU2NDI5LWZlODctNGQ0YS04MDU1LWFmZThmNzBmZjhjMSJ9.SIo-28v0HnyHXb5cjxBR90ID_aFwbkEt0u3zPp2veTF9g09vWLorKasnxB-dOgVuENr-kwlm_S7lWigoJwHi-k5Grv4JeUWF0oEe8kkdvDZWhq320-ae0xDih2i7dz92qOixXPwbfwAAyGvWJjkU2I5a9G8ud3ID0R6MtaRGp_N31ICY2MXwovq2jBv4AXLLAuMKomykRslbsmbTCXtk5gs1pM62-cjd77DPRQYShmqSIu2MQexKXq3BGXZ_aNVtCqR-m9BB0eh7eSVy6TS6BzH6B5i0yubLfLvRCxy1Fjd8ElHcZkCnMKJVvr3KUidGEhguG5fo0viY3kpLg_7OVA"
+                ?: error("no bearer token")
             Logx.d("login", "step 5/6 bearer OK=${Logx.preview(bearer)}")
 
             // The numeric userId (needed for DK signing = userId+deviceId+vin) is NOT

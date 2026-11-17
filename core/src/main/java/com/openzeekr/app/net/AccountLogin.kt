@@ -443,7 +443,7 @@ class AccountLogin(private val store: ConfigStore) {
             val text = String(bytes, Charsets.UTF_8)
             // Scrub secret values (tokens, signatures, openId, vin, …) out of the raw response body
             // before it reaches the on-device log - same redaction policy as the OkHttp logger.
-            Logx.d("http", HttpLog.scrub("<- $ep HTTP ${resp.code} (${text.length}B): ${text.take(600)}"))
+            Logx.d("http", "<- $ep HTTP ${resp.code} (${text.length}B): ${HttpLog.scrub(text).take(600)}")
             if (text.isBlank()) error("HTTP ${resp.code} empty body: ${req.url}")
             return json.parseToJsonElement(text).jsonObject
         }

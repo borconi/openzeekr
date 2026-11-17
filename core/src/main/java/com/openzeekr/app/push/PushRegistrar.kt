@@ -160,7 +160,7 @@ class PushRegistrar(
 
         http.newCall(req).execute().use { resp ->
             val respBody = runCatching { resp.body?.string() }.getOrNull().orEmpty()
-            Logx.d(TAG, "$path -> ${resp.code} ${respBody.take(200)}")
+            Logx.d(TAG, "$path -> ${resp.code} ${com.openzeekr.app.net.HttpLog.scrub(respBody).take(200)}")
         }
     }
 

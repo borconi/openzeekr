@@ -139,7 +139,15 @@ class DkBleManager(base: Context) : DkTransport {
         private val prefs = appContext.getSharedPreferences("dk_cert_pins", Context.MODE_PRIVATE)
         override fun get(vin: String): String? = prefs.getString(vin, null)
         override fun put(vin: String, fingerprint: String) { prefs.edit().putString(vin, fingerprint).apply() }
+        override fun remove(vin: String) { prefs.edit().remove(vin).apply() }
+        override fun clear() { prefs.edit().clear().apply() }
     }
+
+    /** Forget the vehicle-cert pin for [vin] (fresh provision) so a re-issued cert / ECU swap re-pins. */
+    fun forgetCertPin(vin: String) = certPins.remove(vin)
+
+    /** Forget all vehicle-cert pins (key removed). */
+    fun clearCertPins() = certPins.clear()
 
     /** Single stable session so Deps/controllers capture it once; needs a credential to establish(). */
     val session: DkSession by lazy { RealDkSession(this, { credential }, certPins = certPins) }

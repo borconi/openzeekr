@@ -164,24 +164,49 @@ FQ==
     interface VehicleCertPinStore {
         fun get(vin: String): String?
         fun put(vin: String, fingerprint: String)
+        /** Forget this car's pin (fresh provision for [vin]: a re-issued cert or ECU swap must re-pin). */
+        fun remove(vin: String)
+        /** Forget every pin (key removed / identity wiped). */
+        fun clear()
     }
 
     /**
-     * Verify the vehicle cert is Geely-issued + valid ([requireGeelyVehicleCert]) AND is the SAME cert
-     * this car presented at first pair (TOFU pinning, keyed by VIN). Without the pin, a fake/relay car
-     * presenting ANY genuine Geely-issued cert would pass the CA check and harvest our digital key;
-     * pinning binds the session to this specific car. First trusted pairing pins; later mismatches throw.
+     * Pre-key-release check, run right after the cleartext cert exchange: the vehicle cert must be
+     * Geely-issued + valid ([requireGeelyVehicleCert]) AND, if this car already has a pin, match it.
+     * Does NOT write a new pin: the cert travels in cleartext, so an attacker can replay any genuine
+     * car's cert. A pin is only committed by [commitPin] once the car has proven possession of the
+     * cert's private key (vehicle factor signature verified). Returns the fingerprint to commit.
      */
-    fun requireTrustedAndPinned(leaf: X509Certificate, vin: String, pins: VehicleCertPinStore) {
+    fun requireTrustedAndPinMatches(leaf: X509Certificate, vin: String, pins: VehicleCertPinStore): String {
         requireGeelyVehicleCert(leaf)
-        val fp = sha256Hex(leaf.encoded)
-        when (val known = pins.get(vin)) {
-            null -> { pins.put(vin, fp); Logx.d("dk", "pinned vehicle cert for this car (first trusted pairing)") }
-            else -> check(known.equals(fp, ignoreCase = true)) {
-                "vehicle cert changed for this car - refusing to release the digital key (possible fake/relay car)"
-            }
+        val fp = fingerprint(leaf)
+        requirePinMatches(fp, vin, pins)
+        return fp
+    }
+
+    /** Throw if [vin] has a pin and it differs from [fp]. No pin yet → passes, writes nothing. */
+    fun requirePinMatches(fp: String, vin: String, pins: VehicleCertPinStore) {
+        val known = pins.get(vin) ?: return
+        check(known.equals(fp, ignoreCase = true)) {
+            "vehicle cert changed for this car - refusing to release the digital key (possible fake/relay car)"
         }
     }
+
+    /**
+     * Pin [fp] for [vin] if no pin exists yet (first trusted pairing). Call ONLY after the vehicle
+     * factor signature has been verified against this cert's public key, and before SEND_DKEY.
+     * Re-checks an existing pin so a pin written concurrently can't be silently overwritten.
+     */
+    fun commitPin(fp: String, vin: String, pins: VehicleCertPinStore) {
+        if (pins.get(vin) == null) {
+            pins.put(vin, fp)
+            Logx.d("dk", "pinned vehicle cert for this car (first pairing, possession proven)")
+        } else {
+            requirePinMatches(fp, vin, pins)
+        }
+    }
+
+    fun fingerprint(leaf: X509Certificate): String = sha256Hex(leaf.encoded)
 
     private fun sha256Hex(b: ByteArray): String =
         java.security.MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }

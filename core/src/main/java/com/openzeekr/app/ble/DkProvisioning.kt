@@ -283,6 +283,9 @@ class DkProvisioning(
                 coefBigHex = pick(dd.coefBigParam, demarcate?.coefBigParam),
                 mobileCodeHex = pick(dd.mobileCode, demarcate?.mobileCode),
             )
+            // Fresh key for this car: drop its old vehicle-cert pin so a re-issued cert / ECU swap
+            // re-pins on the next (possession-verified) handshake instead of being locked out.
+            ble.forgetCertPin(vin)
             identity.credential()?.let { ble.setCredential(it) }
 
             Logx.d("provision", "=== provision DONE dkId=$dkId ===")
@@ -369,6 +372,7 @@ class DkProvisioning(
             }
             runCatching { ble.disconnect() }
             identity.wipeAll()
+            ble.clearCertPins()
             _state.value = State(Step.IDLE, "key removed")
             Logx.d("provision", "=== key removed (cloud best-effort, local fully wiped) ===")
         }

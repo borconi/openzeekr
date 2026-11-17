@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Skaitmeninio rakto artumas ir BLE</string>
+    <string name="notification_channel_charging">Įkrovimas ir akumuliatorius</string>
+    <string name="notification_channel_charging_description">Įkrovimo eiga, įkrovimo problemos ir akumuliatoriaus įspėjimai</string>
+    <string name="notification_channel_security">Sauga ir parkavimas</string>
+    <string name="notification_channel_security_description">Saugos signalai, įsilaužimo, vilkimo ir neįprasto parkavimo įspėjimai</string>
+    <string name="notification_channel_vehicle">Automobilio valdymas</string>
+    <string name="notification_channel_vehicle_description">Užrakto, durų, langų, klimato ir nuotolinio valdymo pranešimai</string>
+    <string name="notification_channel_updates">Programinės įrangos naujiniai</string>
+    <string name="notification_channel_updates_description">Automobilio programinės įrangos naujiniai ir diegimo rezultatai</string>
+    <string name="notification_channel_service">Techninės priežiūros priminimai</string>
+    <string name="notification_channel_service_description">Techninės priežiūros, serviso ir aptarnavimo pranešimai</string>
+    <string name="notification_channel_news">Naujienos ir pasiūlymai</string>
+    <string name="notification_channel_news_description">Zeekr naujienos, renginiai ir reklaminiai pranešimai</string>
+    <string name="notification_channel_other">Automobilio įspėjimai (nesuskirstyti)</string>
+    <string name="notification_channel_other_description">Gali apimti fone pristatytus saugos signalus ir kitus automobilio įspėjimus be atpažintos kategorijos</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr skaitmeninis raktas aktyvus</string>
+    <string name="proximity_notif_text">Palaikomas rakto ryšys užrakinimui/atrakinimui</string>
+    <string name="proximity_channel_name">Skaitmeninis raktas</string>
+</resources>

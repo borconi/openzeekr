@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Близост на цифровия ключ &amp; BLE</string>
+    <string name="notification_channel_charging">Зареждане &amp; батерия</string>
+    <string name="notification_channel_charging_description">Напредък на зареждането, проблеми със зареждането и сигнали за батерията</string>
+    <string name="notification_channel_security">Сигурност &amp; паркиране</string>
+    <string name="notification_channel_security_description">Алармите за сигурност, проникване, теглене и сигнали за ненормално паркиране</string>
+    <string name="notification_channel_vehicle">Управление на автомобила</string>
+    <string name="notification_channel_vehicle_description">Съобщения за заключване, врати, прозорци, климат и дистанционно управление</string>
+    <string name="notification_channel_updates">Софтуерни актуализации</string>
+    <string name="notification_channel_updates_description">Софтуерни актуализации на автомобила и резултати от инсталирането</string>
+    <string name="notification_channel_service">Напомняния за сервиз</string>
+    <string name="notification_channel_service_description">Съобщения за поддръжка, сервиз и следпродажбено обслужване</string>
+    <string name="notification_channel_news">Новини &amp; оферти</string>
+    <string name="notification_channel_news_description">Новини, събития и промоционални съобщения на Zeekr</string>
+    <string name="notification_channel_other">Сигнали за автомобила (некатегоризирани)</string>
+    <string name="notification_channel_other_description">Може да включва аларми за сигурност, доставяни на заден план, и други сигнали за автомобила без разпозната категория</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Цифровият ключ на OpenZeekr е активен</string>
+    <string name="proximity_notif_text">Поддържа ключа ви свързан за заключване/отключване</string>
+    <string name="proximity_channel_name">Цифров ключ</string>
+</resources>

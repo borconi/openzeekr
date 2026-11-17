@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Proximidad de llave digital y BLE</string>
+    <string name="notification_channel_charging">Carga y batería</string>
+    <string name="notification_channel_charging_description">Progreso de carga, problemas de carga y alertas de batería</string>
+    <string name="notification_channel_security">Seguridad y estacionamiento</string>
+    <string name="notification_channel_security_description">Alarmas de seguridad, intrusión, remolque y alertas de estacionamiento anormal</string>
+    <string name="notification_channel_vehicle">Controles del vehículo</string>
+    <string name="notification_channel_vehicle_description">Mensajes de bloqueo, puertas, ventanas, clima y control remoto</string>
+    <string name="notification_channel_updates">Actualizaciones de software</string>
+    <string name="notification_channel_updates_description">Actualizaciones de software del vehículo y resultados de la instalación</string>
+    <string name="notification_channel_service">Recordatorios de servicio</string>
+    <string name="notification_channel_service_description">Mensajes de mantenimiento, servicio y posventa</string>
+    <string name="notification_channel_news">Noticias y ofertas</string>
+    <string name="notification_channel_news_description">Noticias, eventos y mensajes promocionales de Zeekr</string>
+    <string name="notification_channel_other">Alertas del auto (sin categoría)</string>
+    <string name="notification_channel_other_description">Puede incluir alarmas de seguridad entregadas en segundo plano y otras alertas del auto sin una categoría reconocida</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Llave digital OpenZeekr activa</string>
+    <string name="proximity_notif_text">Manteniendo tu llave conectada para bloquear/desbloquear</string>
+    <string name="proximity_channel_name">Llave digital</string>
+</resources>

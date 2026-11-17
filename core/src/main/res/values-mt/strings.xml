@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Prossimità taċ-ċavetta diġitali &amp; BLE</string>
+    <string name="notification_channel_charging">Iċċarġjar &amp; batterija</string>
+    <string name="notification_channel_charging_description">Progress tal-iċċarġjar, problemi tal-iċċarġjar u avviżi tal-batterija</string>
+    <string name="notification_channel_security">Sigurtà &amp; parkeġġ</string>
+    <string name="notification_channel_security_description">Allarmi ta\' sigurtà, intrużjoni, irmunkar u avviżi ta\' parkeġġ anormali</string>
+    <string name="notification_channel_vehicle">Kontrolli tal-vettura</string>
+    <string name="notification_channel_vehicle_description">Messaġġi ta\' sakkar, bieb, tieqa, klima u kontroll remot</string>
+    <string name="notification_channel_updates">Aġġornamenti tas-software</string>
+    <string name="notification_channel_updates_description">Aġġornamenti tas-software tal-vettura u riżultati tal-installazzjoni</string>
+    <string name="notification_channel_service">Tfakkiriet tas-servizz</string>
+    <string name="notification_channel_service_description">Messaġġi ta\' manutenzjoni, servizz u wara l-bejgħ</string>
+    <string name="notification_channel_news">Aħbarijiet &amp; offerti</string>
+    <string name="notification_channel_news_description">Aħbarijiet, avvenimenti u messaġġi promozzjonali ta\' Zeekr</string>
+    <string name="notification_channel_other">Avviżi tal-karozza (mhux ikkategorizzati)</string>
+    <string name="notification_channel_other_description">Jista\' jinkludi allarmi ta\' sigurtà mwassla fl-isfond u avviżi oħra tal-karozza mingħajr kategorija rikonoxxuta</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Ċavetta diġitali OpenZeekr attiva</string>
+    <string name="proximity_notif_text">Qed iżomm iċ-ċavetta tiegħek konnessa għas-sakkar/ftuħ</string>
+    <string name="proximity_channel_name">Ċavetta diġitali</string>
+</resources>

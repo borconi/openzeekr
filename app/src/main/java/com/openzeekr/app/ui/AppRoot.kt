@@ -60,26 +60,29 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.annotation.StringRes
 import android.content.Intent
 import android.net.Uri
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.ble.DkProvisioning
 import com.openzeekr.app.ui.theme.Brand
 import com.openzeekr.app.net.ReleaseInfo
 import kotlinx.coroutines.launch
 
-private enum class Tab(val label: String, val icon: ImageVector) {
-    VEHICLE("Vehicle", Icons.Filled.DirectionsCar),
-    PARKING("Location", Icons.Filled.LocationOn),
-    SECURITY("Security", Icons.Filled.Shield),
-    SCHEDULE("Schedule", Icons.Filled.CalendarMonth),
-    KEY("Key", Icons.Filled.VpnKey),
-    UPDATES("Updates", Icons.Filled.SystemUpdate),
-    SETTINGS("Settings", Icons.Filled.Settings),
+private enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
+    VEHICLE(R.string.nav_tab_vehicle, Icons.Filled.DirectionsCar),
+    PARKING(R.string.nav_tab_location, Icons.Filled.LocationOn),
+    SECURITY(R.string.nav_tab_security, Icons.Filled.Shield),
+    SCHEDULE(R.string.nav_tab_schedule, Icons.Filled.CalendarMonth),
+    KEY(R.string.nav_tab_key, Icons.Filled.VpnKey),
+    UPDATES(R.string.nav_tab_updates, Icons.Filled.SystemUpdate),
+    SETTINGS(R.string.nav_tab_settings, Icons.Filled.Settings),
     // Sentry footage/live-view stays hidden (sentinel-monitoring-service is CN-only /
     // unrouted on EU). SentryScreen is kept in the tree for when a workaround is found.
 }
@@ -89,6 +92,7 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 fun AppRoot(deps: Deps) {
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val snackbar: (String) -> Unit = { msg -> scope.launch { snackbarHost.showSnackbar(msg) } }
 
     // Flow (mirrors the stock app): logged out -> Settings/login; logged in but no
@@ -117,7 +121,7 @@ fun AppRoot(deps: Deps) {
     val loggedInElsewhere by com.openzeekr.app.net.SessionSignal.loggedInElsewhere.collectAsState()
     LaunchedEffect(loggedInElsewhere) {
         if (loggedInElsewhere) {
-            snackbar("Signed out — your account was opened on another device (e.g. the Zeekr app). Sign in again to reconnect.")
+            snackbar(context.getString(R.string.nav_signed_out_elsewhere))
             com.openzeekr.app.net.SessionSignal.loggedInElsewhere.value = false
         }
     }
@@ -125,7 +129,7 @@ fun AppRoot(deps: Deps) {
     val sessionExpired by com.openzeekr.app.net.SessionSignal.sessionExpired.collectAsState()
     LaunchedEffect(sessionExpired) {
         if (sessionExpired) {
-            snackbar("Session expired — please sign in again.")
+            snackbar(context.getString(R.string.nav_session_expired))
             com.openzeekr.app.net.SessionSignal.sessionExpired.value = false
         }
     }
@@ -174,7 +178,8 @@ fun AppRoot(deps: Deps) {
 
     val bleState by deps.ble.state.collectAsState()
     val bleReady = bleState == DkBleManager.State.SESSION_READY || bleState == DkBleManager.State.CONNECTED
-    val carName = cfg.carNickname.ifBlank { "My Zeekr" }
+    val defaultCarName = stringResource(R.string.nav_default_car_name)
+    val carName = cfg.carNickname.ifBlank { defaultCarName }
     var renaming by remember { mutableStateOf(false) }
     var draftName by remember { mutableStateOf("") }
     var showCarMenu by remember { mutableStateOf(false) }   // multi-car switcher dropdown
@@ -224,7 +229,7 @@ fun AppRoot(deps: Deps) {
 
     Scaffold(
         topBar = {
-            val connText = when { bleReady && loggedIn -> "BLE · Cloud"; bleReady -> "BLE"; loggedIn -> "Cloud"; else -> "Offline" }
+            val connText = when { bleReady && loggedIn -> stringResource(R.string.nav_conn_ble_cloud); bleReady -> stringResource(R.string.nav_conn_ble); loggedIn -> stringResource(R.string.nav_conn_cloud); else -> stringResource(R.string.nav_conn_offline) }
             val connColor = when { bleReady -> Brand.good; loggedIn -> Brand.accent; else -> Brand.faint }
             Row(
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
@@ -244,14 +249,15 @@ fun AppRoot(deps: Deps) {
                                 modifier = if (multiCar) Modifier.clickable { showCarMenu = true } else Modifier,
                             ) {
                                 Text(carName, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (multiCar) Icon(Icons.Filled.ArrowDropDown, "Switch car", tint = Brand.accent, modifier = Modifier.size(22.dp))
+                                if (multiCar) Icon(Icons.Filled.ArrowDropDown, stringResource(R.string.nav_switch_car_cd), tint = Brand.accent, modifier = Modifier.size(22.dp))
                             }
                             DropdownMenu(expanded = showCarMenu, onDismissRequest = { showCarMenu = false }) {
                                 cfg.vehicles.forEach { v ->
                                     val active = v.vin == cfg.vin
-                                    val label = v.name.ifBlank { "VIN ••••${v.vin.takeLast(4)}" }
+                                    val label = v.name.ifBlank { stringResource(R.string.nav_vin_masked, v.vin.takeLast(4)) }
+                                    val prefix = if (active) stringResource(R.string.nav_active_prefix) else stringResource(R.string.nav_inactive_prefix)
                                     DropdownMenuItem(
-                                        text = { Text((if (active) "✓  " else "     ") + label, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal) },
+                                        text = { Text(prefix + label, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal) },
                                         onClick = {
                                             showCarMenu = false
                                             if (!active) {
@@ -259,17 +265,17 @@ fun AppRoot(deps: Deps) {
                                                 // Reload status + capabilities for the newly-active car.
                                                 deps.vehicleState.refreshAfterCommand()
                                                 deps.capabilities.reload()
-                                                snackbar("Switched to $label")
+                                                snackbar(context.getString(R.string.nav_switched_to, label))
                                             }
                                         },
                                     )
                                 }
                             }
                         }
-                        Icon(Icons.Filled.Edit, "Rename car", tint = Brand.faint,
+                        Icon(Icons.Filled.Edit, stringResource(R.string.nav_rename_car_cd), tint = Brand.faint,
                             modifier = Modifier.size(15.dp).clickable { draftName = carName; renaming = true })
                     }
-                    Text(if (cfg.vin.isNotBlank()) "VIN ••••${cfg.vin.takeLast(3)}" else "Tap the pencil to name your car",
+                    Text(if (cfg.vin.isNotBlank()) stringResource(R.string.nav_vin_masked, cfg.vin.takeLast(3)) else stringResource(R.string.nav_name_your_car_hint),
                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 // Notifications bell with unread-count badge. A rounded pill that always shows the number
@@ -277,7 +283,7 @@ fun AppRoot(deps: Deps) {
                 // bell, and nudged onto the icon's top-right corner. Caps at "99+".
                 Box {
                     Icon(
-                        Icons.Filled.NotificationsNone, "Messages", tint = MaterialTheme.colorScheme.onSurface,
+                        Icons.Filled.NotificationsNone, stringResource(R.string.nav_messages_cd), tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(38.dp).clip(CircleShape).clickable { showInbox = true }.padding(7.dp),
                     )
                     if (unread > 0) {
@@ -292,7 +298,7 @@ fun AppRoot(deps: Deps) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                if (unread > 99) "99+" else "$unread",
+                                if (unread > 99) stringResource(R.string.nav_unread_cap) else "$unread",
                                 color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                             )
                         }
@@ -335,10 +341,10 @@ fun AppRoot(deps: Deps) {
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(3.dp),
                             ) {
-                                Icon(t.icon, t.label, tint = tint, modifier = Modifier.size(if (showLabels) 24.dp else 26.dp))
+                                Icon(t.icon, stringResource(t.labelRes), tint = tint, modifier = Modifier.size(if (showLabels) 24.dp else 26.dp))
                                 if (showLabels) {
                                     Text(
-                                        t.label, color = tint, fontSize = 10.sp,
+                                        stringResource(t.labelRes), color = tint, fontSize = 10.sp,
                                         maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
                                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                     )
@@ -385,11 +391,11 @@ fun AppRoot(deps: Deps) {
     if (renaming) {
         AlertDialog(
             onDismissRequest = { renaming = false },
-            title = { Text("Name your car") },
+            title = { Text(stringResource(R.string.nav_name_car_title)) },
             text = {
                 OutlinedTextField(
                     value = draftName, onValueChange = { draftName = it },
-                    singleLine = true, label = { Text("Car name") },
+                    singleLine = true, label = { Text(stringResource(R.string.nav_car_name_label)) },
                 )
             },
             confirmButton = {
@@ -404,9 +410,9 @@ fun AppRoot(deps: Deps) {
                     }
                     if (n.isNotBlank()) deps.appScope.launch { runCatching { deps.control.renameVehicle(n) } }
                     renaming = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.nav_save)) }
             },
-            dismissButton = { TextButton(onClick = { renaming = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { renaming = false }) { Text(stringResource(R.string.nav_cancel)) } },
         )
     }
 
@@ -417,44 +423,42 @@ fun AppRoot(deps: Deps) {
             deps.appScope.launch {
                 when (val r = deps.share.respond(invite, accept)) {
                     is com.openzeekr.app.remote.CallResult.Ok -> {
-                        snackbar(if (accept) "Car added to your garage" else "Invitation declined")
+                        snackbar(if (accept) context.getString(R.string.nav_car_added) else context.getString(R.string.nav_invite_declined))
                         deps.pendingInvites.value = deps.pendingInvites.value.drop(1)
                         if (accept) { deps.vehicleState.refresh(); deps.capabilities.reload() }
                         deps.refreshInvites()
                     }
-                    is com.openzeekr.app.remote.CallResult.Err -> snackbar("Couldn't respond: ${r.message}")
+                    is com.openzeekr.app.remote.CallResult.Err -> snackbar(context.getString(R.string.nav_couldnt_respond, r.message))
                 }
                 inviteBusy = false
             }
         }
         AlertDialog(
             onDismissRequest = { if (!inviteBusy) deps.pendingInvites.value = deps.pendingInvites.value.drop(1) },   // dismiss = decide later
-            title = { Text("Car shared with you") },
+            title = { Text(stringResource(R.string.nav_car_shared_title)) },
             text = {
                 Column {
+                    val modelName = invite.model ?: stringResource(R.string.nav_a_zeekr)
+                    val vinSuffix = invite.vin?.let { stringResource(R.string.nav_vin_dots, it.takeLast(4)) } ?: ""
                     Text(
-                        buildString {
-                            append(invite.model ?: "A Zeekr")
-                            invite.vin?.let { append(" · VIN …").append(it.takeLast(4)) }
-                        },
+                        modelName + vinSuffix,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    invite.ownerName?.let { Text("Shared by $it", fontSize = 13.sp, color = Brand.muted) }
+                    invite.ownerName?.let { Text(stringResource(R.string.nav_shared_by, it), fontSize = 13.sp, color = Brand.muted) }
                     invite.functionNames?.takeIf { it.isNotBlank() }
-                        ?.let { Text("Access: $it", fontSize = 13.sp, color = Brand.muted) }
+                        ?.let { Text(stringResource(R.string.nav_access, it), fontSize = 13.sp, color = Brand.muted) }
                     invite.endTime?.let {
-                        Text("Until ${formatShareDate(it)}", fontSize = 13.sp, color = Brand.muted)
+                        Text(stringResource(R.string.nav_until, formatShareDate(it)), fontSize = 13.sp, color = Brand.muted)
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Accepting adds it to your garage so you can see status and control it. " +
-                            "The offline Bluetooth key is set up separately from the Key tab.",
+                        stringResource(R.string.nav_accept_explainer),
                         fontSize = 12.sp, color = Brand.muted,
                     )
                 }
             },
-            confirmButton = { TextButton(enabled = !inviteBusy, onClick = { respond(true) }) { Text("Accept") } },
-            dismissButton = { TextButton(enabled = !inviteBusy, onClick = { respond(false) }) { Text("Decline") } },
+            confirmButton = { TextButton(enabled = !inviteBusy, onClick = { respond(true) }) { Text(stringResource(R.string.nav_accept)) } },
+            dismissButton = { TextButton(enabled = !inviteBusy, onClick = { respond(false) }) { Text(stringResource(R.string.nav_decline)) } },
         )
     }
 
@@ -464,14 +468,10 @@ fun AppRoot(deps: Deps) {
         val dismiss = { deps.config.update { it.copy(supportNoteShown = true) } }
         AlertDialog(
             onDismissRequest = dismiss,
-            title = { Text("A quick hello 👋") },
+            title = { Text(stringResource(R.string.nav_hello_title)) },
             text = {
                 Text(
-                    "OpenZeekr is a free, non-commercial passion project — not affiliated with Zeekr. " +
-                        "Yes, a lot of it is vibe-coded, but it also took a solid week of sleepless nights " +
-                        "to make your key connect and unlock cleanly.\n\n" +
-                        "If it's useful to you, a small tip keeps development going. Totally optional — " +
-                        "either way, enjoy the app. 💚",
+                    stringResource(R.string.nav_hello_body),
                     fontSize = 14.sp,
                 )
             },
@@ -482,11 +482,11 @@ fun AppRoot(deps: Deps) {
                             Intent(Intent.ACTION_VIEW, Uri.parse(REVOLUT_URL))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                         )
-                    }.onFailure { snackbar("Couldn't open the link") }
+                    }.onFailure { snackbar(context.getString(R.string.nav_couldnt_open_link)) }
                     dismiss()
-                }) { Text("Support ❤️") }
+                }) { Text(stringResource(R.string.nav_support)) }
             },
-            dismissButton = { TextButton(onClick = dismiss) { Text("Maybe later") } },
+            dismissButton = { TextButton(onClick = dismiss) { Text(stringResource(R.string.nav_maybe_later)) } },
         )
     }
 }
@@ -505,17 +505,17 @@ private fun formatShareDate(epoch: Long): String {
 private fun UpdateAvailableDialog(installed: String, rel: ReleaseInfo, onDownload: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Update available") },
+        title = { Text(stringResource(R.string.nav_update_available_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("OpenZeekr ${rel.version} is available. You have $installed.")
+                Text(stringResource(R.string.nav_update_available_body, rel.version, installed))
                 if (rel.notes.isNotBlank()) Text(
                     rel.notes.trim().lines().filter { it.isNotBlank() }.take(8).joinToString("\n"),
                     fontSize = 12.sp, color = Brand.muted,
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDownload) { Text("Download") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Later") } },
+        confirmButton = { TextButton(onClick = onDownload) { Text(stringResource(R.string.nav_download)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.nav_later)) } },
     )
 }

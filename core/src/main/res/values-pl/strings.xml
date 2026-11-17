@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Zbliżeniowy klucz cyfrowy i BLE</string>
+    <string name="notification_channel_charging">Ładowanie i bateria</string>
+    <string name="notification_channel_charging_description">Postęp ładowania, problemy z ładowaniem i alerty baterii</string>
+    <string name="notification_channel_security">Bezpieczeństwo i parkowanie</string>
+    <string name="notification_channel_security_description">Alarmy bezpieczeństwa, włamania, holowania i alerty o nietypowym parkowaniu</string>
+    <string name="notification_channel_vehicle">Sterowanie pojazdem</string>
+    <string name="notification_channel_vehicle_description">Komunikaty o blokowaniu, drzwiach, oknach, klimatyzacji i zdalnym sterowaniu</string>
+    <string name="notification_channel_updates">Aktualizacje oprogramowania</string>
+    <string name="notification_channel_updates_description">Aktualizacje oprogramowania pojazdu i wyniki instalacji</string>
+    <string name="notification_channel_service">Przypomnienia o serwisie</string>
+    <string name="notification_channel_service_description">Komunikaty o konserwacji, serwisie i obsłudze posprzedażowej</string>
+    <string name="notification_channel_news">Aktualności i oferty</string>
+    <string name="notification_channel_news_description">Aktualności, wydarzenia i komunikaty promocyjne Zeekr</string>
+    <string name="notification_channel_other">Alerty auta (bez kategorii)</string>
+    <string name="notification_channel_other_description">Może obejmować alarmy bezpieczeństwa dostarczane w tle oraz inne alerty auta bez rozpoznanej kategorii</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Klucz cyfrowy OpenZeekr aktywny</string>
+    <string name="proximity_notif_text">Utrzymuje klucz połączony do zamykania/otwierania</string>
+    <string name="proximity_channel_name">Klucz cyfrowy</string>
+</resources>

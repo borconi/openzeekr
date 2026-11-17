@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,6 +64,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.config.GeoZone
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.remote.Command
@@ -78,6 +80,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val cfg by deps.config.config.collectAsState()
     // Visitor mode + glovebox PIN are owner-only server-side (a shared/Friend account gets 403), so
     // only surface them when we're logged in as the vehicle owner (vehicle-list `isOwner`).
@@ -118,24 +121,24 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
     }
 
     fun fire(label: String, cmd: Command, extra: List<ServiceParameter> = emptyList(), onErr: () -> Unit = {}) {
-        snackbar("$label…")
+        snackbar(context.getString(R.string.sec_action_pending, label))
         scope.launch {
             when (val r = deps.control.send(cmd, extra)) {
-                is CallResult.Ok -> snackbar("$label ✓")
-                is CallResult.Err -> { snackbar("$label ✗ ${r.message}"); onErr() }
+                is CallResult.Ok -> snackbar(context.getString(R.string.sec_action_ok, label))
+                is CallResult.Err -> { snackbar(context.getString(R.string.sec_action_err, label, r.message)); onErr() }
             }
         }
     }
 
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-        Label("Security & access")
+        Label(stringResource(R.string.sec_header))
         Column(Modifier.padding(horizontal = 20.dp)) {
-            SecRow(Icons.Filled.Shield, "Sentry guard",
-                if (sentry) "Armed" else "Off") {
+            SecRow(Icons.Filled.Shield, stringResource(R.string.sec_sentry_guard),
+                if (sentry) stringResource(R.string.sec_armed) else stringResource(R.string.sec_off)) {
                 Switch(checked = sentry, onCheckedChange = { on ->
                     sentry = on
                     // Revert the optimistic flip if the command is refused (e.g. #41: car not locked).
-                    fire(if (on) "Sentry on" else "Sentry off", if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF,
+                    fire(if (on) context.getString(R.string.sec_sentry_on) else context.getString(R.string.sec_sentry_off), if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF,
                         onErr = { sentry = !on })
                 }, colors = brandSwitchColors(Brand.good))
             }
@@ -144,39 +147,44 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
             SentryAutoArmSection(deps)
             // Owner-only (shared accounts are refused server-side). Both need the user's PIN.
             if (owner) {
-                SecRow(Icons.Filled.Inventory2, "Glovebox lock",
-                    if (gloveboxLocked) "Locked · tap to unlock" else "Unlocked · tap to lock") {
+                SecRow(Icons.Filled.Inventory2, stringResource(R.string.sec_glovebox_lock),
+                    if (gloveboxLocked) stringResource(R.string.sec_glovebox_locked_sub) else stringResource(R.string.sec_glovebox_unlocked_sub)) {
                     Switch(checked = gloveboxLocked, onCheckedChange = { lock ->
                         // Enter PIN first; only flip once the command is confirmed.
                         pinFor = if (lock) Command.GLOVEBOX_LOCK else Command.GLOVEBOX_UNLOCK
                     }, colors = brandSwitchColors(Brand.good))
                 }
-                SecRow(Icons.Filled.Person, "Visitor mode", "Restricted access for a guest / valet") {
+                SecRow(Icons.Filled.Person, stringResource(R.string.sec_visitor_mode), stringResource(R.string.sec_visitor_sub)) {
                     Switch(checked = visitor, onCheckedChange = { on ->
                         // Enter PIN first; only flip the toggle once the command is confirmed.
                         pinFor = if (on) Command.VISITOR_ON else Command.VISITOR_OFF
                     }, colors = brandSwitchColors(Brand.good))
                 }
-                // Journey log is also owner-only server-side (a shared/Friend account is refused —
+                // Journey log is also owner-only server-side (a shared/Friend account is refused -
                 // confirmed 2026-09-16 against the stock app), so it lives inside the owner gate.
-                SecRow(Icons.Filled.Timeline, "Journey log", "Trips · distance & energy · export",
+                SecRow(Icons.Filled.Timeline, stringResource(R.string.sec_journey_log), stringResource(R.string.sec_journey_sub),
                     onClick = { showJourney = true }) { Chevron() }
                 // Car sharing: see who the car is shared with and revoke access (owner-only).
-                SecRow(Icons.Filled.Group, "Car sharing", "See who has access · revoke",
+                SecRow(Icons.Filled.Group, stringResource(R.string.sec_car_sharing), stringResource(R.string.sec_car_sharing_sub),
                     onClick = { showShare = true }) { Chevron() }
             }
         }
 
         pinFor?.let { cmd ->
             val title = when (cmd) {
-                Command.GLOVEBOX_LOCK -> "Glovebox — lock with PIN"
-                Command.GLOVEBOX_UNLOCK -> "Glovebox — unlock with PIN"
-                Command.VISITOR_ON -> "Visitor mode — set PIN"
-                Command.VISITOR_OFF -> "Visitor mode — enter PIN"
-                else -> "Enter PIN"
+                Command.GLOVEBOX_LOCK -> stringResource(R.string.sec_glovebox_lock_title)
+                Command.GLOVEBOX_UNLOCK -> stringResource(R.string.sec_glovebox_unlock_title)
+                Command.VISITOR_ON -> stringResource(R.string.sec_visitor_set_pin_title)
+                Command.VISITOR_OFF -> stringResource(R.string.sec_visitor_enter_pin_title)
+                else -> stringResource(R.string.sec_enter_pin)
+            }
+            val label = when (cmd) {
+                Command.GLOVEBOX_LOCK, Command.GLOVEBOX_UNLOCK -> stringResource(R.string.sec_glovebox_label)
+                Command.VISITOR_ON, Command.VISITOR_OFF -> stringResource(R.string.sec_visitor_label)
+                else -> stringResource(R.string.sec_enter_pin)
             }
             PinDialog(title, onDismiss = { pinFor = null }, onConfirm = { pin ->
-                fire(title.substringBefore(" —"), cmd, listOf(ServiceParameter("code", pin)))
+                fire(label, cmd, listOf(ServiceParameter("code", pin)))
                 when (cmd) {
                     Command.VISITOR_ON -> visitor = true
                     Command.VISITOR_OFF -> visitor = false
@@ -188,7 +196,7 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
             })
         }
         Text(
-            "Send-to-car isn't a button — OpenZeekr registers as a share target, so a pin dropped in Maps goes straight to the car's nav.",
+            stringResource(R.string.sec_send_to_car_note),
             color = Brand.faint, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
         )
     }
@@ -215,10 +223,10 @@ private fun SentryAutoArmSection(deps: Deps) {
     var pickerStart by remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
     fun captureLocation() {
-        msg = "Getting your location…"
+        msg = ctx.getString(R.string.sec_getting_location)
         scope.launch {
             val loc = deps.sentryAutoArm.currentLocation()
-            if (loc == null) msg = "Couldn't get a location fix - check location permission and that location is on."
+            if (loc == null) msg = ctx.getString(R.string.sec_no_location_fix)
             else { msg = ""; pending = loc }
         }
     }
@@ -238,7 +246,7 @@ private fun SentryAutoArmSection(deps: Deps) {
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.any { it }) captureLocation()
-        else msg = "Location permission is needed to add an exclusion zone."
+        else msg = ctx.getString(R.string.sec_location_perm_needed)
     }
 
     fun hasLocationPerm(): Boolean =
@@ -248,8 +256,8 @@ private fun SentryAutoArmSection(deps: Deps) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Auto-enable Sentry when the car locks", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text("Arms Sentry on walk-away (and manual) lock. Skipped inside your exclusion zones below.",
+                Text(stringResource(R.string.sec_auto_sentry_title), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(stringResource(R.string.sec_auto_sentry_sub),
                     color = Brand.muted, fontSize = 12.sp)
             }
             Switch(
@@ -259,9 +267,9 @@ private fun SentryAutoArmSection(deps: Deps) {
             )
         }
         if (cfg.autoSentryOnLock) {
-            Text("Exclusion zones (no Sentry here)", color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.sec_exclusion_zones_sentry), color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             if (cfg.sentryExclusionZones.isEmpty()) {
-                Text("None yet. Add your home or other trusted spots so Sentry isn't armed there.",
+                Text(stringResource(R.string.sec_no_zones_sentry),
                     color = Brand.faint, fontSize = 11.5.sp)
             } else {
                 cfg.sentryExclusionZones.forEach { zone ->
@@ -271,12 +279,12 @@ private fun SentryAutoArmSection(deps: Deps) {
                     ) {
                         Icon(Icons.Filled.Shield, null, tint = Brand.muted, modifier = Modifier.size(16.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(zone.name.ifBlank { "Unnamed zone" }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-                            Text("${"%.4f".format(zone.lat)}, ${"%.4f".format(zone.lng)} · ${zone.radiusMeters.toInt()} m radius",
+                            Text(zone.name.ifBlank { stringResource(R.string.sec_unnamed_zone) }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.sec_zone_coords, "%.4f".format(zone.lat), "%.4f".format(zone.lng), zone.radiusMeters.toInt()),
                                 color = Brand.muted, fontSize = 11.sp)
                         }
                         IconButton(onClick = { store.removeSentryExclusionZone(zone) }) {
-                            Icon(Icons.Filled.Delete, "Remove zone", tint = Brand.crit, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Filled.Delete, stringResource(R.string.sec_remove_zone), tint = Brand.crit, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -286,11 +294,11 @@ private fun SentryAutoArmSection(deps: Deps) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
-                Text("  Add current location")
+                Text(stringResource(R.string.sec_add_current_location))
             }
             OutlinedButton(onClick = { openMapPicker() }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Place, null, modifier = Modifier.size(18.dp))
-                Text("  Add on map")
+                Text(stringResource(R.string.sec_add_on_map))
             }
             if (msg.isNotBlank()) Text(msg, color = Brand.muted, fontSize = 11.5.sp)
         }
@@ -303,7 +311,7 @@ private fun SentryAutoArmSection(deps: Deps) {
             onConfirm = { name, radius ->
                 store.addSentryExclusionZone(GeoZone(name = name, lat = loc.latitude, lng = loc.longitude, radiusMeters = radius))
                 pending = null
-                msg = "Saved \"$name\"."
+                msg = ctx.getString(R.string.sec_saved_zone, name)
             },
         )
     }
@@ -314,7 +322,7 @@ private fun SentryAutoArmSection(deps: Deps) {
         onSave = { nm, la, lo, r ->
             store.addSentryExclusionZone(GeoZone(name = nm, lat = la, lng = lo, radiusMeters = r))
             showPicker = false
-            msg = "Saved \"$nm\"."
+            msg = ctx.getString(R.string.sec_saved_zone, nm)
         },
     )
 }
@@ -342,10 +350,10 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     fun captureLocation() {
-        msg = "Getting your location…"
+        msg = ctx.getString(R.string.sec_getting_location)
         scope.launch {
             val loc = sentryAutoArm.currentLocation()
-            if (loc == null) msg = "Couldn't get a location fix - check location permission and that location is on."
+            if (loc == null) msg = ctx.getString(R.string.sec_no_location_fix)
             else { msg = ""; pending = loc }
         }
     }
@@ -360,13 +368,13 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
 
     val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.any { it }) captureLocation()
-        else msg = "Location permission is needed to add an exclusion zone."
+        else msg = ctx.getString(R.string.sec_location_perm_needed)
     }
 
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Exclusion zones (no auto-lock/unlock here)", color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.sec_exclusion_zones_prox), color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         if (cfg.proximityExclusionZones.isEmpty()) {
-            Text("None yet. Add your home so the car isn't auto-locked or unlocked (and doesn't keep chirping) while parked there.",
+            Text(stringResource(R.string.sec_no_zones_prox),
                 color = Brand.faint, fontSize = 11.5.sp)
         } else {
             cfg.proximityExclusionZones.forEach { zone ->
@@ -376,12 +384,12 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
                 ) {
                     Icon(Icons.Filled.Place, null, tint = Brand.muted, modifier = Modifier.size(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(zone.name.ifBlank { "Unnamed zone" }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-                        Text("${"%.4f".format(zone.lat)}, ${"%.4f".format(zone.lng)} · ${zone.radiusMeters.toInt()} m radius",
+                        Text(zone.name.ifBlank { stringResource(R.string.sec_unnamed_zone) }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.sec_zone_coords, "%.4f".format(zone.lat), "%.4f".format(zone.lng), zone.radiusMeters.toInt()),
                             color = Brand.muted, fontSize = 11.sp)
                     }
                     IconButton(onClick = { store.removeProximityExclusionZone(zone) }) {
-                        Icon(Icons.Filled.Delete, "Remove zone", tint = Brand.crit, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Delete, stringResource(R.string.sec_remove_zone), tint = Brand.crit, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -391,11 +399,11 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
-            Text("  Add current location")
+            Text(stringResource(R.string.sec_add_current_location))
         }
         OutlinedButton(onClick = { openMapPicker() }, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Filled.Place, null, modifier = Modifier.size(18.dp))
-            Text("  Add on map")
+            Text(stringResource(R.string.sec_add_on_map))
         }
         if (msg.isNotBlank()) Text(msg, color = Brand.muted, fontSize = 11.5.sp)
     }
@@ -407,7 +415,7 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
             onConfirm = { name, radius ->
                 store.addProximityExclusionZone(GeoZone(name = name, lat = loc.latitude, lng = loc.longitude, radiusMeters = radius))
                 pending = null
-                msg = "Saved \"$name\"."
+                msg = ctx.getString(R.string.sec_saved_zone, name)
             },
         )
     }
@@ -418,7 +426,7 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
         onSave = { nm, la, lo, r ->
             store.addProximityExclusionZone(GeoZone(name = nm, lat = la, lng = lo, radiusMeters = r))
             showPicker = false
-            msg = "Saved \"$nm\"."
+            msg = ctx.getString(R.string.sec_saved_zone, nm)
         },
     )
 }
@@ -440,27 +448,27 @@ private fun ZonePickerDialog(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 12.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Add exclusion zone", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
-                IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Close", tint = Brand.muted) }
+                Text(stringResource(R.string.sec_add_exclusion_zone), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, stringResource(R.string.sec_close), tint = Brand.muted) }
             }
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 ZonePickerMap(initial?.first, initial?.second, radius.toDouble(), onCenterChange = { la, lo -> lat = la; lng = lo }, Modifier.matchParentSize())
             }
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Pan the map so the pin is on the spot - the circle is the zone.", color = Brand.muted, fontSize = 12.sp)
+                Text(stringResource(R.string.sec_pan_map_hint), color = Brand.muted, fontSize = 12.sp)
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Name (e.g. Home)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.sec_name_hint)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
-                Text("Radius: ${radius.toInt()} m", color = Color.White, fontSize = 13.sp)
+                Text(stringResource(R.string.sec_radius_value, radius.toInt()), color = Color.White, fontSize = 13.sp)
                 Slider(value = radius, onValueChange = { radius = it }, valueRange = 50f..500f)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.sec_cancel)) }
                     Button(
                         onClick = { onSave(name.trim(), lat, lng, radius.toDouble()) },
                         enabled = name.isNotBlank(),
                         modifier = Modifier.weight(1f),
-                    ) { Text("Save") }
+                    ) { Text(stringResource(R.string.sec_save)) }
                 }
             }
         }
@@ -474,18 +482,18 @@ private fun AddZoneDialog(lat: Double, lng: Double, onDismiss: () -> Unit, onCon
     var radius by remember { mutableStateOf("150") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add exclusion zone") },
+        title = { Text(stringResource(R.string.sec_add_exclusion_zone)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("At ${"%.4f".format(lat)}, ${"%.4f".format(lng)}", color = Brand.muted, fontSize = 12.sp)
+                Text(stringResource(R.string.sec_at_coords, "%.4f".format(lat), "%.4f".format(lng)), color = Brand.muted, fontSize = 12.sp)
                 OutlinedTextField(
                     value = name, onValueChange = { name = it },
-                    label = { Text("Name (e.g. Home)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.sec_name_hint)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = radius,
                     onValueChange = { v -> if (v.length <= 5 && v.all(Char::isDigit)) radius = v },
-                    label = { Text("Radius (metres)") }, singleLine = true,
+                    label = { Text(stringResource(R.string.sec_radius_label)) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -495,9 +503,9 @@ private fun AddZoneDialog(lat: Double, lng: Double, onDismiss: () -> Unit, onCon
             TextButton(
                 enabled = name.isNotBlank() && (radius.toIntOrNull() ?: 0) > 0,
                 onClick = { onConfirm(name.trim(), (radius.toIntOrNull() ?: 150).toDouble()) },
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.sec_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.sec_cancel)) } },
     )
 }
 
@@ -511,13 +519,13 @@ private fun PinDialog(title: String, onDismiss: () -> Unit, onConfirm: (String) 
             OutlinedTextField(
                 value = pin,
                 onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) pin = it },
-                label = { Text("PIN") },
+                label = { Text(stringResource(R.string.sec_pin)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             )
         },
-        confirmButton = { TextButton(enabled = pin.length >= 4, onClick = { onConfirm(pin) }) { Text("Confirm") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(enabled = pin.length >= 4, onClick = { onConfirm(pin) }) { Text(stringResource(R.string.sec_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.sec_cancel)) } },
     )
 }
 

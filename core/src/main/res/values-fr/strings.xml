@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Proximité clé numérique &amp; BLE</string>
+    <string name="notification_channel_charging">Charge &amp; batterie</string>
+    <string name="notification_channel_charging_description">Progression de la charge, problèmes de charge et alertes de batterie</string>
+    <string name="notification_channel_security">Sécurité &amp; stationnement</string>
+    <string name="notification_channel_security_description">Alarmes de sécurité, intrusion, remorquage et alertes de stationnement anormal</string>
+    <string name="notification_channel_vehicle">Commandes du véhicule</string>
+    <string name="notification_channel_vehicle_description">Messages de verrouillage, portes, vitres, climatisation et contrôle à distance</string>
+    <string name="notification_channel_updates">Mises à jour logicielles</string>
+    <string name="notification_channel_updates_description">Mises à jour logicielles du véhicule et résultats d\'installation</string>
+    <string name="notification_channel_service">Rappels d\'entretien</string>
+    <string name="notification_channel_service_description">Messages de maintenance, d\'entretien et d\'après-vente</string>
+    <string name="notification_channel_news">Actualités &amp; offres</string>
+    <string name="notification_channel_news_description">Actualités Zeekr, événements et messages promotionnels</string>
+    <string name="notification_channel_other">Alertes voiture (non catégorisées)</string>
+    <string name="notification_channel_other_description">Peut inclure des alarmes de sécurité délivrées en arrière-plan et d\'autres alertes voiture sans catégorie reconnue</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Clé numérique OpenZeekr active</string>
+    <string name="proximity_notif_text">Maintient votre clé connectée pour verrouiller/déverrouiller</string>
+    <string name="proximity_channel_name">Clé numérique</string>
+</resources>

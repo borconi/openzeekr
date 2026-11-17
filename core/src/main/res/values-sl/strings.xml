@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Bližina digitalnega ključa in BLE</string>
+    <string name="notification_channel_charging">Polnjenje in baterija</string>
+    <string name="notification_channel_charging_description">Potek polnjenja, težave s polnjenjem in opozorila o bateriji</string>
+    <string name="notification_channel_security">Varnost in parkiranje</string>
+    <string name="notification_channel_security_description">Varnostni alarmi, vdor, vlečenje in opozorila o neobičajnem parkiranju</string>
+    <string name="notification_channel_vehicle">Upravljanje vozila</string>
+    <string name="notification_channel_vehicle_description">Sporočila o zaklepanju, vratih, oknih, klimi in daljinskem upravljanju</string>
+    <string name="notification_channel_updates">Posodobitve programske opreme</string>
+    <string name="notification_channel_updates_description">Posodobitve programske opreme vozila in rezultati namestitve</string>
+    <string name="notification_channel_service">Opomniki za servis</string>
+    <string name="notification_channel_service_description">Sporočila o vzdrževanju, servisu in poprodajnih storitvah</string>
+    <string name="notification_channel_news">Novice in ponudbe</string>
+    <string name="notification_channel_news_description">Novice, dogodki in promocijska sporočila Zeekr</string>
+    <string name="notification_channel_other">Opozorila avta (nerazvrščeno)</string>
+    <string name="notification_channel_other_description">Lahko vključuje varnostne alarme, dostavljene v ozadju, in druga opozorila avta brez prepoznane kategorije</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Digitalni ključ OpenZeekr aktiven</string>
+    <string name="proximity_notif_text">Ohranja vaš ključ povezan za zaklepanje/odklepanje</string>
+    <string name="proximity_channel_name">Digitalni ključ</string>
+</resources>

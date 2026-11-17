@@ -53,9 +53,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.openzeekr.app.R
 import com.openzeekr.app.ui.theme.Brand
 
 /**
@@ -77,11 +79,11 @@ fun HeroLabScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 28.dp)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface,
+                Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.herolab_cd_back), tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onBack).padding(8.dp),
             )
             Spacer(Modifier.width(6.dp))
-            Text("Hero Lab", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text(stringResource(R.string.herolab_title), fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
 
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -91,8 +93,13 @@ fun HeroLabScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
         LabSwatches(model.colors, paint) { paint = it }
 
         HeroMode.entries.forEach { mode ->
+            val modeLabel = when (mode) {
+                HeroMode.STILL -> stringResource(R.string.herolab_mode_still)
+                HeroMode.CHARGING -> stringResource(R.string.herolab_mode_charging)
+                HeroMode.DRIVING -> stringResource(R.string.herolab_mode_driving)
+            }
             Text(
-                mode.label, color = Brand.faint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                modeLabel, color = Brand.faint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 22.dp, top = 16.dp, bottom = 2.dp),
             )
             LabHeroCard(model, paint, mode)

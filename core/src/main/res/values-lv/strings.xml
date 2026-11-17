@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digitālās atslēgas tuvums un BLE</string>
+    <string name="notification_channel_charging">Uzlāde un akumulators</string>
+    <string name="notification_channel_charging_description">Uzlādes gaita, uzlādes problēmas un akumulatora brīdinājumi</string>
+    <string name="notification_channel_security">Drošība un novietošana</string>
+    <string name="notification_channel_security_description">Drošības trauksmes, ielaušanās, aizvilkšanas un neparastas novietošanas brīdinājumi</string>
+    <string name="notification_channel_vehicle">Automašīnas vadība</string>
+    <string name="notification_channel_vehicle_description">Slēdzenes, durvju, logu, klimata un tālvadības ziņojumi</string>
+    <string name="notification_channel_updates">Programmatūras atjauninājumi</string>
+    <string name="notification_channel_updates_description">Automašīnas programmatūras atjauninājumi un instalēšanas rezultāti</string>
+    <string name="notification_channel_service">Apkopes atgādinājumi</string>
+    <string name="notification_channel_service_description">Tehniskās apkopes, servisa un pēcpārdošanas ziņojumi</string>
+    <string name="notification_channel_news">Jaunumi un piedāvājumi</string>
+    <string name="notification_channel_news_description">Zeekr jaunumi, pasākumi un reklāmas ziņojumi</string>
+    <string name="notification_channel_other">Automašīnas brīdinājumi (nekategorizēti)</string>
+    <string name="notification_channel_other_description">Var ietvert fonā piegādātas drošības trauksmes un citus automašīnas brīdinājumus bez atpazītas kategorijas</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digitālā atslēga ir aktīva</string>
+    <string name="proximity_notif_text">Uztur atslēgu savienotu slēgšanai/atslēgšanai</string>
+    <string name="proximity_channel_name">Digitālā atslēga</string>
+</resources>

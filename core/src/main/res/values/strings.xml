@@ -17,4 +17,9 @@
     <string name="notification_channel_news_description">Zeekr news, events and promotional messages</string>
     <string name="notification_channel_other">Car alerts (uncategorised)</string>
     <string name="notification_channel_other_description">May include security alarms delivered in the background and other car alerts without a recognised category</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digital key active</string>
+    <string name="proximity_notif_text">Keeping your key connected for lock/unlock</string>
+    <string name="proximity_channel_name">Digital key</string>
 </resources>

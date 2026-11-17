@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Proximidade da chave digital e BLE</string>
+    <string name="notification_channel_charging">Carregamento e bateria</string>
+    <string name="notification_channel_charging_description">Progresso do carregamento, problemas de carregamento e alertas de bateria</string>
+    <string name="notification_channel_security">Segurança e estacionamento</string>
+    <string name="notification_channel_security_description">Alarmes de segurança, intrusão, reboque e alertas de estacionamento anormal</string>
+    <string name="notification_channel_vehicle">Controles do veículo</string>
+    <string name="notification_channel_vehicle_description">Mensagens de travamento, portas, janelas, climatização e controle remoto</string>
+    <string name="notification_channel_updates">Atualizações de software</string>
+    <string name="notification_channel_updates_description">Atualizações de software do veículo e resultados da instalação</string>
+    <string name="notification_channel_service">Lembretes de revisão</string>
+    <string name="notification_channel_service_description">Mensagens de manutenção, revisão e pós-venda</string>
+    <string name="notification_channel_news">Notícias e ofertas</string>
+    <string name="notification_channel_news_description">Notícias, eventos e mensagens promocionais da Zeekr</string>
+    <string name="notification_channel_other">Alertas do carro (sem categoria)</string>
+    <string name="notification_channel_other_description">Pode incluir alarmes de segurança entregues em segundo plano e outros alertas do carro sem uma categoria reconhecida</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Chave digital OpenZeekr ativa</string>
+    <string name="proximity_notif_text">Mantendo sua chave conectada para trancar/destrancar</string>
+    <string name="proximity_channel_name">Chave digital</string>
+</resources>

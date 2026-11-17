@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Gaireacht eochrach digití &amp; BLE</string>
+    <string name="notification_channel_charging">Luchtú &amp; ceallra</string>
+    <string name="notification_channel_charging_description">Dul chun cinn luchtaithe, fadhbanna luchtaithe agus foláirimh ceallra</string>
+    <string name="notification_channel_security">Slándáil &amp; páirceáil</string>
+    <string name="notification_channel_security_description">Aláraim slándála, cur isteach, tarraingt agus foláirimh páirceála neamhghnácha</string>
+    <string name="notification_channel_vehicle">Rialúcháin feithicle</string>
+    <string name="notification_channel_vehicle_description">Teachtaireachtaí glais, dorais, fuinneoige, aeráide agus cianrialaithe</string>
+    <string name="notification_channel_updates">Nuashonruithe bogearraí</string>
+    <string name="notification_channel_updates_description">Nuashonruithe bogearraí feithicle agus torthaí suiteála</string>
+    <string name="notification_channel_service">Meabhrúcháin seirbhíse</string>
+    <string name="notification_channel_service_description">Teachtaireachtaí cothabhála, seirbhíse agus iardhíolacháin</string>
+    <string name="notification_channel_news">Nuacht &amp; tairiscintí</string>
+    <string name="notification_channel_news_description">Nuacht, imeachtaí agus teachtaireachtaí bolscaireachta Zeekr</string>
+    <string name="notification_channel_other">Foláirimh cairr (gan chatagóiriú)</string>
+    <string name="notification_channel_other_description">D\'fhéadfadh aláraim slándála a sheoltar sa chúlra agus foláirimh cairr eile gan chatagóir aitheanta a bheith san áireamh</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Eochair dhigiteach OpenZeekr gníomhach</string>
+    <string name="proximity_notif_text">Ag coinneáil d\'eochair nasctha le haghaidh glasála/díghlasála</string>
+    <string name="proximity_channel_name">Eochair dhigiteach</string>
+</resources>

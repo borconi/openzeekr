@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digital nyckel-närhet &amp; BLE</string>
+    <string name="notification_channel_charging">Laddning &amp; batteri</string>
+    <string name="notification_channel_charging_description">Laddningsförlopp, laddningsproblem och batterivarningar</string>
+    <string name="notification_channel_security">Säkerhet &amp; parkering</string>
+    <string name="notification_channel_security_description">Säkerhetslarm, inbrott, bogsering och onormala parkeringsvarningar</string>
+    <string name="notification_channel_vehicle">Fordonsstyrning</string>
+    <string name="notification_channel_vehicle_description">Meddelanden om låsning, dörr, fönster, klimat och fjärrstyrning</string>
+    <string name="notification_channel_updates">Programvaruuppdateringar</string>
+    <string name="notification_channel_updates_description">Fordonets programvaruuppdateringar och installationsresultat</string>
+    <string name="notification_channel_service">Servicepåminnelser</string>
+    <string name="notification_channel_service_description">Underhåll, service och eftermarknadsmeddelanden</string>
+    <string name="notification_channel_news">Nyheter &amp; erbjudanden</string>
+    <string name="notification_channel_news_description">Zeekr-nyheter, evenemang och reklammeddelanden</string>
+    <string name="notification_channel_other">Bilvarningar (okategoriserade)</string>
+    <string name="notification_channel_other_description">Kan inkludera säkerhetslarm som levereras i bakgrunden och andra bilvarningar utan en igenkänd kategori</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digital nyckel aktiv</string>
+    <string name="proximity_notif_text">Håller din nyckel ansluten för låsning/upplåsning</string>
+    <string name="proximity_channel_name">Digital nyckel</string>
+</resources>

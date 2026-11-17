@@ -520,8 +520,8 @@ class ProximityService : Service() {
     private fun startInForeground() {
         createChannel()
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("OpenZeekr digital key active")
-            .setContentText("Keeping your key connected for lock/unlock")
+            .setContentTitle(getString(R.string.proximity_notif_title))
+            .setContentText(getString(R.string.proximity_notif_text))
             .setSmallIcon(R.drawable.ic_logo)
             .setOngoing(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
@@ -537,7 +537,7 @@ class ProximityService : Service() {
             val mgr = getSystemService(NotificationManager::class.java)
             if (mgr.getNotificationChannel(CHANNEL_ID) == null) {
                 mgr.createNotificationChannel(
-                    NotificationChannel(CHANNEL_ID, "Digital key", NotificationManager.IMPORTANCE_LOW)
+                    NotificationChannel(CHANNEL_ID, getString(R.string.proximity_channel_name), NotificationManager.IMPORTANCE_LOW)
                 )
             }
         }

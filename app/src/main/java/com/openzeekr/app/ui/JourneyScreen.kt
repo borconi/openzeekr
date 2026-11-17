@@ -1,5 +1,6 @@
 package com.openzeekr.app.ui
 
+import android.content.Context
 import android.content.Intent
 import android.location.Geocoder
 import android.net.Uri
@@ -42,12 +43,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.annotation.StringRes
 import androidx.core.content.FileProvider
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.config.Units
 import com.openzeekr.app.net.model.JourneyTrip
 import com.openzeekr.app.remote.CallResult
@@ -102,7 +106,7 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
                 hasMore = pg.hasMore
                 error = null
             }
-            is CallResult.Err -> if (reset) error = r.message else snackbar("Couldn't load more — tap to retry")
+            is CallResult.Err -> if (reset) error = r.message else snackbar(ctx.getString(R.string.journey_load_more_failed))
         }
         loading = false; loadingMore = false
     }
@@ -112,7 +116,7 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
 
     fun shareCsv(rows: List<JourneyTrip>) {
         runCatching {
-            val csv = buildCsv(rows, cfg.distanceUnit)
+            val csv = buildCsv(ctx, rows, cfg.distanceUnit)
             val dir = File(ctx.cacheDir, "exports").apply { mkdirs() }
             val stamp = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
             val file = File(dir, "zeekr-journeys-$stamp.csv")
@@ -121,11 +125,11 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Zeekr journey log")
+                putExtra(Intent.EXTRA_SUBJECT, ctx.getString(R.string.journey_export_subject))
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            ctx.startActivity(Intent.createChooser(send, "Export journeys"))
-        }.onFailure { snackbar("Export failed: ${it.message ?: it.javaClass.simpleName}") }
+            ctx.startActivity(Intent.createChooser(send, ctx.getString(R.string.journey_export_chooser)))
+        }.onFailure { snackbar(ctx.getString(R.string.journey_export_failed, it.message ?: it.javaClass.simpleName)) }
     }
 
     // Issue #39: export the WHOLE history, not just the rows currently on screen. Page through from the
@@ -136,7 +140,7 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
         if (exporting) return
         scope.launch {
             exporting = true
-            snackbar("Preparing export…")
+            snackbar(ctx.getString(R.string.journey_preparing_export))
             val all = LinkedHashMap<String, JourneyTrip>()
             var p = 1
             var more = true
@@ -153,11 +157,11 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             }
             exporting = false
             when {
-                all.isEmpty() && failed -> snackbar("Couldn't load trips to export - tap Reload, then try again")
-                all.isEmpty() -> snackbar("No trips to export")
+                all.isEmpty() && failed -> snackbar(ctx.getString(R.string.journey_export_none_failed))
+                all.isEmpty() -> snackbar(ctx.getString(R.string.journey_export_empty))
                 else -> {
                     shareCsv(all.values.toList())
-                    if (failed) snackbar("Exported ${all.size} trips; some pages couldn't load - retry for the rest")
+                    if (failed) snackbar(ctx.getString(R.string.journey_export_partial, all.size))
                 }
             }
         }
@@ -171,11 +175,11 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack, "Back",
+                Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.journey_cd_back),
                 tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable { onBack() }.padding(8.dp),
             )
-            Text("Journey log", fontWeight = FontWeight.Bold, fontSize = 18.sp,
+            Text(stringResource(R.string.journey_title), fontWeight = FontWeight.Bold, fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
         }
 
@@ -186,14 +190,14 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Record trips", fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                Text(stringResource(R.string.journey_record_trips), fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface)
                 Text(
                     when {
-                        settingLog -> "Updating…"
-                        logging == null -> "Lets the car log your drives so they appear here."
-                        logging == true -> "On - the car is logging your drives."
-                        else -> "Off - turn on to start logging drives here."
+                        settingLog -> stringResource(R.string.journey_updating)
+                        logging == null -> stringResource(R.string.journey_record_hint_unknown)
+                        logging == true -> stringResource(R.string.journey_record_on)
+                        else -> stringResource(R.string.journey_record_off)
                     },
                     color = Brand.muted, fontSize = 12.sp,
                 )
@@ -206,8 +210,8 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
                     logging = on // optimistic
                     scope.launch {
                         when (val r = deps.journey.setLogging(on)) {
-                            is CallResult.Ok -> snackbar(if (on) "Trip recording on" else "Trip recording off")
-                            is CallResult.Err -> { snackbar("Couldn't change recording ✗ ${r.message}"); logging = !on }
+                            is CallResult.Ok -> snackbar(if (on) ctx.getString(R.string.journey_recording_on) else ctx.getString(R.string.journey_recording_off))
+                            is CallResult.Err -> { snackbar(ctx.getString(R.string.journey_recording_failed, r.message)); logging = !on }
                         }
                         // Re-read to reflect the car's real state (the command is vehicle-relayed).
                         (deps.journey.loggingEnabled() as? CallResult.Ok)?.value?.let { logging = it }
@@ -220,7 +224,7 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
         // Export to CSV, but only the date range the user picks - a multi-year history would be painful
         // to pull whole (#39). The button opens a range picker; the chosen window drives the page walk.
         PrimaryButton(
-            if (exporting) "Preparing export…" else "Export to CSV",
+            if (exporting) stringResource(R.string.journey_preparing_export) else stringResource(R.string.journey_export_csv),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             enabled = trips.isNotEmpty() && !exporting,
             onClick = { showExportRange = true },
@@ -232,17 +236,17 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             }
             error != null && trips.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                    JourneyEmptyInner(Icons.Filled.Timeline, "Couldn't load trips", error ?: "Unknown error")
+                    JourneyEmptyInner(Icons.Filled.Timeline, stringResource(R.string.journey_load_failed_title), error ?: stringResource(R.string.journey_unknown_error))
                     Spacer(Modifier.size(16.dp))
-                    PrimaryButton("Reload", modifier = Modifier.fillMaxWidth()) { scope.launch { load(reset = true) } }
+                    PrimaryButton(stringResource(R.string.journey_reload), modifier = Modifier.fillMaxWidth()) { scope.launch { load(reset = true) } }
                 }
             }
             trips.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                    JourneyEmptyInner(Icons.Filled.Route, "No trips yet",
-                        "Your recent drives — distance, energy and duration — will show up here.")
+                    JourneyEmptyInner(Icons.Filled.Route, stringResource(R.string.journey_empty_title),
+                        stringResource(R.string.journey_empty_subtitle))
                     Spacer(Modifier.size(16.dp))
-                    PrimaryButton("Reload", modifier = Modifier.fillMaxWidth()) { scope.launch { load(reset = true) } }
+                    PrimaryButton(stringResource(R.string.journey_reload), modifier = Modifier.fillMaxWidth()) { scope.launch { load(reset = true) } }
                 }
             }
             else -> LazyColumn(
@@ -254,7 +258,7 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
                 if (hasMore) item("load-more") {
                     Box(Modifier.fillMaxWidth().padding(top = 6.dp), Alignment.Center) {
                         if (loadingMore) CircularProgressIndicator(color = Brand.accent, modifier = Modifier.size(26.dp))
-                        else GhostButton("Load more", Modifier.fillMaxWidth()) { scope.launch { load(reset = false) } }
+                        else GhostButton(stringResource(R.string.journey_load_more), Modifier.fillMaxWidth()) { scope.launch { load(reset = false) } }
                     }
                 }
             }
@@ -271,12 +275,12 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
 
 /** Date-range choices for the CSV export (#39). Presets plus a custom range, so a long history isn't
  *  pulled whole. `days = null` means "custom" (handled by the date-range picker). */
-private enum class ExportRange(val label: String, val days: Int?) {
-    DAYS_30("Last 30 days", 30),
-    DAYS_90("Last 3 months", 90),
-    DAYS_180("Last 6 months", 180),
-    DAYS_365("Last 12 months", 365),
-    CUSTOM("Custom range…", null),
+private enum class ExportRange(@StringRes val labelRes: Int, val days: Int?) {
+    DAYS_30(R.string.journey_range_30d, 30),
+    DAYS_90(R.string.journey_range_3m, 90),
+    DAYS_180(R.string.journey_range_6m, 180),
+    DAYS_365(R.string.journey_range_12m, 365),
+    CUSTOM(R.string.journey_range_custom, null),
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -294,9 +298,9 @@ private fun ExportRangeDialog(onDismiss: () -> Unit, onPick: (startMs: Long, end
                     enabled = s != null && e != null,
                     // End-of-day on the end date so that day's trips are included.
                     onClick = { if (s != null && e != null) onPick(s, e + 86_400_000L - 1) },
-                ) { Text("Export") }
+                ) { Text(stringResource(R.string.journey_export)) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(stringResource(R.string.journey_cancel)) } },
         ) {
             androidx.compose.material3.DateRangePicker(state = state, modifier = Modifier.weight(1f, fill = false))
         }
@@ -304,12 +308,12 @@ private fun ExportRangeDialog(onDismiss: () -> Unit, onPick: (startMs: Long, end
     }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Export range") },
+        title = { Text(stringResource(R.string.journey_export_range_title)) },
         text = {
             Column {
                 ExportRange.entries.forEach { r ->
                     Text(
-                        r.label,
+                        stringResource(r.labelRes),
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {
                             if (r.days == null) {
                                 custom = true
@@ -325,7 +329,7 @@ private fun ExportRangeDialog(onDismiss: () -> Unit, onPick: (startMs: Long, end
             }
         },
         confirmButton = {},
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(stringResource(R.string.journey_cancel)) } },
     )
 }
 
@@ -346,7 +350,7 @@ private fun TripCard(t: JourneyTrip, distanceUnit: String) {
             Column(Modifier.weight(1f)) {
                 Text(fmtDate(t.startTime), fontWeight = FontWeight.Bold, fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface)
-                Text("${fmtClock(t.startTime)} – ${fmtClock(t.endTime)}", color = Brand.muted, fontSize = 12.5.sp)
+                Text(stringResource(R.string.journey_time_range, fmtClock(t.startTime), fmtClock(t.endTime)), color = Brand.muted, fontSize = 12.5.sp)
             }
             Text(distanceLabel(t.distanceKm, distanceUnit), fontWeight = FontWeight.Bold,
                 fontSize = 16.sp, color = Brand.accent)
@@ -357,21 +361,21 @@ private fun TripCard(t: JourneyTrip, distanceUnit: String) {
             val startLabel = rememberAddress(t.startLat, t.startLon)
             val endLabel = rememberAddress(t.endLat, t.endLon)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (route != null) Icon(Icons.Filled.Directions, "Open route", tint = Brand.accent, modifier = Modifier.size(15.dp))
+                if (route != null) Icon(Icons.Filled.Directions, stringResource(R.string.journey_cd_open_route), tint = Brand.accent, modifier = Modifier.size(15.dp))
                 Text(
-                    "${startLabel ?: "…"}  →  ${endLabel ?: "…"}",
+                    stringResource(R.string.journey_route_fromto, startLabel ?: "…", endLabel ?: "…"),
                     color = Brand.muted, fontSize = 12.sp, maxLines = 2, modifier = Modifier.weight(1f),
                 )
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            Stat("Duration", fmtDuration(t.durationMs))
-            Stat("Avg speed", t.avgSpeedKmh?.let { "$it km/h" } ?: "—")
-            Stat("Odometer", t.endOdometer?.let { "$it km" } ?: "—")
+            Stat(stringResource(R.string.journey_stat_duration), fmtDuration(t.durationMs))
+            Stat(stringResource(R.string.journey_stat_avg_speed), t.avgSpeedKmh?.let { stringResource(R.string.journey_speed_kmh, it.toString()) } ?: "-")
+            Stat(stringResource(R.string.journey_stat_odometer), t.endOdometer?.let { stringResource(R.string.journey_dist_km, it.toString()) } ?: "-")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            Stat("Consumption", t.electricConsumption?.let { trimNum(it) } ?: "—")
-            Stat("Regen", t.electricRegeneration?.let { trimNum(it) } ?: "—")
+            Stat(stringResource(R.string.journey_stat_consumption), t.electricConsumption?.let { trimNum(it) } ?: "-")
+            Stat(stringResource(R.string.journey_stat_regen), t.electricRegeneration?.let { trimNum(it) } ?: "-")
         }
     }
 }
@@ -439,7 +443,7 @@ private fun routeUrl(t: JourneyTrip): String? {
 // ---- formatting helpers (shared by the UI and the CSV export) ----
 
 private fun distanceLabel(km: Int?, unit: String): String =
-    if (km == null) "—" else Units.distance(km.toDouble(), unit)
+    if (km == null) "-" else Units.distance(km.toDouble(), unit)
 
 /** Trip distance as a bare number in the chosen unit (for a numeric CSV cell). */
 private fun distanceValue(km: Int?, unit: String): String =
@@ -449,13 +453,13 @@ private fun trimNum(d: Double): String =
     if (d == d.toLong().toDouble()) d.toLong().toString() else "%.2f".format(d)
 
 private fun fmtDate(ms: Long?): String =
-    ms?.let { SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(it)) } ?: "—"
+    ms?.let { SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(it)) } ?: "-"
 
 private fun fmtClock(ms: Long?): String =
-    ms?.let { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(it)) } ?: "—"
+    ms?.let { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(it)) } ?: "-"
 
 private fun fmtDuration(ms: Long?): String {
-    if (ms == null) return "—"
+    if (ms == null) return "-"
     val totalMin = ms / 60_000
     val h = totalMin / 60
     val m = totalMin % 60
@@ -467,10 +471,10 @@ private fun fmtDuration(ms: Long?): String {
  * quote-escaped so locale date/time separators never break the columns. The distance
  * column follows the app's chosen unit (km/mi); the header names the unit.
  */
-private fun buildCsv(trips: List<JourneyTrip>, distanceUnit: String): String {
-    val distHeader = "Distance (${Units.distanceSuffix(distanceUnit)})"
+private fun buildCsv(ctx: Context, trips: List<JourneyTrip>, distanceUnit: String): String {
+    val distHeader = ctx.getString(R.string.journey_csv_distance, Units.distanceSuffix(distanceUnit))
     val sb = StringBuilder()
-    sb.append(row("Date", "Start", "End", "From", "To", distHeader, "Avg consumption", "Energy regen", "Duration", "Odometer (km)", "Route"))
+    sb.append(row(ctx.getString(R.string.journey_csv_date), ctx.getString(R.string.journey_csv_start), ctx.getString(R.string.journey_csv_end), ctx.getString(R.string.journey_csv_from), ctx.getString(R.string.journey_csv_to), distHeader, ctx.getString(R.string.journey_csv_avg_consumption), ctx.getString(R.string.journey_csv_energy_regen), ctx.getString(R.string.journey_csv_duration), ctx.getString(R.string.journey_csv_odometer), ctx.getString(R.string.journey_csv_route)))
     for (t in trips) {
         sb.append(
             row(

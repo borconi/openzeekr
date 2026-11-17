@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Proximitate cheie digitală și BLE</string>
+    <string name="notification_channel_charging">Încărcare și baterie</string>
+    <string name="notification_channel_charging_description">Progresul încărcării, probleme de încărcare și alerte de baterie</string>
+    <string name="notification_channel_security">Securitate și parcare</string>
+    <string name="notification_channel_security_description">Alarme de securitate, alerte de intruziune, remorcare și parcare anormală</string>
+    <string name="notification_channel_vehicle">Comenzi vehicul</string>
+    <string name="notification_channel_vehicle_description">Mesaje de blocare, uși, geamuri, climatizare și control de la distanță</string>
+    <string name="notification_channel_updates">Actualizări software</string>
+    <string name="notification_channel_updates_description">Actualizări software ale vehiculului și rezultatele instalării</string>
+    <string name="notification_channel_service">Memento-uri de service</string>
+    <string name="notification_channel_service_description">Mesaje de întreținere, service și post-vânzare</string>
+    <string name="notification_channel_news">Noutăți și oferte</string>
+    <string name="notification_channel_news_description">Noutăți Zeekr, evenimente și mesaje promoționale</string>
+    <string name="notification_channel_other">Alerte vehicul (necategorizate)</string>
+    <string name="notification_channel_other_description">Pot include alarme de securitate livrate în fundal și alte alerte ale vehiculului fără o categorie recunoscută</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Cheia digitală OpenZeekr este activă</string>
+    <string name="proximity_notif_text">Menține cheia conectată pentru blocare/deblocare</string>
+    <string name="proximity_channel_name">Cheie digitală</string>
+</resources>

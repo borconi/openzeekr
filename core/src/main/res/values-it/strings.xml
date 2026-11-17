@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Prossimità chiave digitale &amp; BLE</string>
+    <string name="notification_channel_charging">Carica &amp; batteria</string>
+    <string name="notification_channel_charging_description">Avanzamento della carica, problemi di carica e avvisi sulla batteria</string>
+    <string name="notification_channel_security">Sicurezza &amp; parcheggio</string>
+    <string name="notification_channel_security_description">Allarmi di sicurezza, intrusione, traino e avvisi di parcheggio anomalo</string>
+    <string name="notification_channel_vehicle">Comandi del veicolo</string>
+    <string name="notification_channel_vehicle_description">Messaggi di blocco, porte, finestrini, clima e controllo remoto</string>
+    <string name="notification_channel_updates">Aggiornamenti software</string>
+    <string name="notification_channel_updates_description">Aggiornamenti software del veicolo e risultati dell\'installazione</string>
+    <string name="notification_channel_service">Promemoria di manutenzione</string>
+    <string name="notification_channel_service_description">Messaggi di manutenzione, assistenza e post-vendita</string>
+    <string name="notification_channel_news">Novità &amp; offerte</string>
+    <string name="notification_channel_news_description">Novità Zeekr, eventi e messaggi promozionali</string>
+    <string name="notification_channel_other">Avvisi auto (senza categoria)</string>
+    <string name="notification_channel_other_description">Può includere allarmi di sicurezza recapitati in background e altri avvisi dell\'auto senza una categoria riconosciuta</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Chiave digitale OpenZeekr attiva</string>
+    <string name="proximity_notif_text">Mantiene la tua chiave connessa per bloccare/sbloccare</string>
+    <string name="proximity_channel_name">Chiave digitale</string>
+</resources>

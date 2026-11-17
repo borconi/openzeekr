@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digivõtme lähedus &amp; BLE</string>
+    <string name="notification_channel_charging">Laadimine &amp; aku</string>
+    <string name="notification_channel_charging_description">Laadimise edenemine, laadimisprobleemid ja akuhoiatused</string>
+    <string name="notification_channel_security">Turvalisus &amp; parkimine</string>
+    <string name="notification_channel_security_description">Turvahäired, sissetung, pukseerimine ja ebanormaalse parkimise hoiatused</string>
+    <string name="notification_channel_vehicle">Sõiduki juhtimine</string>
+    <string name="notification_channel_vehicle_description">Lukustus-, ukse-, akna-, kliima- ja kaugjuhtimissõnumid</string>
+    <string name="notification_channel_updates">Tarkvarauuendused</string>
+    <string name="notification_channel_updates_description">Sõiduki tarkvarauuendused ja paigaldustulemused</string>
+    <string name="notification_channel_service">Hooldusmeeldetuletused</string>
+    <string name="notification_channel_service_description">Hoolduse, teeninduse ja müügijärgsed sõnumid</string>
+    <string name="notification_channel_news">Uudised &amp; pakkumised</string>
+    <string name="notification_channel_news_description">Zeekri uudised, üritused ja reklaamsõnumid</string>
+    <string name="notification_channel_other">Autohoiatused (liigitamata)</string>
+    <string name="notification_channel_other_description">Võib sisaldada taustal edastatavaid turvahäireid ja muid autohoiatusi ilma tuvastatud kategooriata</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digivõti aktiivne</string>
+    <string name="proximity_notif_text">Hoiab su võtit lukustamiseks/avamiseks ühendatuna</string>
+    <string name="proximity_channel_name">Digivõti</string>
+</resources>

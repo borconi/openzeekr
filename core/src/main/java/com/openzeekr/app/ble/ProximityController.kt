@@ -403,10 +403,16 @@ class ProximityController(
             // Safety re-check on the periodic timeout: a single RSSI read; lock if we've drifted far
             // without the car ever pushing (rare — moving normally generates frames).
             val rssi = ble.pollRemoteRssi()
-            if (rssi == null || rssi <= store.current().sensitivityLockRssi) {
+            // #42: only lock on a REAL below-threshold reading. A null here is a FAILED RSSI poll (radio
+            // contention / a momentary read error), not evidence you walked away - treating it as "far"
+            // let a transient glitch lock the car. A genuine walk-away drops the link entirely and is
+            // handled by the link-down path ([onSessionDown]) instead.
+            if (rssi != null && rssi <= store.current().sensitivityLockRssi) {
                 Logx.d("prox", "armed idle safety-check rssi=$rssi -> far, locking")
                 armedUnlocked = false
                 startLockLoop("idle-far-lock")
+            } else if (rssi == null) {
+                Logx.d("prox", "armed idle safety-check rssi=null (failed read) -> not locking")
             }
             return
         }
@@ -656,6 +662,14 @@ class ProximityController(
         // A pending unlock loop is now moot (we've decided you're leaving) - stop it fighting us.
         needToUnlock = false; unlockJob?.cancel(); unlockJob = null
         lockJob = scope.launch {
+            // #42: every BLE lock path (walk-away, idle-far, link-down) funnels through here, so the
+            // trusted-zone suppression lives here too - if the car is parked in a trusted area, leave it
+            // as-is. (The onSample path also pre-checks, to additionally suppress the Sentry-arm / return
+            // window it would otherwise trigger.) Based on the CAR's position, not the phone's (see Deps).
+            if (isInExclusionZone()) {
+                Logx.d("prox", "$reason: SKIPPED - car is in a trusted (exclusion) zone")
+                return@launch
+            }
             lastTriggerMs = System.currentTimeMillis()   // start the action cooldown
             var confirmed = false
             var attempt = 0
@@ -840,6 +854,12 @@ class ProximityController(
                 delay(LINK_LOSS_LOCK_DELAY_MS)   // give a genuine transient drop time to reconnect
                 if (ble.state.value == DkBleManager.State.SESSION_READY) {
                     Logx.d("prox", "$reason: link back before cloud check - skip"); return@launch
+                }
+                // #42: the ranging-independent cloud backstop must also honour trusted zones - at home
+                // the BLE link glitches constantly, and this path (not the RSSI dwell) is what was still
+                // locking the car inside the zone. Based on the car's position (see Deps).
+                if (isInExclusionZone()) {
+                    Logx.d("prox", "$reason: SKIPPED cloud backstop - car is in a trusted (exclusion) zone"); return@launch
                 }
                 val locked = runCatching { cloudIsLocked() }.getOrNull()
                 Logx.d("prox", "$reason: cloud lock check -> " +

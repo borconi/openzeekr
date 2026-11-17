@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.openzeekr.app.util.Logx
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.ble.DkProvisioning
 import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.remote.CallResult
@@ -85,8 +87,8 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 BrandBadge(size = 32)
                 Column {
-                    Text("OpenZeekr", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Setup ${safeIdx + 1} of ${steps.size}", style = MaterialTheme.typography.bodySmall,
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.onb_setup_step_of, safeIdx + 1, steps.size), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -109,16 +111,16 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
             // Footer nav
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                if (safeIdx > 0) TextButton(onClick = ::back) { Text("Back") } else Spacer(Modifier.height(1.dp))
+                if (safeIdx > 0) TextButton(onClick = ::back) { Text(stringResource(R.string.onb_back)) } else Spacer(Modifier.height(1.dp))
                 when (step) {
-                    OnbStep.WELCOME -> Button(onClick = ::next) { Text("Get started") }
-                    OnbStep.REGION -> Button(onClick = ::next) { Text("Next") }
-                    OnbStep.SECRETS -> Button(onClick = ::next, enabled = secretsValid) { Text("Next") }
-                    OnbStep.LOGIN -> Button(onClick = ::next, enabled = loggedIn) { Text("Next") }
+                    OnbStep.WELCOME -> Button(onClick = ::next) { Text(stringResource(R.string.onb_get_started)) }
+                    OnbStep.REGION -> Button(onClick = ::next) { Text(stringResource(R.string.onb_next)) }
+                    OnbStep.SECRETS -> Button(onClick = ::next, enabled = secretsValid) { Text(stringResource(R.string.onb_next)) }
+                    OnbStep.LOGIN -> Button(onClick = ::next, enabled = loggedIn) { Text(stringResource(R.string.onb_next)) }
                     OnbStep.KEY -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onDone) { Text("Skip for now") }
+                        TextButton(onClick = onDone) { Text(stringResource(R.string.onb_skip_for_now)) }
                         Button(onClick = onDone, enabled = deps.dkIdentity.isProvisioned ||
-                            deps.provisioning.state.value.step == DkProvisioning.Step.DONE) { Text("Finish") }
+                            deps.provisioning.state.value.step == DkProvisioning.Step.DONE) { Text(stringResource(R.string.onb_finish)) }
                     }
                 }
             }
@@ -129,16 +131,16 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
 @Composable
 private fun WelcomeStep() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Welcome", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.onb_welcome_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            "This sets up OpenZeekr for your own Zeekr vehicle in three quick steps:",
+            stringResource(R.string.onb_welcome_body),
             style = MaterialTheme.typography.bodyLarge,
         )
-        Bullet("1", "Log in", "Sign in with your Zeekr account to reach the cloud and your vehicle.")
-        Bullet("2", "Digital key (optional)", "Provision this phone as its own BLE key to lock/unlock at the car. You can skip and do it later.")
-        Bullet("3", "You're in", "Control the car from the cloud, and over Bluetooth once the key is set up.")
+        Bullet(stringResource(R.string.onb_step_num_1), stringResource(R.string.onb_bullet_login_title), stringResource(R.string.onb_bullet_login_body))
+        Bullet(stringResource(R.string.onb_step_num_2), stringResource(R.string.onb_bullet_key_title), stringResource(R.string.onb_bullet_key_body))
+        Bullet(stringResource(R.string.onb_step_num_3), stringResource(R.string.onb_bullet_done_title), stringResource(R.string.onb_bullet_done_body))
         Text(
-            "Authorized use only — for a vehicle you own or are permitted to access.",
+            stringResource(R.string.onb_welcome_authorized),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -152,11 +154,9 @@ private fun RegionStep(deps: Deps) {
     val cfg by store.config.collectAsState()
     val current = com.openzeekr.app.net.Region.byCode(cfg.regionCode)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Region", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.onb_region_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            "Pick the market your car and account belong to. This selects the right Zeekr servers. " +
-                "Each region also needs its OWN extracted keys (zeekr_key_extractor --region " +
-                "${current.extractorRegion}) — you'll add them next.",
+            stringResource(R.string.onb_region_desc, current.extractorRegion),
             style = MaterialTheme.typography.bodyMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -167,15 +167,14 @@ private fun RegionStep(deps: Deps) {
             }
         }
         Text(
-            current.displayName + (if (current.verified) "  ·  verified" else "  ·  experimental"),
+            if (current.verified) stringResource(R.string.onb_region_status_verified, current.displayName)
+            else stringResource(R.string.onb_region_status_experimental, current.displayName),
             style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
             color = if (current.verified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         )
         if (!current.verified) {
             Text(
-                "⚠️ This region is reconstructed from the stock app's host tables and has not been " +
-                    "verified against a real car. Login and the digital key may need a host corrected " +
-                    "later under Settings › Region › Advanced.",
+                stringResource(R.string.onb_region_unverified_warn),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -200,25 +199,26 @@ private fun Bullet(n: String, title: String, body: String) {
 @Composable
 private fun SecretsStep(deps: Deps, secretsValid: Boolean) {
     val store = deps.config
+    val context = LocalContext.current
     var importText by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("App keys", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.onb_secrets_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            "This build ships with no keys. Paste your own extracted zeekr_secrets.json to " +
-                "reach the cloud. Nothing is sent anywhere — it's stored encrypted on this device.",
+            stringResource(R.string.onb_secrets_desc),
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedTextField(
             value = importText, onValueChange = { importText = it },
-            label = { Text("Paste zeekr_secrets.json") }, minLines = 4,
+            label = { Text(stringResource(R.string.onb_secrets_hint)) }, minLines = 4,
             modifier = Modifier.fillMaxWidth(),
         )
         Button(onClick = {
             status = store.importJson(importText).fold(
-                { deps.onEndpointChanged(); "Imported ✓" }, { "Import failed: ${it.message}" })
-        }) { Text("Import") }
-        if (secretsValid) Text("Keys valid ✓ — tap Next.", color = MaterialTheme.colorScheme.primary)
+                { deps.onEndpointChanged(); context.getString(R.string.onb_secrets_imported) },
+                { context.getString(R.string.onb_secrets_import_failed, it.message) })
+        }) { Text(stringResource(R.string.onb_secrets_import_btn)) }
+        if (secretsValid) Text(stringResource(R.string.onb_secrets_keys_valid), color = MaterialTheme.colorScheme.primary)
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
     }
 }
@@ -231,6 +231,7 @@ private fun LoginStep(deps: Deps) {
     var email by remember { mutableStateOf(cfg.email) }
     var password by remember { mutableStateOf(cfg.password) }
     var status by remember { mutableStateOf("") }
+    var loginFailed by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var shareMsg by remember { mutableStateOf("") }
     val loggedIn = cfg.accessToken.isNotBlank()
@@ -240,13 +241,13 @@ private fun LoginStep(deps: Deps) {
 
     fun signIn() {
         if (busy || email.isBlank() || password.isBlank()) return
-        busy = true; status = "Logging in…"
+        busy = true; status = ctx.getString(R.string.onb_login_logging_in)
         scope.launch {
             try {
                 store.update { it.copy(email = email, password = password) }
                 status = when (val r = deps.auth.login()) {
-                    is CallResult.Ok -> { runCatching { autofillManager?.commit() }; "Login ✓" }
-                    is CallResult.Err -> "Login ✗ ${r.message}"
+                    is CallResult.Ok -> { runCatching { autofillManager?.commit() }; loginFailed = false; ctx.getString(R.string.onb_login_ok) }
+                    is CallResult.Err -> { loginFailed = true; ctx.getString(R.string.onb_login_err, r.message) }
                 }
             } finally {
                 busy = false
@@ -266,21 +267,21 @@ private fun LoginStep(deps: Deps) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Log in", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.onb_login_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         if (loggedIn) {
             Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("● Logged in", fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.onb_login_logged_in), fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Text(buildString {
-                        append(cfg.email.ifBlank { "(account)" })
-                        if (cfg.vin.isNotBlank()) append("  ·  VIN ${cfg.vin}")
+                        append(cfg.email.ifBlank { ctx.getString(R.string.onb_login_account_fallback) })
+                        if (cfg.vin.isNotBlank()) append(ctx.getString(R.string.onb_login_vin_suffix, cfg.vin))
                     }, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
-            Text("Tap Next to continue.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.onb_login_tap_next), style = MaterialTheme.typography.bodySmall)
         } else {
             LoginField(email, { email = it }, LoginFieldKind.Email, Modifier.fillMaxWidth())
             LoginField(password, { password = it }, LoginFieldKind.Password, Modifier.fillMaxWidth(), onDone = ::signIn)
@@ -294,19 +295,19 @@ private fun LoginStep(deps: Deps) {
                 ) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.onPrimary)
-                    Text("Logging in…")
-                } else Text("Log in")
+                    Text(stringResource(R.string.onb_login_logging_in))
+                } else Text(stringResource(R.string.onb_login_title))
             }
             if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
             // On a login failure, let the tester send us the captured login HTTP log as a file so we
             // can see the exact request/headers/response (e.g. which access key + host was used).
-            if (status.startsWith("Login ✗")) {
+            if (loginFailed) {
                 OutlinedButton(onClick = { shareMsg = shareEncryptedLog(ctx) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Share diagnostic log")
+                    Text(stringResource(R.string.onb_login_share_log))
                 }
                 Text(
                     if (shareMsg.isNotBlank()) shareMsg
-                    else "Login failed? Tap to send us an encrypted diagnostic log (email it to the developer).",
+                    else stringResource(R.string.onb_login_share_hint),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -323,17 +324,15 @@ private fun KeyStep(deps: Deps) {
         prov.step == DkProvisioning.Step.KEY_LIST || prov.step == DkProvisioning.Step.KEY_INFO
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Digital key", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.onb_key_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            "Provision this phone as its own Bluetooth key so it can lock and unlock the car " +
-                "up close — even offline. This is optional; you can skip and set it up later " +
-                "from the Key tab.",
+            stringResource(R.string.onb_key_desc),
             style = MaterialTheme.typography.bodyMedium,
         )
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (provisioned) {
-                    Text("✓ Digital key ready", fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.onb_key_ready), fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary)
                 } else {
                     Button(
@@ -349,14 +348,14 @@ private fun KeyStep(deps: Deps) {
                         ) {
                             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary)
-                            Text("Setting up…")
-                        } else Text("Set up digital key")
+                            Text(stringResource(R.string.onb_key_setting_up))
+                        } else Text(stringResource(R.string.onb_key_setup_btn))
                     }
-                    prov.message?.let { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+                    prov.message?.let { Text(stringResource(R.string.onb_key_prov_msg, it), style = MaterialTheme.typography.bodySmall) }
                 }
             }
         }
-        Text("Then tap Finish (Skip to do it later).", style = MaterialTheme.typography.bodySmall,
+        Text(stringResource(R.string.onb_key_finish_hint), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Start)
     }
 }

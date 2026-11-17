@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Přiblížení digitálního klíče a BLE</string>
+    <string name="notification_channel_charging">Nabíjení a baterie</string>
+    <string name="notification_channel_charging_description">Průběh nabíjení, problémy s nabíjením a upozornění na baterii</string>
+    <string name="notification_channel_security">Zabezpečení a parkování</string>
+    <string name="notification_channel_security_description">Bezpečnostní alarmy, vniknutí, odtah a upozornění na nestandardní parkování</string>
+    <string name="notification_channel_vehicle">Ovládání vozidla</string>
+    <string name="notification_channel_vehicle_description">Zprávy o zamykání, dveřích, oknech, klimatizaci a dálkovém ovládání</string>
+    <string name="notification_channel_updates">Aktualizace softwaru</string>
+    <string name="notification_channel_updates_description">Aktualizace softwaru vozidla a výsledky instalace</string>
+    <string name="notification_channel_service">Připomínky servisu</string>
+    <string name="notification_channel_service_description">Zprávy o údržbě, servisu a poprodejním servisu</string>
+    <string name="notification_channel_news">Novinky a nabídky</string>
+    <string name="notification_channel_news_description">Novinky, akce a propagační zprávy Zeekr</string>
+    <string name="notification_channel_other">Upozornění auta (bez kategorie)</string>
+    <string name="notification_channel_other_description">Může zahrnovat bezpečnostní alarmy doručené na pozadí a další upozornění auta bez rozpoznané kategorie</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">Digitální klíč OpenZeekr aktivní</string>
+    <string name="proximity_notif_text">Udržuje váš klíč připojený pro zamykání/odemykání</string>
+    <string name="proximity_channel_name">Digitální klíč</string>
+</resources>

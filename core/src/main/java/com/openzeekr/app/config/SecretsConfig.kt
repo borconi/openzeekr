@@ -171,9 +171,14 @@ data class SecretsConfig(
     val lockRssi: Int = -70,
     /** If NEAR and no advertisement is seen for this long, treat as walked-away. */
     val proximityLostMs: Long = 8000,
-    /** Approach sensitivity preset (user-facing) — maps to unlock/lock RSSI below.
+    /** Approach-UNLOCK sensitivity preset (user-facing) - maps to [sensitivityUnlockRssi] below.
      *  One of: "veryclose", "close", "far". */
     val proximitySensitivity: String = "close",
+    /** Walk-away LOCK distance preset (user-facing), set INDEPENDENTLY of the approach-unlock preset
+     *  (issue #44 - the lock distance used to be hard-wired to unlock minus a fixed gap). Maps to
+     *  [sensitivityLockRssi] below. One of "veryclose" (locks as you step away) / "close" / "far"
+     *  (locks only once you are well clear). */
+    val lockSensitivity: String = "close",
     /**
      * Proximity calibration anchors (dBm), captured once during the smart-calibration walk:
      * [calibNearRssi] = median RSSI with the phone AT THE DRIVER'S DOOR HANDLE ("0" / at-car), and
@@ -393,11 +398,28 @@ data class SecretsConfig(
             else -> -66 // close
         }
 
-    /** Lock (walk-away) RSSI = unlock − [LOCK_RSSI_GAP_DB], the SAME fixed hysteresis gap whether or not
-     *  the phone is calibrated. Lock fires when the signal falls this many dB below the unlock point, i.e.
-     *  once you've clearly walked away - a bigger gap means it waits until you're further out before
-     *  locking (a smaller gap locked too soon, the moment you stepped back from the door). */
-    val sensitivityLockRssi: Int get() = sensitivityUnlockRssi - LOCK_RSSI_GAP_DB
+    /** Walk-away LOCK RSSI (dBm), driven by its OWN preset [lockSensitivity] so the lock distance is set
+     *  SEPARATELY from the approach-unlock distance (issue #44 - lock used to be hard-wired to unlock minus
+     *  [LOCK_RSSI_GAP_DB]). Calibrated, the presets are anchored on the measured 6 m reading [calibFarRssi];
+     *  uncalibrated they fall back to fixed values. Whatever the preset, the result is clamped to sit at
+     *  LEAST [LOCK_RSSI_GAP_DB] weaker (farther) than [sensitivityUnlockRssi] so the lock and unlock bands
+     *  can never overlap and flap. Lock fires when the connected RSSI falls at/below this. */
+    val sensitivityLockRssi: Int get() {
+        val preset = if (isProximityCalibrated) {
+            val span = calibNearRssi - calibFarRssi   // > 0 (near is stronger / less negative)
+            when (lockSensitivity) {
+                "veryclose" -> calibFarRssi + Math.round(span * 0.20f) // lock soon after you step back
+                "far" -> calibFarRssi - Math.round(span * 0.50f)       // lock only once well away
+                else -> calibFarRssi                                   // close ≈ at the 6 m anchor
+            }
+        } else when (lockSensitivity) {
+            "veryclose" -> -72
+            "far" -> -84
+            else -> -76 // close (matches the old unlock−gap default so behaviour is unchanged out of the box)
+        }
+        // Keep lock at least the hysteresis gap weaker than unlock, whatever the two presets are set to.
+        return minOf(preset, sensitivityUnlockRssi - LOCK_RSSI_GAP_DB)
+    }
 
     companion object {
         /** Unlock can never be set weaker (more negative) than this — safety floor. */

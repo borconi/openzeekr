@@ -73,6 +73,16 @@ class SentryAutoArmer(
             out[0] <= z.radiusMeters
         }
 
+    /** Is the given WGS-84 point inside any of [zones]? Pure math on a supplied point - no location
+     *  permission or GPS fix needed. Used for the car-position-based auto-lock exclusion (#42): the
+     *  zone is about where the car is parked, so we test the car's reported position, not the phone's. */
+    fun isPointInAnyZone(lat: Double, lng: Double, zones: List<GeoZone>): Boolean =
+        zones.any { z ->
+            val out = FloatArray(1)
+            Location.distanceBetween(lat, lng, z.lat, z.lng, out)
+            out[0] <= z.radiusMeters
+        }
+
     private suspend fun fire(trigger: String) {
         when (val r = control.send(Command.SENTINEL_ON)) {
             is CallResult.Ok -> Logx.d("sentry", "auto-arm ($trigger): Sentry ON ok")

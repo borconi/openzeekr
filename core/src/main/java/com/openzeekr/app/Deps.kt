@@ -156,8 +156,33 @@ class Deps(context: Context) {
             )
         },
         // #42: suppress approach-unlock / walk-away-lock inside the user's proximity exclusion zones
-        // (e.g. "Home"). Fast cached-location check so it never delays an unlock.
-        isInExclusionZone = { sentryAutoArm.isInsideAnyZoneFast(config.current().proximityExclusionZones) },
+        // (e.g. "Home"). The zone describes where the CAR is parked, so we test the car's own position
+        // first (from the latest status poll) - correct by construction, zero-latency (a cache read),
+        // and more reliable than the phone's drifting indoor GPS. We fall back to the phone's cached
+        // location when the car has no trusted fix, and only fail toward locking (return false) when
+        // neither position is known.
+        isInExclusionZone = {
+            // Honour BOTH the dedicated auto-lock zones AND the Sentry trusted areas (the two are
+            // separate lists, but a "trusted place" should suppress locking either way - this also makes
+            // the 0.2.4 note "the zones you set for Sentry can hold off walk-away lock" actually true, and
+            // means a zone added in either place just works). (#42, finding 5.)
+            val cfg = config.current()
+            val zones = cfg.proximityExclusionZones + cfg.sentryExclusionZones
+            if (zones.isEmpty()) {
+                false
+            } else {
+                val pos = vehicleState.state.value?.basicVehicleStatus?.position
+                val carLat = pos?.latitude
+                val carLng = pos?.longitude
+                val carTrusted = pos?.posCanBeTrusted != false   // null = assume trusted
+                if (carLat != null && carLng != null && carTrusted && (carLat != 0.0 || carLng != 0.0)) {
+                    sentryAutoArm.isPointInAnyZone(carLat, carLng, zones)
+                } else {
+                    // No usable car fix - fall back to the phone's cached location (the old behaviour).
+                    sentryAutoArm.isInsideAnyZoneFast(zones)
+                }
+            }
+        },
     )
     /** Call after the base URL / sign algo changes so the HTTP client rebuilds. */
     fun onEndpointChanged() = apiClient.rebuild()

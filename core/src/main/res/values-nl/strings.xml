@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digitale sleutel nabijheid &amp; BLE</string>
+    <string name="notification_channel_charging">Laden &amp; accu</string>
+    <string name="notification_channel_charging_description">Laadvoortgang, laadproblemen en accuwaarschuwingen</string>
+    <string name="notification_channel_security">Beveiliging &amp; parkeren</string>
+    <string name="notification_channel_security_description">Beveiligingsalarmen, inbraak, wegslepen en afwijkende parkeerwaarschuwingen</string>
+    <string name="notification_channel_vehicle">Voertuigbediening</string>
+    <string name="notification_channel_vehicle_description">Berichten over vergrendeling, deur, raam, klimaat en afstandsbediening</string>
+    <string name="notification_channel_updates">Software-updates</string>
+    <string name="notification_channel_updates_description">Voertuig-software-updates en installatieresultaten</string>
+    <string name="notification_channel_service">Onderhoudsherinneringen</string>
+    <string name="notification_channel_service_description">Onderhoud, service en after-sales-berichten</string>
+    <string name="notification_channel_news">Nieuws &amp; aanbiedingen</string>
+    <string name="notification_channel_news_description">Zeekr-nieuws, evenementen en promotieberichten</string>
+    <string name="notification_channel_other">Autowaarschuwingen (niet-gecategoriseerd)</string>
+    <string name="notification_channel_other_description">Kan op de achtergrond bezorgde beveiligingsalarmen en andere autowaarschuwingen zonder herkende categorie bevatten</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digitale sleutel actief</string>
+    <string name="proximity_notif_text">Houdt je sleutel verbonden voor vergrendelen/ontgrendelen</string>
+    <string name="proximity_channel_name">Digitale sleutel</string>
+</resources>

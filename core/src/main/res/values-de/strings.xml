@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digitalschlüssel-Annäherung &amp; BLE</string>
+    <string name="notification_channel_charging">Laden &amp; Batterie</string>
+    <string name="notification_channel_charging_description">Ladefortschritt, Ladeprobleme und Batteriewarnungen</string>
+    <string name="notification_channel_security">Sicherheit &amp; Parken</string>
+    <string name="notification_channel_security_description">Sicherheitsalarme, Einbruch, Abschleppen und ungewöhnliche Parkwarnungen</string>
+    <string name="notification_channel_vehicle">Fahrzeugsteuerung</string>
+    <string name="notification_channel_vehicle_description">Meldungen zu Verriegelung, Tür, Fenster, Klima und Fernsteuerung</string>
+    <string name="notification_channel_updates">Software-Updates</string>
+    <string name="notification_channel_updates_description">Fahrzeug-Software-Updates und Installationsergebnisse</string>
+    <string name="notification_channel_service">Service-Erinnerungen</string>
+    <string name="notification_channel_service_description">Wartung, Service und After-Sales-Meldungen</string>
+    <string name="notification_channel_news">News &amp; Angebote</string>
+    <string name="notification_channel_news_description">Zeekr-News, Events und Werbemeldungen</string>
+    <string name="notification_channel_other">Fahrzeugmeldungen (nicht kategorisiert)</string>
+    <string name="notification_channel_other_description">Kann im Hintergrund zugestellte Sicherheitsalarme und andere Fahrzeugmeldungen ohne erkannte Kategorie enthalten</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr Digitalschlüssel aktiv</string>
+    <string name="proximity_notif_text">Hält deinen Schlüssel zum Ver-/Entriegeln verbunden</string>
+    <string name="proximity_channel_name">Digitalschlüssel</string>
+</resources>

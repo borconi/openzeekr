@@ -38,10 +38,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.net.model.BookingTravelSetting
 import com.openzeekr.app.net.model.CycleTime
 import com.openzeekr.app.net.model.TravelClimateSetting
@@ -97,7 +99,7 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 p.timerId?.takeIf { it.isNotBlank() }?.let { chargeTimerId = it }
                 p.scheduledTime?.takeIf { it.isNotBlank() }?.let { chargeScheduledTime = it }
             }
-            is CallResult.Err -> snackbar("Couldn't load charging schedule: ${r.message}")
+            is CallResult.Err -> snackbar(ctx.getString(R.string.sched_charge_load_failed, r.message))
         }
         chargeLoading = false
     }
@@ -106,7 +108,7 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
         depLoading = true
         when (val r = deps.schedule.departures()) {
             is CallResult.Ok -> { departures.clear(); departures.addAll(r.value) }
-            is CallResult.Err -> snackbar("Couldn't load departures: ${r.message}")
+            is CallResult.Err -> snackbar(ctx.getString(R.string.sched_departures_load_failed, r.message))
         }
         depLoading = false
     }
@@ -118,10 +120,10 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // ============================ CHARGING ============================
-        SectionHeader("Charging schedule")
+        SectionHeader(stringResource(R.string.sched_charging_header))
         CockpitCard {
             Text(
-                "A daily off-peak charge window — the car charges inside these times.",
+                stringResource(R.string.sched_charge_desc),
                 color = Brand.muted, fontSize = 12.sp,
             )
             if (chargeLoading) {
@@ -134,7 +136,7 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 ) {
                     Icon(Icons.Filled.Bolt, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
                     TimeChip(chargeStart) { pickTime(ctx, chargeStart, withSeconds = false) { chargeStart = it } }
-                    Text("→", color = Brand.muted)
+                    Text(stringResource(R.string.sched_time_arrow), color = Brand.muted)
                     TimeChip(chargeEnd) { pickTime(ctx, chargeEnd, withSeconds = false) { chargeEnd = it } }
                     Spacer(Modifier.weight(1f))
                     Switch(checked = chargeEnabled, onCheckedChange = { chargeEnabled = it }, colors = brandSwitchColors(Brand.good))
@@ -142,12 +144,12 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 // "Keep charging past end time" — stock: "Charging will continue, if limit is not reached at end time."
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text("Keep charging past end time", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Charging will continue if the limit isn't reached at the end time.", color = Brand.muted, fontSize = 11.5.sp)
+                        Text(stringResource(R.string.sched_keep_charging), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.sched_keep_charging_desc), color = Brand.muted, fontSize = 11.5.sp)
                     }
                     Switch(checked = keepCharging, onCheckedChange = { keepCharging = it }, colors = brandSwitchColors())
                 }
-                PrimaryButton(if (chargeSaving) "Saving…" else "Save", Modifier.fillMaxWidth(), enabled = !chargeSaving) {
+                PrimaryButton(if (chargeSaving) stringResource(R.string.sched_saving) else stringResource(R.string.sched_save), Modifier.fillMaxWidth(), enabled = !chargeSaving) {
                     chargeSaving = true
                     scope.launch {
                         val r = deps.schedule.setChargePlan(
@@ -158,8 +160,8 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                         when (r) {
                             // Applied asynchronously; keep the just-saved state locally rather than
                             // re-GETting immediately (the car syncs a moment later).
-                            is CallResult.Ok -> snackbar("Charging schedule saved ✓")
-                            is CallResult.Err -> snackbar("Save failed ✗ ${r.message}")
+                            is CallResult.Ok -> snackbar(ctx.getString(R.string.sched_charge_saved))
+                            is CallResult.Err -> snackbar(ctx.getString(R.string.sched_save_failed, r.message))
                         }
                     }
                 }
@@ -167,16 +169,16 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
         }
 
         // ============================ DEPARTURE ============================
-        SectionHeader("Departure schedule")
+        SectionHeader(stringResource(R.string.sched_departure_header))
         CockpitCard {
             Text(
-                "Have the cabin (and battery) preconditioned by your departure time on the days you pick.",
+                stringResource(R.string.sched_departure_desc),
                 color = Brand.muted, fontSize = 12.sp,
             )
             if (depLoading) {
                 LoadingRow()
             } else if (departures.isEmpty()) {
-                EmptyRow("No departure schedules yet.")
+                EmptyRow(stringResource(R.string.sched_no_departures))
             } else {
                 departures.forEach { d ->
                     DepartureRow(
@@ -192,9 +194,9 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                                 when (r) {
                                     is CallResult.Ok -> {
                                         if (idx >= 0) departures[idx] = updated
-                                        snackbar(if (on) "Departure enabled ✓" else "Departure disabled ✓")
+                                        snackbar(if (on) ctx.getString(R.string.sched_departure_enabled) else ctx.getString(R.string.sched_departure_disabled))
                                     }
-                                    is CallResult.Err -> snackbar("Update failed ✗ ${r.message}")
+                                    is CallResult.Err -> snackbar(ctx.getString(R.string.sched_update_failed, r.message))
                                 }
                             }
                         },
@@ -207,22 +209,20 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                                 when (r) {
                                     is CallResult.Ok -> {
                                         if (idx >= 0) departures[idx] = d.copy(sts = 0)
-                                        snackbar("Departure deleted ✓")
+                                        snackbar(ctx.getString(R.string.sched_departure_deleted))
                                     }
-                                    is CallResult.Err -> snackbar("Delete failed ✗ ${r.message}")
+                                    is CallResult.Err -> snackbar(ctx.getString(R.string.sched_delete_failed, r.message))
                                 }
                             }
                         },
                     )
                 }
             }
-            PrimaryButton("Add departure", Modifier.fillMaxWidth()) { showAddDeparture = true }
+            PrimaryButton(stringResource(R.string.sched_add_departure), Modifier.fillMaxWidth()) { showAddDeparture = true }
         }
 
         Text(
-            "Schedules are stored on the car (via ms-charge-manage), so the car must be AWAKE to save them. " +
-                "If it's been parked a while it may be asleep — wake it (unlock it, open the Zeekr app, or plug " +
-                "in to charge), then save. A save is only confirmed once the car acknowledges it.",
+            stringResource(R.string.sched_awake_note),
             color = Brand.faint, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         )
         Spacer(Modifier.size(8.dp))
@@ -237,8 +237,8 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 scope.launch {
                     val r = deps.schedule.createDeparture(setting)
                     when (r) {
-                        is CallResult.Ok -> { snackbar("Departure created ✓"); reloadDepartures() }
-                        is CallResult.Err -> snackbar("Create failed ✗ ${r.message}")
+                        is CallResult.Ok -> { snackbar(ctx.getString(R.string.sched_departure_created)); reloadDepartures() }
+                        is CallResult.Err -> snackbar(ctx.getString(R.string.sched_create_failed, r.message))
                     }
                 }
             },
@@ -254,32 +254,36 @@ private fun DepartureRow(
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
+    val dayLabels = dayLabels()
+    val defaultName = stringResource(R.string.sched_departure_default)
+    val preheatTag = stringResource(R.string.sched_preheat_tag)
+    val noTime = stringResource(R.string.sched_time_none)
     val activeDays = setting.cycleTimes.filter { it.sts == 1 }.map { it.day }.toSortedSet()
     val rawTime = setting.cycleTimes.firstOrNull { it.sts == 1 }?.time
         ?: setting.temporaryTime.ifBlank { "" }
-    val time = if (rawTime.isBlank()) "—" else hhmm(rawTime)
+    val time = if (rawTime.isBlank()) noTime else hhmm(rawTime)
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.surface2).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(Icons.Filled.Schedule, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f)) {
-            Text(setting.name.ifBlank { "Departure" }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(setting.name.ifBlank { defaultName }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 buildString {
                     append(time.take(5))
                     if (activeDays.isNotEmpty()) {
                         append("  ·  ")
-                        append(activeDays.joinToString("") { DAY_LABELS[(it - 1).coerceIn(0, 6)] })
+                        append(activeDays.joinToString("") { dayLabels[(it - 1).coerceIn(0, 6)] })
                     }
-                    if (setting.preHeatSts == 1) append("  ·  preheat")
+                    if (setting.preHeatSts == 1) append("  ·  $preheatTag")
                 },
                 color = Brand.muted, fontSize = 11.5.sp,
             )
         }
         Switch(checked = setting.sts == 1, onCheckedChange = onToggle, colors = brandSwitchColors(Brand.good))
         Icon(
-            Icons.Filled.Delete, "Delete", tint = Brand.faint,
+            Icons.Filled.Delete, stringResource(R.string.sched_delete_cd), tint = Brand.faint,
             modifier = Modifier.size(30.dp).clip(CircleShape).clickable(onClick = onDelete).padding(6.dp),
         )
     }
@@ -291,7 +295,9 @@ private fun AddDepartureSheet(
     onDismiss: () -> Unit,
     onCreate: (BookingTravelSetting) -> Unit,
 ) {
-    var name by remember { mutableStateOf("Departure") }
+    val defaultName = stringResource(R.string.sched_departure_default)
+    val dayLabels = dayLabels()
+    var name by remember { mutableStateOf(defaultName) }
     var time by remember { mutableStateOf("08:00:00") }
     val days = remember { mutableStateListOf<Int>() }
     var preheat by remember { mutableStateOf(true) }
@@ -299,45 +305,45 @@ private fun AddDepartureSheet(
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New departure") },
+        title = { Text(stringResource(R.string.sched_new_departure)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 androidx.compose.material3.OutlinedTextField(
-                    value = name, onValueChange = { name = it }, singleLine = true, label = { Text("Name") },
+                    value = name, onValueChange = { name = it }, singleLine = true, label = { Text(stringResource(R.string.sched_name)) },
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Departure time", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.sched_departure_time), fontSize = 13.sp, modifier = Modifier.weight(1f))
                     TimeChip(time.take(5)) { pickTime(ctx, time, withSeconds = true) { time = it } }
                 }
-                Text("Repeat on (pick at least one day)", color = Brand.muted, fontSize = 12.sp)
+                Text(stringResource(R.string.sched_repeat_on), color = Brand.muted, fontSize = 12.sp)
                 // FlowRow so all 7 days wrap onto a second line on narrow dialogs instead of clipping
                 // Sat/Sun off the right edge (they were unreachable in a plain Row).
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    // day is 1-based on the wire (1=Mon .. 7=Sun); DAY_LABELS is indexed day-1.
+                    // day is 1-based on the wire (1=Mon .. 7=Sun); dayLabels() is indexed day-1.
                     for (d in 1..7) {
                         val on = d in days
-                        SelectChip(DAY_LABELS[d - 1], on) { if (on) days.remove(d) else days.add(d) }
+                        SelectChip(dayLabels[d - 1], on) { if (on) days.remove(d) else days.add(d) }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Cabin preheat", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.sched_cabin_preheat), fontSize = 13.sp, modifier = Modifier.weight(1f))
                     Switch(checked = cabin, onCheckedChange = { cabin = it }, colors = brandSwitchColors())
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Battery preheat", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.sched_battery_preheat), fontSize = 13.sp, modifier = Modifier.weight(1f))
                     Switch(checked = preheat, onCheckedChange = { preheat = it }, colors = brandSwitchColors())
                 }
             }
         },
         confirmButton = {
             androidx.compose.material3.TextButton(enabled = days.isNotEmpty(), onClick = {
-                onCreate(newRecurringDeparture(name, time, days.toSet(), preheat, cabin))
-            }) { Text("Create") }
+                onCreate(newRecurringDeparture(name.ifBlank { defaultName }, time, days.toSet(), preheat, cabin))
+            }) { Text(stringResource(R.string.sched_create)) }
         },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(stringResource(R.string.sched_cancel)) } },
     )
 }
 
@@ -362,9 +368,18 @@ private fun LoadingRow() =
 private fun EmptyRow(text: String) =
     Text(text, color = Brand.faint, fontSize = 12.sp, modifier = Modifier.padding(vertical = 6.dp))
 
-/** Day labels indexed by (stock `CycleTime.day` − 1). `day` is 1-based on the wire (1..7),
- *  day 1 = Monday … day 7 = Sunday, so DAY_LABELS[day-1] is the label. */
-private val DAY_LABELS = arrayOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+/** Localized day labels indexed by (stock `CycleTime.day` - 1). `day` is 1-based on the wire (1..7),
+ *  day 1 = Monday .. day 7 = Sunday, so dayLabels()[day-1] is the label. */
+@Composable
+private fun dayLabels(): List<String> = listOf(
+    stringResource(R.string.sched_day_mon),
+    stringResource(R.string.sched_day_tue),
+    stringResource(R.string.sched_day_wed),
+    stringResource(R.string.sched_day_thu),
+    stringResource(R.string.sched_day_fri),
+    stringResource(R.string.sched_day_sat),
+    stringResource(R.string.sched_day_sun),
+)
 
 /**
  * Fallback `temporaryTime` (format "yyyy:MM:dd:HH:mm:ss"). The cloud rejects an EMPTY temporaryTime
@@ -426,7 +441,8 @@ private fun newRecurringDeparture(
     cabin: Boolean,
 ): BookingTravelSetting = BookingTravelSetting(
     btId = 1,                // >= 1 required on create (stock default is 1; server assigns the real id)
-    name = name.trim().ifBlank { "Departure" },
+    // Caller guarantees a non-blank (already-localized) name; trim only.
+    name = name.trim(),
     sts = 1,
     displaySts = 1,
     bookingType = 1,         // 1 = recurring (uses cycleTimes); 0 = one-off (requires a real temporaryTime)

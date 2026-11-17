@@ -47,9 +47,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.openzeekr.app.Deps
+import com.openzeekr.app.R
 import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.ble.ProximityController
@@ -64,15 +66,16 @@ import kotlinx.coroutines.launch
 @Composable
 fun ControlsScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val bleState by deps.ble.state.collectAsState()
     val bleReady = bleState == DkBleManager.State.SESSION_READY
 
     fun fire(label: String, block: suspend () -> CallResult<*>) {
-        snackbar("$label…")
+        snackbar(context.getString(R.string.ctrl_fire_progress, label))
         scope.launch {
             when (val r = block()) {
-                is CallResult.Ok -> snackbar("$label ✓")
-                is CallResult.Err -> snackbar("$label ✗  ${r.message}")
+                is CallResult.Ok -> snackbar(context.getString(R.string.ctrl_fire_ok, label))
+                is CallResult.Err -> snackbar(context.getString(R.string.ctrl_fire_err, label, r.message))
             }
         }
     }
@@ -87,7 +90,7 @@ fun ControlsScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
     }
 
     fun door(lockIt: Boolean) {
-        val name = if (lockIt) "Lock" else "Unlock"
+        val name = if (lockIt) context.getString(R.string.ctrl_lock) else context.getString(R.string.ctrl_unlock)
         val cmd = if (lockIt) Command.LOCK else Command.UNLOCK
         if (bleReady) fire(name) {
             val viaKey = runCatching { if (lockIt) deps.lock.lock() else deps.lock.unlock() }.getOrDefault(false)
@@ -113,17 +116,17 @@ fun ControlsScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { SectionHeader("Quick actions") }
+        item { SectionHeader(stringResource(R.string.ctrl_quick_actions)) }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                QuickAction("Unlock", Icons.Filled.LockOpen, Modifier.weight(1f),
+                QuickAction(stringResource(R.string.ctrl_unlock), Icons.Filled.LockOpen, Modifier.weight(1f),
                     accent = MaterialTheme.colorScheme.primary) { door(lockIt = false) }
-                QuickAction("Lock", Icons.Filled.Lock, Modifier.weight(1f)) { door(lockIt = true) }
-                QuickAction("Climate", Icons.Filled.Thermostat, Modifier.weight(1f)) { fire("Climate On") { deps.control.send(Command.AC_ON) } }
-                QuickAction("Locate", Icons.Filled.Campaign, Modifier.weight(1f)) { fire("Flash + Horn") { deps.control.send(Command.FLASH_HORN) } }
+                QuickAction(stringResource(R.string.ctrl_lock), Icons.Filled.Lock, Modifier.weight(1f)) { door(lockIt = true) }
+                QuickAction(stringResource(R.string.ctrl_climate), Icons.Filled.Thermostat, Modifier.weight(1f)) { fire(context.getString(R.string.ctrl_climate_on)) { deps.control.send(Command.AC_ON) } }
+                QuickAction(stringResource(R.string.ctrl_locate), Icons.Filled.Campaign, Modifier.weight(1f)) { fire(context.getString(R.string.ctrl_flash_horn)) { deps.control.send(Command.FLASH_HORN) } }
             }
         }
 
@@ -205,9 +208,9 @@ private fun VehicleStatusCard(deps: Deps) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Vehicle status", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ctrl_vehicle_status), fontWeight = FontWeight.SemiBold)
                 androidx.compose.material3.TextButton(onClick = { refresh() }, enabled = !busy) {
-                    Text(if (busy) "…" else "Refresh")
+                    Text(if (busy) stringResource(R.string.ctrl_busy) else stringResource(R.string.ctrl_refresh))
                 }
             }
 
@@ -217,50 +220,50 @@ private fun VehicleStatusCard(deps: Deps) {
             val maint = status?.additionalVehicleStatus?.maintenanceStatus
 
             when {
-                error != null -> Text("⚠ $error", color = MaterialTheme.colorScheme.error,
+                error != null -> Text(stringResource(R.string.ctrl_error_fmt, error ?: ""), color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall)
-                status == null -> Text("Tap Refresh to fetch the latest status from the cloud.",
+                status == null -> Text(stringResource(R.string.ctrl_status_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else -> {
                     // Lock: 1 = locked, 0 = unlocked (Geely convention).
-                    StatusRow("Central lock", when (safety?.centralLockingStatus) {
-                        "1" -> "Locked"; "0" -> "Unlocked"; null, "" -> null
+                    StatusRow(stringResource(R.string.ctrl_central_lock), when (safety?.centralLockingStatus) {
+                        "1" -> stringResource(R.string.ctrl_locked); "0" -> stringResource(R.string.ctrl_unlocked); null, "" -> null
                         else -> safety?.centralLockingStatus
                     })
                     // SOC: this car leaves stateOfCharge blank and reports % in chargeLevel.
                     val soc = electric?.stateOfCharge?.takeIf { it.isNotBlank() }
                         ?: electric?.chargeLevel?.takeIf { it.isNotBlank() }
-                    StatusRow("SOC", soc?.let { "$it%" })
-                    StatusRow("EV range", (electric?.distanceToEmptyOnBatteryOnly?.takeIf { it.isNotBlank() && it != "0" }
+                    StatusRow(stringResource(R.string.ctrl_soc), soc?.let { stringResource(R.string.ctrl_percent_fmt, it) })
+                    StatusRow(stringResource(R.string.ctrl_ev_range), (electric?.distanceToEmptyOnBatteryOnly?.takeIf { it.isNotBlank() && it != "0" }
                         ?: status?.basicVehicleStatus?.distanceToEmpty?.takeIf { it.isNotBlank() && it != "0" })
-                        ?.let { "$it km" })
-                    // isCharging is buggy (false while charging) — derive from live power.
-                    StatusRow("Charging", electric?.let {
+                        ?.let { stringResource(R.string.ctrl_km_fmt, it) })
+                    // isCharging is buggy (false while charging) - derive from live power.
+                    StatusRow(stringResource(R.string.ctrl_charging), electric?.let {
                         if (it.chargingActive)
-                            it.chargePowerW?.takeIf { w -> w > 0 }?.let { w -> "yes · %.1f kW".format(w / 1000) } ?: "yes"
-                        else "no"
+                            it.chargePowerW?.takeIf { w -> w > 0 }?.let { w -> stringResource(R.string.ctrl_charging_yes_kw, w / 1000) } ?: stringResource(R.string.ctrl_yes)
+                        else stringResource(R.string.ctrl_no)
                     })
                     // Only while charging, and only when the car reports an estimate (hidden otherwise).
-                    StatusRow("Time to full", electric?.timeToFullLabel)
-                    StatusRow("Odometer", maint?.odometer?.let { "$it km" })
-                    StatusRow("Interior temp", climate?.interiorTemp?.takeIf { it.isNotBlank() }?.let { "$it °C" })
-                    StatusRow("Exterior temp", climate?.exteriorTemp?.takeIf { it.isNotBlank() }?.let { "$it °C" })
+                    StatusRow(stringResource(R.string.ctrl_time_to_full), electric?.timeToFullLabel)
+                    StatusRow(stringResource(R.string.ctrl_odometer), maint?.odometer?.let { stringResource(R.string.ctrl_km_fmt, it) })
+                    StatusRow(stringResource(R.string.ctrl_interior_temp), climate?.interiorTemp?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.ctrl_celsius_fmt, it) })
+                    StatusRow(stringResource(R.string.ctrl_exterior_temp), climate?.exteriorTemp?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.ctrl_celsius_fmt, it) })
                     // Doors/trunk: 0 = closed, anything else = open.
                     val doors = listOf(
-                        "driver" to safety?.doorOpenStatusDriver,
-                        "passenger" to safety?.doorOpenStatusPassenger,
-                        "driver-rear" to safety?.doorOpenStatusDriverRear,
-                        "passenger-rear" to safety?.doorOpenStatusPassengerRear,
-                        "trunk" to safety?.trunkOpenStatus,
+                        stringResource(R.string.ctrl_door_driver) to safety?.doorOpenStatusDriver,
+                        stringResource(R.string.ctrl_door_passenger) to safety?.doorOpenStatusPassenger,
+                        stringResource(R.string.ctrl_door_driver_rear) to safety?.doorOpenStatusDriverRear,
+                        stringResource(R.string.ctrl_door_passenger_rear) to safety?.doorOpenStatusPassengerRear,
+                        stringResource(R.string.ctrl_door_trunk) to safety?.trunkOpenStatus,
                     )
                     val open = doors.filter { (_, v) -> !v.isNullOrBlank() && v != "0" }.map { it.first }
                     val anyKnown = doors.any { (_, v) -> !v.isNullOrBlank() }
-                    if (anyKnown) StatusRow("Doors/trunk",
-                        if (open.isEmpty()) "All closed" else "Open: ${open.joinToString(", ")}")
+                    if (anyKnown) StatusRow(stringResource(R.string.ctrl_doors_trunk),
+                        if (open.isEmpty()) stringResource(R.string.ctrl_all_closed) else stringResource(R.string.ctrl_open_fmt, open.joinToString(", ")))
                     status?.updateTime?.let {
-                        Text("updated ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
-                            .format(java.util.Date(it))}",
+                        Text(stringResource(R.string.ctrl_updated_fmt, java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                            .format(java.util.Date(it))),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -329,10 +332,10 @@ private fun ProximityCard(deps: Deps) {
                         contentAlignment = Alignment.Center,
                     ) { Icon(Icons.Filled.Bolt, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
                     Column {
-                        Text("Proximity unlock", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.ctrl_proximity_unlock), fontWeight = FontWeight.SemiBold)
                         Text(
-                            if (cfg.isProximityCalibrated) "RSSI approach / walk-away"
-                            else "Calibrate at your car (Key tab) to enable",
+                            if (cfg.isProximityCalibrated) stringResource(R.string.ctrl_rssi_approach)
+                            else stringResource(R.string.ctrl_calibrate_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -356,31 +359,32 @@ private fun ProximityCard(deps: Deps) {
             AnimatedVisibility(visible = prox.running) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     val zone = when (prox.zone) {
-                        ProximityController.Zone.NEAR -> "NEAR → unlock"
-                        ProximityController.Zone.FAR -> "FAR → lock"
-                        ProximityController.Zone.UNKNOWN -> "—"
+                        ProximityController.Zone.NEAR -> stringResource(R.string.ctrl_zone_near)
+                        ProximityController.Zone.FAR -> stringResource(R.string.ctrl_zone_far)
+                        ProximityController.Zone.UNKNOWN -> stringResource(R.string.ctrl_zone_unknown)
                     }
                     val phase = when (prox.phase) {
-                        ProximityController.Phase.PASSIVE -> "scanning (low power)"
-                        ProximityController.Phase.CONNECTING -> "connecting…"
-                        ProximityController.Phase.MONITORING -> "monitoring (connected)"
+                        ProximityController.Phase.PASSIVE -> stringResource(R.string.ctrl_phase_passive)
+                        ProximityController.Phase.CONNECTING -> stringResource(R.string.ctrl_phase_connecting)
+                        ProximityController.Phase.MONITORING -> stringResource(R.string.ctrl_phase_monitoring)
                     }
                     RssiMeter(prox.smoothedRssi, cfg.effectiveLockRssi, cfg.effectiveUnlockRssi)
-                    Text("${prox.smoothedRssi ?: "--"} dBm   ·   $zone",
+                    Text(stringResource(R.string.ctrl_rssi_line_fmt, prox.smoothedRssi?.toString() ?: stringResource(R.string.ctrl_rssi_none), zone),
                         style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                     Text(phase, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (prox.lastAction.isNotBlank())
-                        Text("last: ${prox.lastAction}", style = MaterialTheme.typography.bodySmall,
+                        Text(stringResource(R.string.ctrl_last_fmt, prox.lastAction), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    prox.error?.let { Text("⚠ $it", color = MaterialTheme.colorScheme.error,
+                    prox.error?.let { Text(stringResource(R.string.ctrl_error_fmt, it), color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall) }
                 }
             }
 
-            // Single knob: unlock threshold, floored at -65 dBm (can't be set weaker).
-            // The lock threshold is derived (unlock − 5 dB) so the two never overlap.
-            Text("Unlock at ≥ ${cfg.effectiveUnlockRssi} dBm   ·   auto-lock at ≤ ${cfg.effectiveLockRssi} dBm",
+            // Unlock threshold, floored at -65 dBm (can't be set weaker). The walk-away LOCK distance is a
+            // separate preset (Setup > Proximity, issue #44); it is clamped to stay below unlock so the two
+            // bands never overlap.
+            Text(stringResource(R.string.ctrl_threshold_fmt, cfg.effectiveUnlockRssi, cfg.effectiveLockRssi),
                 style = MaterialTheme.typography.bodySmall)
             Slider(
                 value = cfg.effectiveUnlockRssi.toFloat(),
@@ -391,7 +395,7 @@ private fun ProximityCard(deps: Deps) {
             OutlinedTextField(
                 value = cfg.proximityDeviceMac,
                 onValueChange = { v -> deps.config.update { it.copy(proximityDeviceMac = v) } },
-                label = { Text("Vehicle BLE MAC (blank = strongest)") },
+                label = { Text(stringResource(R.string.ctrl_ble_mac_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -414,7 +418,7 @@ private fun BatteryOptimizationRow(context: android.content.Context) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (exempt) "Background: unrestricted ✓" else "Background: restricted — may be killed",
+            if (exempt) stringResource(R.string.ctrl_bg_unrestricted) else stringResource(R.string.ctrl_bg_restricted),
             style = MaterialTheme.typography.bodySmall,
             color = if (exempt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         )
@@ -426,7 +430,7 @@ private fun BatteryOptimizationRow(context: android.content.Context) {
                     android.net.Uri.parse("package:${context.packageName}"),
                 ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 runCatching { context.startActivity(intent) }
-            }) { Text("Allow") }
+            }) { Text(stringResource(R.string.ctrl_allow)) }
         }
     }
 }

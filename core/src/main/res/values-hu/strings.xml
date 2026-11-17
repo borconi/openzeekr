@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digitális kulcs közelség &amp; BLE</string>
+    <string name="notification_channel_charging">Töltés &amp; akkumulátor</string>
+    <string name="notification_channel_charging_description">Töltés előrehaladása, töltési problémák és akkumulátor-riasztások</string>
+    <string name="notification_channel_security">Biztonság &amp; parkolás</string>
+    <string name="notification_channel_security_description">Biztonsági riasztások, behatolás, elvontatás és rendellenes parkolási riasztások</string>
+    <string name="notification_channel_vehicle">Járművezérlés</string>
+    <string name="notification_channel_vehicle_description">Zárás-, ajtó-, ablak-, klíma- és távvezérlési üzenetek</string>
+    <string name="notification_channel_updates">Szoftverfrissítések</string>
+    <string name="notification_channel_updates_description">Jármű szoftverfrissítések és telepítési eredmények</string>
+    <string name="notification_channel_service">Szerviz-emlékeztetők</string>
+    <string name="notification_channel_service_description">Karbantartási, szerviz- és értékesítés utáni üzenetek</string>
+    <string name="notification_channel_news">Hírek &amp; ajánlatok</string>
+    <string name="notification_channel_news_description">Zeekr hírek, események és promóciós üzenetek</string>
+    <string name="notification_channel_other">Autóriasztások (besorolatlan)</string>
+    <string name="notification_channel_other_description">Tartalmazhat háttérben kézbesített biztonsági riasztásokat és más autóriasztásokat felismert kategória nélkül</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digitális kulcs aktív</string>
+    <string name="proximity_notif_text">Csatlakoztatva tartja a kulcsodat zárás/nyitás céljából</string>
+    <string name="proximity_channel_name">Digitális kulcs</string>
+</resources>

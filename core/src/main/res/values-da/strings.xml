@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digital nøgle-nærhed &amp; BLE</string>
+    <string name="notification_channel_charging">Opladning &amp; batteri</string>
+    <string name="notification_channel_charging_description">Opladningsfremgang, opladningsproblemer og batteriadvarsler</string>
+    <string name="notification_channel_security">Sikkerhed &amp; parkering</string>
+    <string name="notification_channel_security_description">Sikkerhedsalarmer, indbrud, bugsering og unormale parkeringsadvarsler</string>
+    <string name="notification_channel_vehicle">Køretøjsstyring</string>
+    <string name="notification_channel_vehicle_description">Beskeder om låsning, dør, vindue, klima og fjernstyring</string>
+    <string name="notification_channel_updates">Softwareopdateringer</string>
+    <string name="notification_channel_updates_description">Køretøjets softwareopdateringer og installationsresultater</string>
+    <string name="notification_channel_service">Servicepåmindelser</string>
+    <string name="notification_channel_service_description">Vedligeholdelse, service og eftersalgsbeskeder</string>
+    <string name="notification_channel_news">Nyheder &amp; tilbud</string>
+    <string name="notification_channel_news_description">Zeekr-nyheder, begivenheder og kampagnebeskeder</string>
+    <string name="notification_channel_other">Biladvarsler (ukategoriseret)</string>
+    <string name="notification_channel_other_description">Kan omfatte sikkerhedsalarmer leveret i baggrunden og andre biladvarsler uden en genkendt kategori</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digital nøgle aktiv</string>
+    <string name="proximity_notif_text">Holder din nøgle forbundet til låsning/oplåsning</string>
+    <string name="proximity_channel_name">Digital nøgle</string>
+</resources>

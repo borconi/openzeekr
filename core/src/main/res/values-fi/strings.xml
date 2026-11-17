@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Label for the privacy attribution tag used by the BLE proximity/scan + motion-sensor code
+         paths, so AppOps doesn't log "attributionTag not declared" for our continuous BLE/sensor ops. -->
+    <string name="attribution_proximity">Digitaalisen avaimen läheisyys &amp; BLE</string>
+    <string name="notification_channel_charging">Lataus &amp; akku</string>
+    <string name="notification_channel_charging_description">Latauksen edistyminen, latausongelmat ja akkuhälytykset</string>
+    <string name="notification_channel_security">Turvallisuus &amp; pysäköinti</string>
+    <string name="notification_channel_security_description">Turvahälytykset, tunkeutuminen, hinaus ja poikkeavan pysäköinnin hälytykset</string>
+    <string name="notification_channel_vehicle">Ajoneuvon ohjaimet</string>
+    <string name="notification_channel_vehicle_description">Lukitus-, ovi-, ikkuna-, ilmastointi- ja etäohjausviestit</string>
+    <string name="notification_channel_updates">Ohjelmistopäivitykset</string>
+    <string name="notification_channel_updates_description">Ajoneuvon ohjelmistopäivitykset ja asennustulokset</string>
+    <string name="notification_channel_service">Huoltomuistutukset</string>
+    <string name="notification_channel_service_description">Huolto-, ylläpito- ja jälkimarkkinointiviestit</string>
+    <string name="notification_channel_news">Uutiset &amp; tarjoukset</string>
+    <string name="notification_channel_news_description">Zeekrin uutiset, tapahtumat ja mainosviestit</string>
+    <string name="notification_channel_other">Autohälytykset (luokittelematon)</string>
+    <string name="notification_channel_other_description">Voi sisältää taustalla toimitettavia turvahälytyksiä ja muita autohälytyksiä ilman tunnistettua luokkaa</string>
+
+    <!-- ProximityService foreground digital-key service -->
+    <string name="proximity_notif_title">OpenZeekr digitaalinen avain aktiivinen</string>
+    <string name="proximity_notif_text">Pitää avaimesi yhdistettynä lukitusta/avausta varten</string>
+    <string name="proximity_channel_name">Digitaalinen avain</string>
+</resources>

@@ -22,6 +22,9 @@ clean-room app and is not affiliated with Zeekr.
   the newer LA production key / VIN crypto format. Thanks to apgneto for the fix and testing. (#48)
 - **Charge limit now lands on exactly 60% / 90%.** Some slider stops were showing and sending 59% / 89%
   because of a rounding error; the limit now snaps to the clean value. (#46)
+- **Trusted areas now go by the car's location.** The zones where approach-unlock and walk-away-lock are
+  held off (home, work) are now checked against where the car is actually parked, not your phone's
+  position, so they stay reliable even when indoor GPS drifts. Still an experimental feature. (#42)
 
 ## [0.2.4] - 2026-11-10
 

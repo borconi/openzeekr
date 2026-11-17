@@ -3,6 +3,26 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.5] - 2026-11-17
+
+### Added
+- **OpenZeekr now speaks 25 languages.** The whole app is translated into Bulgarian, Croatian, Czech,
+  Danish, Dutch, Estonian, Finnish, French, German, Greek, Hungarian, Irish, Italian, Latvian, Lithuanian,
+  Maltese, Polish, Portuguese, Romanian, Slovak, Slovenian, Spanish and Swedish, plus Latin American
+  Spanish and Brazilian Portuguese. It follows your phone's language automatically, and falls back to
+  English everywhere else (including Ireland and Malta).
+- **Set the walk-away lock distance on its own.** How far you walk before the car locks itself is now a
+  separate "Lock distance" setting (Setup, next to the approach sensitivity), instead of being tied to the
+  approach-unlock distance. The two are kept from overlapping so the car can't lock and unlock in a loop.
+  (#44)
+
+### Fixed
+- **Latin America (Brazil) now works end-to-end.** Login, the API endpoints and Digital Key provisioning
+  are fixed for the LA region (tested on a Zeekr 7X in Brazil): the right gateway and login parameters, and
+  the newer LA production key / VIN crypto format. Thanks to apgneto for the fix and testing. (#48)
+- **Charge limit now lands on exactly 60% / 90%.** Some slider stops were showing and sending 59% / 89%
+  because of a rounding error; the limit now snaps to the clean value. (#46)
+
 ## [0.2.4] - 2026-11-10
 
 ### Added

@@ -73,7 +73,6 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val store = deps.config
     val liveCfg by store.config.collectAsState()
     var cfg by remember { mutableStateOf(store.current()) }
@@ -262,12 +261,11 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
                 scope.launch {
                     deps.provisioning.fetchCccPairingCode()
                         .onSuccess { pw ->
-                            val btnfc = "http://wallet.apple.com/setup/carkey-pairing?brand=ZKR1&supportedRadioTechnologies=BT,NFC#$pw"
-                            val uwb = "http://wallet.apple.com/setup/carkey-pairing?brand=ZKR1&supportedRadioTechnologies=BT,NFC,UWB#$pw"
-                            runCatching { clipboard.setText(AnnotatedString(btnfc)) }
-                            Logx.d("ccc", "pairing phonePassword=$pw")
-                            Logx.d("ccc", "wallet URL (BT,NFC registered): $btnfc")
-                            Logx.d("ccc", "wallet URL (UWB probe): $uwb")
+                            val btnfc = "https://wallet.apple.com/setup/carkey-pairing?brand=ZKR1&supportedRadioTechnologies=BT,NFC#$pw"
+                            val uwb = "https://wallet.apple.com/setup/carkey-pairing?brand=ZKR1&supportedRadioTechnologies=BT,NFC,UWB#$pw"
+                            // The password enrols an owner key: never log it, and flag the clip sensitive.
+                            copySensitiveToClipboard(ctx, "CCC pairing", btnfc)
+                            Logx.d("ccc", "pairing code fetched (${pw.length} chars); wallet URL copied")
                             status = ctx.getString(R.string.settings_ccc_result, pw, btnfc, uwb)
                         }
                         .onFailure { status = ctx.getString(R.string.settings_ccc_failed, it.message) }

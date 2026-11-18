@@ -242,6 +242,15 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         Hero(model, paint, charging, soc, powerKw, driving = driving, speedNum = heroSpeed,
             speedUnit = heroSpeedUnit, loading = info == null)
 
+        val pos = status?.basicVehicleStatus?.position
+        val cabinTempC = climate?.interiorTemp?.toDoubleOrNull()
+        VehicleWeatherLocationBar(
+            lat = pos?.latitude,
+            lng = pos?.longitude,
+            cabinTempC = cabinTempC,
+            tempUnit = cfg.tempUnit,
+        )
+
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             StatItem(stringResource(R.string.vehicle_stat_central_lock), if (locked) stringResource(R.string.vehicle_status_locked) else stringResource(R.string.vehicle_status_unlocked), if (locked) Brand.good else Brand.energy, Modifier.weight(1f))
             StatItem(stringResource(R.string.vehicle_stat_battery), soc?.let { ctx.getString(R.string.vehicle_pct, fmt(it)) } ?: dash, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
@@ -426,6 +435,75 @@ private fun Hero(
                 start = Offset(-160f + phase * 320f, 0f), end = Offset(phase * 320f, 0f), tileMode = TileMode.Mirror)
             Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.White.copy(alpha = .10f))) {
                 Box(Modifier.fillMaxWidth(soc / 100f).height(4.dp).background(shimmer))
+            }
+        }
+    }
+}
+
+@Composable
+private fun VehicleWeatherLocationBar(
+    lat: Double?,
+    lng: Double?,
+    cabinTempC: Double?,
+    tempUnit: String,
+) {
+    val ctx = LocalContext.current
+    var place by remember { mutableStateOf("") }
+    var weather by remember { mutableStateOf<WeatherInfo?>(null) }
+
+    LaunchedEffect(lat, lng) {
+        if (lat != null && lng != null) {
+            place = OsmChargers.reverseGeocode(ctx, lat, lng)
+            weather = OsmChargers.fetchWeather(lat, lng)
+        }
+    }
+
+    fun fmtTemp(c: Double): String =
+        if (tempUnit == "f") "${((c * 9.0 / 5.0) + 32.0).toInt()}°F" else "${c.toInt()}°C"
+
+    val hasAny = place.isNotBlank() || weather != null || cabinTempC != null
+    if (!hasAny) return
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Brand.surface2.copy(alpha = 0.62f))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (place.isNotBlank()) {
+            Text(
+                "📍 $place",
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            weather?.let { w ->
+                Text(
+                    "${w.emoji} ${fmtTemp(w.tempC)}",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            cabinTempC?.let { ct ->
+                Text(
+                    stringResource(R.string.ui_veh_cabin_temp, fmtTemp(ct)),
+                    color = Brand.accent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }

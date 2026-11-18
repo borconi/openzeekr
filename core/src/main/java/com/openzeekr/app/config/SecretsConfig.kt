@@ -244,6 +244,12 @@ data class SecretsConfig(
      *  the Hero lab, Remote Parking and Smart calibration - so they aren't shown to normal users
      *  between releases. Default off; a fresh/normal install never sees the dev tools. */
     val devMode: Boolean = false,
+    /** Map layer toggles (Location tab). */
+    val mapShowHud: Boolean = true,
+    val mapShowTrail: Boolean = false,
+    val mapShowChargers: Boolean = false,
+    /** Optional Open Charge Map API key for enriched EV charging station lookup. */
+    val openChargeMapKey: String = "",
     /** User-set display name for the car (shown in the top bar). Blank = use the model
      *  name. The cloud rename API (modify-vehicle / vehNickname) is wired separately. */
     val carNickname: String = "",

@@ -286,6 +286,19 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
 
         if (status.isNotBlank()) Text(status, color = Brand.muted, fontSize = 13.sp)
 
+        // -------- map / chargers --------
+        SettingsCard {
+            CardTitle(stringResource(R.string.ui_set_map_title))
+            var ocmDraft by remember(liveCfg.openChargeMapKey) { mutableStateOf(liveCfg.openChargeMapKey) }
+            androidx.compose.material3.OutlinedTextField(
+                value = ocmDraft,
+                onValueChange = { ocmDraft = it; store.update { c -> c.copy(openChargeMapKey = it.trim()) } },
+                label = { Text(stringResource(R.string.ui_set_ocm_key_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
         // -------- about --------
         SettingsCard {
             CardTitle(stringResource(R.string.settings_about))

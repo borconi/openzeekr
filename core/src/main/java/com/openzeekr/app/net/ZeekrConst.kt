@@ -45,9 +45,12 @@ object ZeekrConst {
     // NA ".ecloudus.com"). The .cn host is the CN gateway and rejects overseas apps (1440 "验签APP不存在").
     const val XCHANGER_APP_ID = "8bbb65c1c4a288a28152c36dfa792014"   // from the EU xchanger JWT appId
     const val XCHANGER_APP_ID_GLOBAL = "7d46f4c500fa4e92bef2a92cd6aeebcd" // from com.zeekr.global getCommonConfig.appid
+    // LA/Brazil needs the com.zeekr.global app id (verified in PR #50). EU and SEA used the original
+    // XCHANGER_APP_ID before 0.2.5 and logged in fine, so they KEEP it - lumping SEA in with the global id
+    // broke Australian/SEA login. ME is unverified, so leave it on the original id until confirmed.
     fun xchangerAppId(regionCode: String): String = when (regionCode.uppercase()) {
-        "EU" -> XCHANGER_APP_ID
-        else -> XCHANGER_APP_ID_GLOBAL
+        "LA" -> XCHANGER_APP_ID_GLOBAL
+        else -> XCHANGER_APP_ID
     }
     const val XCHANGER_OPERATOR = "ZEEKR"
     /** Stock Accept header value on the HF calls — part of the signed header set. */

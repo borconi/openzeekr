@@ -283,6 +283,9 @@ class DkProvisioning(
                 coefBigHex = pick(dd.coefBigParam, demarcate?.coefBigParam),
                 mobileCodeHex = pick(dd.mobileCode, demarcate?.mobileCode),
             )
+            // Fresh key for this car: drop its old vehicle-cert pin so a re-issued cert / ECU swap
+            // re-pins on the next (possession-verified) handshake instead of being locked out.
+            ble.forgetCertPin(vin)
             identity.credential()?.let { ble.setCredential(it) }
 
             Logx.d("provision", "=== provision DONE dkId=$dkId ===")
@@ -359,18 +362,25 @@ class DkProvisioning(
             val deviceId = identity.deviceId
             val dkId = identity.credential()?.cloudDkId?.takeIf { it.isNotBlank() }
             if (dkId != null && cfg.userId.isNotBlank() && cfg.vin.isNotBlank()) {
-                runCatching {
-                    val sig = identity.signDkMessage(cfg.userId, cfg.vin)
-                    val r = api.removeOneKey(RemoveKeyReq(deviceId = deviceId, dkId = dkId, signature = sig))
-                    Logx.d("provision", "remove-one-key -> ${r.code}")
-                }.onFailure { Logx.w("provision", "remove-one-key failed (revoking locally anyway): ${it.message}") }
+                // The car only forgets the key when the CLOUD revoke succeeds, and that revoke is signed by
+                // THIS local key. So a failed revoke must NOT wipe locally: that would strand a still-valid
+                // key on the car with nothing left to sign its removal. Let the failure propagate (no wipe,
+                // no "removed" message) so the user can retry once the car/network is reachable.
+                val sig = identity.signDkMessage(cfg.userId, cfg.vin)
+                val r = api.removeOneKey(RemoveKeyReq(deviceId = deviceId, dkId = dkId, signature = sig))
+                Logx.d("provision", "remove-one-key -> ${r.code}")
+                if (!ok(r.code)) error("cloud revoke failed (code=${r.code}); the key is still active on the car")
             } else {
-                Logx.w("provision", "remove-one-key skipped (no dkId/account) — local wipe only")
+                Logx.w("provision", "remove-one-key skipped (no dkId/account) - local-only key, wiping locally")
             }
             runCatching { ble.disconnect() }
             identity.wipeAll()
+            ble.clearCertPins()
             _state.value = State(Step.IDLE, "key removed")
-            Logx.d("provision", "=== key removed (cloud best-effort, local fully wiped) ===")
+            Logx.d("provision", "=== key removed (cloud confirmed, local fully wiped) ===")
+        }.onFailure {
+            _state.value = State(Step.ERROR, it.message ?: "remove failed")
+            Logx.w("provision", "removeKey failed (local key kept for retry): ${it.message}")
         }
     }
 

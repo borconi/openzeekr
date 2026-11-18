@@ -3,6 +3,40 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.6] - 2026-11-18
+
+### Added
+- **Two more languages: Norwegian (Bokmål) and Arabic.** That brings the app to 27 languages. Arabic lays
+  the whole app out right-to-left. Both follow your phone's language automatically.
+
+### Security
+- **Removed a hardcoded account token from the login path.** A contributed change in 0.2.5 left a real
+  account token in the code as a login fallback. A login that cannot obtain a proper token now fails
+  cleanly instead of falling back to it (which could have signed you in as the wrong account). If you ran
+  0.2.5, sign out and back in to be safe.
+- **Your password is never sent unencrypted.** Login now refuses to proceed if the password public key is
+  missing, instead of ever falling back to sending the password in the clear. (#62)
+- **The digital key is pinned to your car only after it proves itself.** The car's certificate is now
+  pinned after the car has proven it holds the matching private key, not on first sight of a (replayable)
+  certificate, and all pins are cleared when you remove the key. This closes a gap where a relay/fake car
+  could have been pinned. (#54)
+- **Config export leaves your login out by default.** Exporting your configuration no longer copies your
+  account password or session tokens unless you tick a box; the clipboard copy is also flagged sensitive so
+  modern keyboards keep it out of their history. (#61)
+- **The Apple Wallet (CCC) pairing password is no longer written to the log,** and its clipboard copy is
+  flagged sensitive. (#56)
+
+### Fixed
+- **Non-EU login works again (Australia / SEA, and others).** 0.2.5 reset the selected region back to the
+  EU servers on every launch, so non-EU accounts could no longer sign in (they could on 0.2.4). The region
+  and its hosts are now kept, and SEA/EU keep the account app-id they used before 0.2.5.
+- **"Remove key" no longer claims success when it failed.** If the cloud revoke does not go through, the
+  key is kept so you can retry, instead of wiping it locally while it stays valid on the car.
+- **Sign-out clears more.** It now also removes the remaining session tokens, your saved home/work zones,
+  the paired-phone identity and the auto-Sentry / proximity toggles, not just the main login. (#59)
+- **Exporting your config asks first.** A confirmation now warns that the copied text contains your
+  password, tokens and keys in plain text before anything is copied.
+
 ## [0.2.5] - 2026-11-17
 
 ### Added

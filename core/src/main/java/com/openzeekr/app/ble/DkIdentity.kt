@@ -128,25 +128,6 @@ class DkIdentity private constructor(private val prefs: android.content.SharedPr
             .remove(K_DIGKEY).remove(K_CMAC).remove(K_COEF).apply()
     }
 
-    /**
-     * DEBUG / self-cal identity test: force a specific 64-hex deviceId so openzeekr connects under a
-     * chosen identity — e.g. the stock phone's ALREADY-ENROLLED deviceId, to test whether the car then
-     * returns DK_STATUS selfRefreshData=1 + issues 0x0138 + finalizes calibration (pos4=7). The car keys
-     * its per-device self-cal record on the deviceId (= cert CN / phoneId), NOT the BLE MAC or the key,
-     * so presenting the enrolled deviceId is the only way to test the identity gate. Persists the id and
-     * clears the provisioned cert/dkId (KEEPS our keypair — the cloud re-issues a valid cert with CN=this
-     * deviceId over our own key), so the NEXT provision enrols under it. Blank/invalid → drop the override
-     * and regenerate a random id on next read. Re-provision after calling this.
-     */
-    fun setDeviceId(hex: String?) {
-        clearProvisioned()
-        val h = hex?.trim()?.lowercase()
-        val e = prefs.edit()
-        if (h.isNullOrBlank() || !h.matches(Regex("^[0-9a-f]{64}$"))) e.remove(K_DEVICE_ID)
-        else e.putString(K_DEVICE_ID, h)
-        e.apply()
-    }
-
     /** Full wipe — removes EVERYTHING, including the keypair + deviceId, so the phone holds NO key
      *  material afterwards (a true "remove key", not a re-provision). */
     fun wipeAll() = prefs.edit().clear().apply()
@@ -169,26 +150,6 @@ class DkIdentity private constructor(private val prefs: android.content.SharedPr
      */
     fun importCredentialBlob(blob: Map<String, String>) {
         prefs.edit().apply { CLONE_KEYS.forEach { k -> blob[k]?.let { putString(k, it) } } }.apply()
-    }
-
-    /**
-     * Export the provisioned identity as a JSON string (the [exportCredentialBlob] map). Includes the
-     * DK PRIVATE key - sensitive; only move it to another device/app you own. Used to copy the working
-     * key into the standalone zeekr-dk-ble project so it can run BLE without re-provisioning (which
-     * needs the cloud/account and mints a different key). Null until provisioned.
-     */
-    fun exportCredentialJson(): String? {
-        val blob = exportCredentialBlob() ?: return null
-        val o = org.json.JSONObject()
-        blob.forEach { (k, v) -> o.put(k, v) }
-        return o.toString(2)
-    }
-
-    /** Import an identity previously written by [exportCredentialJson]. */
-    fun importCredentialJson(json: String) {
-        val o = org.json.JSONObject(json)
-        val map = o.keys().asSequence().associateWith { o.getString(it) }
-        importCredentialBlob(map)
     }
 
     companion object {

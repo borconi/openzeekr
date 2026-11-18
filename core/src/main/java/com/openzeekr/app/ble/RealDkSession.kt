@@ -212,9 +212,13 @@ class RealDkSession(
         // Authenticate the CAR before we ever release our digital key (0x010b): the vehicle cert must
         // be Geely-issued AND valid AND (when a pin store is wired) the SAME cert this car presented at
         // first pair. Stops a fake/relay car - even one holding a genuine Geely cert - from completing
-        // the session and harvesting the key. Throws → handshake aborts before any key material.
-        certPins?.let { DkTrust.requireTrustedAndPinned(carCert, cred.vin, it) }
-            ?: DkTrust.requireGeelyVehicleCert(carCert)
+        // the session and harvesting the key. Throws -> handshake aborts before any key material.
+        // A NEW pin is not written here (the cert is cleartext and replayable); see commitPin below.
+        val carCertFp: String? = if (certPins != null) {
+            DkTrust.requireTrustedAndPinMatches(carCert, cred.vin, certPins)
+        } else {
+            DkTrust.requireGeelyVehicleCert(carCert); null
+        }
 
         // 2) ephemeral factor + signature  (sign over nSeq||ts||factor; cleartext)
         Logx.d("dk", "handshake 2/5 send factor+sig …")
@@ -231,6 +235,9 @@ class RealDkSession(
         // 3) verify vehicle factor + derive session keys (frames become GCM from here)
         Logx.d("dk", "handshake 3/5 verify factor + derive session keys …")
         deriveSession(vfBody, carCert)
+        // The car has now proven it holds carCert's private key (factor signature verified), so it
+        // is safe to pin on first use. Still before SEND_DKEY.
+        if (certPins != null && carCertFp != null) DkTrust.commitPin(carCertFp, cred.vin, certPins)
         cryptoReady = true
         Logx.d("dk", "handshake 3/5 session keys derived (GCM ready)")
         // NOTE: the AES session key (sKey/iv) and the raw digitalKey are NEVER logged - dumping them

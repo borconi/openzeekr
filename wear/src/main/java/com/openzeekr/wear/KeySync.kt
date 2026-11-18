@@ -25,6 +25,7 @@ class KeySyncService : WearableListenerService() {
                 Log.i(TAG, "watch purging cached key (phone removed / signed out)")
                 DkIdentity.get(this).wipeAll()
                 runCatching { com.openzeekr.app.ble.DkBleManager.get(this).disconnect() }
+                runCatching { com.openzeekr.app.ble.DkBleManager.get(this).clearCertPins() }
                 WearKeyState.status.value = "Key removed on phone"
                 WearKeyState.refresh(this)
             }

@@ -105,6 +105,7 @@ class AccountLogin(private val store: ConfigStore) {
             require(cfg.email.isNotBlank() && cfg.password.isNotBlank()) { "email/password not set (enter them in Settings → Account)" }
             require(cfg.hmacAccessKey.isNotBlank() && cfg.hmacSecretKey.isNotBlank()) { "hmac keys not set" }
             require(cfg.prodSecret.isNotBlank()) { "prod_secret not set" }
+            require(cfg.passwordPublicKey.isNotBlank()) { "password_public_key not set" }
             val uc = cfg.usercenterUrl
             val tsp = cfg.baseUrl.trimEnd('/') + "/"
 
@@ -354,9 +355,14 @@ class AccountLogin(private val store: ConfigStore) {
     }.getOrNull()
 
     private fun encryptPassword(password: String, pubKeyB64: String): String {
-        if (pubKeyB64.isBlank()) return password
-        val key = KeyFactory.getInstance("RSA")
-            .generatePublic(X509EncodedKeySpec(Base64.decode(pubKeyB64, Base64.DEFAULT)))
+        // Never fall back to sending the password in plaintext.
+        require(pubKeyB64.isNotBlank()) { "password_public_key not set" }
+        val key = try {
+            KeyFactory.getInstance("RSA")
+                .generatePublic(X509EncodedKeySpec(Base64.decode(pubKeyB64, Base64.DEFAULT)))
+        } catch (e: Exception) {
+            throw IllegalArgumentException("password_public_key is not a valid RSA public key", e)
+        }
         val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding").apply { init(Cipher.ENCRYPT_MODE, key) }
         return Base64.encodeToString(cipher.doFinal(password.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
     }

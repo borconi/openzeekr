@@ -67,13 +67,17 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
             userId = cfg.userId.ifBlank { d.userId },
             accountUuid = cfg.accountUuid.ifBlank { d.accountUuid },
             accessToken = cfg.accessToken.ifBlank { d.accessToken },
-            baseUrl = d.baseUrl,
-            regionCode = d.regionCode,
-            countryCode = d.countryCode,
-            projectId = d.projectId,
-            azureHost = d.azureHost,
-            xchangerHost = d.xchangerHost,
-            snsRegion = d.snsRegion,
+            // Region/host fields: the user's selected region must SURVIVE a restart, so only backfill a
+            // blank one from the baked default (a truly fresh/migrated config). Overwriting these every
+            // launch reset non-EU users back to the EU gateway and undid the region picker. The picker
+            // (setRegion) and Settings remain the only ways to change region.
+            baseUrl = cfg.baseUrl.ifBlank { d.baseUrl },
+            regionCode = cfg.regionCode.ifBlank { d.regionCode },
+            countryCode = cfg.countryCode.ifBlank { d.countryCode },
+            projectId = cfg.projectId.ifBlank { d.projectId },
+            azureHost = cfg.azureHost.ifBlank { d.azureHost },
+            xchangerHost = cfg.xchangerHost.ifBlank { d.xchangerHost },
+            snsRegion = cfg.snsRegion.ifBlank { d.snsRegion },
             appInstanceId = cfg.appInstanceId.ifBlank { d.appInstanceId },
         )
     }
@@ -92,16 +96,10 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
      * Sign out = wipe everything that identifies or authenticates the user from this device: the
      * account (email/password), every session token, the VIN, the car nickname, and the device
      * identifiers (so a re-login mints a fresh device slot). Keeps only the region-static extracted
-     * app keys (so the app stays configured and can log in again) — NOT the account. The digital key
+     * app keys (so the app stays configured and can log in again) - NOT the account. The digital key
      * is wiped separately via Remove key (which also revokes it cloud-side).
      */
-    fun signOut() = update {
-        it.copy(
-            email = "", password = "", accessToken = "", userId = "", accountUuid = "",
-            vin = "", carNickname = "", vehicles = emptyList(),
-            deviceIdentifier = "", appInstanceId = "",
-        )
-    }
+    fun signOut() = update { it.signedOut() }
 
     /**
      * Switch the ACTIVE car (multi-car). Repoints [SecretsConfig.vin]/isOwner/carNickname to the
@@ -284,7 +282,12 @@ class ConfigStore private constructor(private val prefs: SharedPreferences) {
         persist(merged)
     }
 
-    fun exportJson(): String = json.encodeToString(SecretsConfig.serializer(), _config.value)
+    /** Export the config as JSON. Account credentials (password + session tokens) are left out
+     *  unless [includeAccountCredentials] is set; see [SecretsConfig.withoutAccountCredentials]. */
+    fun exportJson(includeAccountCredentials: Boolean = false): String {
+        val cfg = _config.value
+        return json.encodeToString(SecretsConfig.serializer(), if (includeAccountCredentials) cfg else cfg.withoutAccountCredentials())
+    }
 
     companion object {
         private const val FILE = "openzeekr_secure_config"

@@ -812,4 +812,33 @@
     <string name="setup_probe_rpa">Probe RPA start (0x0A)</string>
     <string name="setup_probe_error">error: %1$s</string>
     <string name="setup_car_reply">Car reply: %1$s</string>
+
+    <!-- Interactive map, OSM/OCM chargers, OSRM routing & weather bar -->
+    <string name="ui_map_cd_car_location">Car location</string>
+    <string name="ui_map_cd_zone_centre">Zone centre</string>
+    <string name="ui_map_my_zeekr">My Zeekr</string>
+    <string name="ui_map_section_wheres_my_car">Where\'s my car</string>
+    <string name="ui_map_btn_navigate_to_car">Navigate to car</string>
+    <string name="ui_map_btn_location_unavailable">Location unavailable</string>
+    <string name="ui_map_distance_away">Distance: %1$s</string>
+    <string name="ui_map_btn_refresh_pos">Refresh vehicle position</string>
+    <string name="ui_map_btn_car_pos">Center on car</string>
+    <string name="ui_map_btn_my_pos">My position</string>
+    <string name="ui_map_btn_fit_both">Show both</string>
+    <string name="ui_map_btn_follow">Follow car</string>
+    <string name="ui_map_btn_share">Share</string>
+    <string name="ui_map_chip_hud">HUD</string>
+    <string name="ui_map_chip_trail">Trail</string>
+    <string name="ui_map_chip_chargers">Chargers</string>
+    <string name="ui_map_chargers_loading">Loading nearby chargers…</string>
+    <string name="ui_map_chargers_count">%1$d chargers nearby</string>
+    <string name="ui_map_share_text">My Zeekr location: https://maps.google.com/?q=%1$s,%2$s</string>
+    <string name="ui_map_long_press_hint">Long-press map or tap a charger to trace route &amp; send to Zeekr</string>
+    <string name="ui_map_dest_selected">Selected destination</string>
+    <string name="ui_map_btn_send_to_car">Send to Zeekr</string>
+    <string name="ui_map_sent_to_car">Destination sent to Zeekr!</string>
+    <string name="ui_map_btn_clear_dest">Clear</string>
+    <string name="ui_set_map_title">Map &amp; Chargers</string>
+    <string name="ui_set_ocm_key_label">Open Charge Map API Key (optional)</string>
+    <string name="ui_veh_cabin_temp">Cabin %1$s</string>
 </resources>

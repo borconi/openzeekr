@@ -286,6 +286,21 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
 
         if (status.isNotBlank()) Text(status, color = Brand.muted, fontSize = 13.sp)
 
+        // -------- optional Wallbox module --------
+        SettingsCard {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    CardTitle(stringResource(R.string.ui_set_wallbox_title))
+                    Text(stringResource(R.string.ui_set_wallbox_desc), color = Brand.muted, fontSize = 12.sp)
+                }
+                Switch(
+                    checked = liveCfg.wallboxEnabled,
+                    onCheckedChange = { on -> store.update { it.copy(wallboxEnabled = on) } },
+                    colors = brandSwitchColors(),
+                )
+            }
+        }
+
         // -------- about --------
         SettingsCard {
             CardTitle(stringResource(R.string.settings_about))

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Cleartext HTTP permitted only for optional local-network OCPP 1.6J HTTP bridges
+         (Android <domain-config> does not support RFC1918 IP ranges like 192.168.x.x).
+         All Zeekr TSP and RAEDIAN Cloud API calls strictly use HTTPS. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

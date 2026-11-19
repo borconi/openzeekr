@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.EvStation
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -81,6 +82,7 @@ private enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
     SECURITY(R.string.nav_tab_security, Icons.Filled.Shield),
     SCHEDULE(R.string.nav_tab_schedule, Icons.Filled.CalendarMonth),
     KEY(R.string.nav_tab_key, Icons.Filled.VpnKey),
+    WALLBOX(R.string.ui_root_tab_wallbox, Icons.Filled.EvStation),
     UPDATES(R.string.nav_tab_updates, Icons.Filled.SystemUpdate),
     SETTINGS(R.string.nav_tab_settings, Icons.Filled.Settings),
     // Sentry footage/live-view stays hidden (sentinel-monitoring-service is CN-only /
@@ -101,7 +103,9 @@ fun AppRoot(deps: Deps) {
     val cfg by deps.config.config.collectAsState()
     // Software updates (OTA) are an OWNER-ONLY privilege - a shared (non-owner) account can't check or
     // start them (the server rejects with 3000013), so don't show the Updates tab to shared users at all. (#23)
-    val tabs = Tab.entries.filter { it != Tab.UPDATES || cfg.isOwner }
+    val tabs = Tab.entries.filter {
+        (it != Tab.UPDATES || cfg.isOwner) && (it != Tab.WALLBOX || cfg.wallboxEnabled)
+    }
     val prov by deps.provisioning.state.collectAsState()
     val loggedIn = cfg.accessToken.isNotBlank()
     val provisioned = remember(prov.step) { deps.dkIdentity.isProvisioned } ||
@@ -383,6 +387,7 @@ fun AppRoot(deps: Deps) {
                     snackbar = snackbar,
                 )
             }
+            Tab.WALLBOX -> WallboxScreen(deps, snackbarHost, m)
             Tab.UPDATES -> OtaScreen(deps, m)
             Tab.SETTINGS -> SettingsScreen(deps, m)
         }

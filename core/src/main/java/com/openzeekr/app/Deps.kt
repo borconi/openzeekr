@@ -89,6 +89,8 @@ class Deps(context: Context) {
     val push = com.openzeekr.app.push.PushRegistrar(config, appScope)
     /** Car-side schedules: off-peak charging windows + departure/booking-travel preconditioning. */
     val schedule = com.openzeekr.app.remote.ScheduleRepository(config, apiClient)
+    /** Optional Zeekr / RAEDIAN Wallbox repository (BLE + local OCPP + RAEDIAN Cloud). */
+    val wallbox = com.openzeekr.app.wallbox.WallboxRepository(appCtx, config)
     /** Live vehicle status (foreground poll, no push) — observed by the UI. */
     val vehicleState = VehicleStatusHolder(control, appScope)
     /** Per-VIN supported functions — drives which controls the UI shows. */

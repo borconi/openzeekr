@@ -244,6 +244,16 @@ data class SecretsConfig(
      *  the Hero lab, Remote Parking and Smart calibration - so they aren't shown to normal users
      *  between releases. Default off; a fresh/normal install never sees the dev tools. */
     val devMode: Boolean = false,
+    /** Optional Zeekr/RAEDIAN Wallbox module (hidden unless enabled in Settings). */
+    val wallboxEnabled: Boolean = false,
+    /** Optional Wallbox BLE serial/advertised name (e.g. EA1G5N6A). Blank = match any EA1 / ABF0 charger. */
+    val wallboxSerial: String = "",
+    /** Optional local OCPP/HA bridge URL for Wi-Fi telemetry & control. */
+    val wallboxOcppUrl: String = "",
+    /** Optional RAEDIAN Cloud session for remote Wi-Fi/4G Wallbox telemetry & control. */
+    val wallboxCloudEmail: String = "",
+    val wallboxCloudToken: String = "",
+    val wallboxCloudUserId: Long = 0L,
     /** User-set display name for the car (shown in the top bar). Blank = use the model
      *  name. The cloud rename API (modify-vehicle / vehNickname) is wired separately. */
     val carNickname: String = "",
@@ -283,6 +293,7 @@ data class SecretsConfig(
         sentryExclusionZones = emptyList(), proximityExclusionZones = emptyList(),
         proximityDeviceMac = "",
         autoSentryOnLock = false, proximityEnabled = false,
+        wallboxCloudToken = "", wallboxCloudUserId = 0L,
     )
 
     /** True when the mandatory app-global secrets (non-account) are present and valid. */

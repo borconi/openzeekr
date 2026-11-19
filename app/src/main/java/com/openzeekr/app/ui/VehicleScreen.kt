@@ -23,6 +23,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +39,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Inventory2
@@ -177,7 +180,8 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         val inside = climate?.interiorTemp?.toDoubleOrNull()
         inside != null && inside < acTarget
     }
-    val climateIcon = if (acHeating) Icons.Filled.WbSunny else Icons.Filled.AcUnit
+    val sig = Brand.isSignature
+    val climateIcon = if (acHeating) Icons.Filled.WbSunny else if (sig) OzIcons.ClimateFan else Icons.Filled.AcUnit
     val climateTint = if (acHeating) Brand.energy else Brand.accent
 
     // Windows quick-action tile reflects the car's real state (from winPos%): cracked → "Vent" (air
@@ -242,45 +246,50 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         Hero(model, paint, charging, soc, powerKw, driving = driving, speedNum = heroSpeed,
             speedUnit = heroSpeedUnit, loading = info == null)
 
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth()
+                .let {
+                    if (sig) it.padding(horizontal = 20.dp, vertical = 10.dp)
+                        .glassSurface(cornerRadius = 18.dp, alpha = 0.88f, borderAlpha = 0.18f)
+                        .padding(vertical = 14.dp, horizontal = 8.dp)
+                    else it.padding(horizontal = 20.dp, vertical = 14.dp)
+                },
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             StatItem(stringResource(R.string.vehicle_stat_central_lock), if (locked) stringResource(R.string.vehicle_status_locked) else stringResource(R.string.vehicle_status_unlocked), if (locked) Brand.good else Brand.energy, Modifier.weight(1f))
             StatItem(stringResource(R.string.vehicle_stat_battery), soc?.let { ctx.getString(R.string.vehicle_pct, fmt(it)) } ?: dash, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
             StatItem(stringResource(R.string.vehicle_stat_range), rangeStr?.let { s -> s.toDoubleOrNull()?.let { Units.distance(it, cfg.distanceUnit) } ?: ctx.getString(R.string.vehicle_range_km, s) } ?: dash, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
-            // Live average energy consumption (ElectricStatusVo.averPowerConsumption); unit is the
-            // car's own — assume kWh/100km. "Ø" = average (compact so the label stays on ONE line in
-            // the narrow 1/4-width stat column, instead of wrapping like "Avg · kWh/100km" did).
             StatItem(stringResource(R.string.vehicle_stat_avg_consumption), elec?.avgConsumption?.let { fmt1(it) } ?: dash, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
         }
-        Divider()
+        if (!sig) Divider()
 
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Quick actions - a 4-column grid that REFLOWS. Only supported tiles are emitted (per-VIN
-            // capabilities: fridge/frunk drop out when absent), then packed left-to-right into rows of
-            // 4 so there are no holes. A short final row is centred (half-weight spacers on each side)
-            // so its tiles keep the same 1/4 width instead of stretching. Actuating tiles route through
-            // deps.vehicleControl (BLE-first, cloud fallback). Trunk is ALWAYS shown; its sheet offers
-            // Open/Close on a powered tailgate, else latch unlock/lock, and reflects live state.
+        val gridCols = if (sig) 3 else 4
+        Column(
+            Modifier.padding(horizontal = if (sig) 20.dp else 18.dp, vertical = if (sig) 8.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (sig) 10.dp else 16.dp),
+        ) {
             val tiles = buildList<@Composable RowScope.() -> Unit> {
-                add { Ctl(if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen, if (locked) stringResource(R.string.vehicle_status_locked) else stringResource(R.string.vehicle_status_unlocked),
-                    tint = if (locked) Brand.good else Brand.energy, active = true, modifier = Modifier.weight(1f)) { door(!locked) } }
+                add {
+                    Ctl(
+                        if (locked) (if (sig) OzIcons.LockClosed else Icons.Filled.Lock) else (if (sig) OzIcons.LockOpen else Icons.Filled.LockOpen),
+                        if (locked) stringResource(R.string.vehicle_status_locked) else stringResource(R.string.vehicle_status_unlocked),
+                        tint = if (locked) (if (sig) Brand.accent else Brand.good) else Brand.energy,
+                        active = if (sig) !locked else true,
+                        modifier = Modifier.weight(1f),
+                    ) { door(!locked) }
+                }
                 add { Ctl(climateIcon, stringResource(R.string.vehicle_climate), tint = climateTint, active = acOn, modifier = Modifier.weight(1f)) { showClimate = true } }
-                // Always open the sheet — charge limit, battery pre-conditioning (a PRE-charge action)
-                // and the charge-port control all live there, so it must be reachable when unplugged too.
                 add { ChargeCtl(charging, plugged, soc, powerKw, elec?.chargePhases, elec?.timeToFullyCharged, Modifier.weight(1f)) { showCharge = true } }
                 add { Ctl(windowIcon, windowLabel, tint = windowTint, active = windowsOpen, modifier = Modifier.weight(1f)) { showWindows = true } }
-                // Combined locator: the ONE signal action the key session can fire directly (DK 0x03 =
-                // flash + honk together), so it's BLE-first (instant in range) with cloud fallback.
-                // Flash-only has NO BLE opcode, so it always goes via the cloud. (There is no honk-only
-                // action — the car only supports flash-only and flash+honk together.)
-                add { Ctl(Icons.Filled.Campaign, stringResource(R.string.vehicle_tile_flash_honk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_action_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } } }
-                add { Ctl(Icons.Filled.FlashOn, stringResource(R.string.vehicle_flash), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_flash)) { deps.vehicleControl.send(Command.FLASH) } } }
-                add { Ctl(Icons.Filled.Luggage, if (trunkOpen) stringResource(R.string.vehicle_label_open) else stringResource(R.string.vehicle_trunk), tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) { showTrunk = true } }
-                if (caps.fridge) add { Ctl(Icons.Filled.Kitchen, stringResource(R.string.vehicle_fridge), tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) { showFridge = true } }
-                if (caps.frunk) add { Ctl(Icons.Filled.Inventory2, stringResource(R.string.vehicle_frunk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_frunk)) { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
+                add { Ctl(if (sig) OzIcons.Horn else Icons.Filled.Campaign, stringResource(R.string.vehicle_tile_flash_honk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_action_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } } }
+                add { Ctl(if (sig) OzIcons.Headlights else Icons.Filled.FlashOn, stringResource(R.string.vehicle_flash), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_flash)) { deps.vehicleControl.send(Command.FLASH) } } }
+                add { Ctl(if (sig) OzIcons.TrunkOpen else Icons.Filled.Luggage, if (trunkOpen) stringResource(R.string.vehicle_label_open) else stringResource(R.string.vehicle_trunk), tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) { showTrunk = true } }
+                if (caps.fridge) add { Ctl(if (sig) OzIcons.Fridge else Icons.Filled.Kitchen, stringResource(R.string.vehicle_fridge), tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) { showFridge = true } }
+                if (caps.frunk) add { Ctl(if (sig) OzIcons.Frunk else Icons.Filled.Inventory2, stringResource(R.string.vehicle_frunk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_frunk)) { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
             }
-            tiles.chunked(4).forEach { rowTiles ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val pad = (4 - rowTiles.size) / 2f     // centre a short final row without stretching its tiles
+            tiles.chunked(gridCols).forEach { rowTiles ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (sig) 10.dp else 4.dp)) {
+                    val pad = (gridCols - rowTiles.size) / 2f
                     if (pad > 0f) Spacer(Modifier.weight(pad))
                     rowTiles.forEach { tile -> tile() }
                     if (pad > 0f) Spacer(Modifier.weight(pad))
@@ -378,13 +387,32 @@ private fun Hero(
 ) {
     val trans = rememberInfiniteTransition(label = "charge")
     val breathe by trans.animateFloat(0.04f, 0.24f, infiniteRepeatable(tween(2400), RepeatMode.Reverse), label = "breathe")
+    val sig = Brand.isSignature
     Box(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
-            // While identity is still loading (info == null) the model/paint default to a placeholder
-            // (7GT / Mystic Lilac); use a neutral card + spinner so we never flash that wrong car.
             .height(196.dp).clip(RoundedCornerShape(22.dp))
-            .background(if (loading) SolidColor(Brand.surface2) else Brand.paintCard(paint.color)),
+            .background(
+                when {
+                    sig -> Brush.verticalGradient(listOf(Color(0xFF13161C), Color(0xFF07090C)))
+                    loading -> SolidColor(Brand.surface2)
+                    else -> Brand.paintCard(paint.color)
+                },
+            )
+            .let { if (sig) it.border(1.dp, Brand.accent.copy(alpha = 0.20f), RoundedCornerShape(22.dp)) else it },
     ) {
+        if (sig && !loading) {
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Brand.accent.copy(alpha = 0.22f),
+                            Brand.accent.copy(alpha = 0.06f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+            )
+        }
         if (loading) {
             CircularProgressIndicator(Modifier.size(34.dp).align(Alignment.Center), color = Brand.muted, strokeWidth = 3.dp)
             Row(Modifier.align(Alignment.BottomStart).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -446,8 +474,36 @@ private fun StatItem(label: String, value: String, color: Color, modifier: Modif
 }
 
 @Composable
-private fun Ctl(icon: ImageVector, label: String, tint: Color = MaterialTheme.colorScheme.onSurface,
+private fun Ctl(icon: ImageVector, label: String, tint: Color = if (Brand.isSignature) Brand.accent else MaterialTheme.colorScheme.onSurface,
                 active: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    if (Brand.isSignature) {
+        Column(
+            modifier
+                .height(96.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (active) tint.copy(alpha = 0.14f) else Brand.surface2.copy(alpha = 0.88f))
+                .border(1.dp, if (active) tint.copy(alpha = 0.55f) else Brand.accent.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(icon, label, tint = if (active) tint else Brand.accent, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.height(6.dp))
+            Text(
+                label,
+                color = if (active) tint else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f),
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 13.sp,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        return
+    }
     Column(modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(60.dp).clip(CircleShape)
@@ -455,8 +511,6 @@ private fun Ctl(icon: ImageVector, label: String, tint: Color = MaterialTheme.co
             .border(1.dp, if (active) tint else Brand.line, CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, label, tint = if (active) tint else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
         }
-        // Tile caption: allow two centred lines, capped, so "Charge & more" doesn't overflow its column
-        // on a narrow / large-display phone.
         Text(label, color = Brand.muted, fontSize = 11.sp, textAlign = TextAlign.Center,
             maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 13.sp, modifier = Modifier.fillMaxWidth())
     }
@@ -472,6 +526,52 @@ private fun ChargeCtl(
     timeToFullMin: Int? = null, modifier: Modifier = Modifier, onClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    if (Brand.isSignature) {
+        val active = charging || plugged
+        val accent = Brand.energy
+        Column(
+            modifier
+                .height(96.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (charging) accent.copy(alpha = 0.14f) else Brand.surface2.copy(alpha = 0.88f))
+                .border(1.dp, if (active) accent.copy(alpha = 0.55f) else Brand.accent.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                if (charging && soc != null) {
+                    Canvas(Modifier.size(28.dp)) {
+                        val sw = 2.5.dp.toPx()
+                        drawArc(Color.White.copy(alpha = .15f), -90f, 360f, false, style = Stroke(sw, cap = StrokeCap.Round))
+                        drawArc(accent, -90f, 360f * (soc / 100f), false, style = Stroke(sw, cap = StrokeCap.Round))
+                    }
+                }
+                Icon(
+                    Icons.Filled.Bolt.takeIf { charging } ?: OzIcons.ChargeStation,
+                    stringResource(R.string.vehicle_charging),
+                    tint = if (charging) accent else Brand.accent,
+                    modifier = Modifier.size(if (charging) 15.dp else 24.dp),
+                )
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                when { charging -> chargePowerLabel(context, powerKw, phases) ?: stringResource(R.string.vehicle_charging); plugged -> stringResource(R.string.vehicle_status_plugged_in); else -> stringResource(R.string.vehicle_charge_and_more) },
+                color = if (charging) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f),
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (charging) chargeCountdown(timeToFullMin)?.let {
+                Text(stringResource(R.string.vehicle_time_to_full, it), color = accent, fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+            }
+        }
+        return
+    }
     Column(modifier.clickable(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) {

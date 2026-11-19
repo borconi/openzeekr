@@ -33,6 +33,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,31 +92,47 @@ fun brandSwitchColors(checkedTrack: Color = Brand.accent): SwitchColors = Switch
     disabledUncheckedTrackColor = Brand.surface2,
 )
 
-/** The app badge with the OpenZeekr mark — used in the top bar. Dark-green card + green mark,
- *  matching the launcher icon. */
+/** The app badge with the OpenZeekr mark — adapts to Classic vs Zeekr Signature theme. */
 @Composable
 fun BrandBadge(size: Int = 30) {
+    val sig = Brand.isSignature
     Box(
         modifier = Modifier
             .size(size.dp)
-            .clip(RoundedCornerShape((size / 3.2f).dp))
-            .background(Color(0xFF1F2825)), // the mark's dark-green card — matches the launcher icon
+            .clip(RoundedCornerShape((size / if (sig) 3.4f else 3.2f).dp))
+            .background(if (sig) Color(0xFF0D1014) else Color(0xFF1F2825))
+            .let { if (sig) it.border(1.2.dp, Brand.accent.copy(alpha = 0.75f), RoundedCornerShape((size / 3.4f).dp)) else it },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_logo),
             contentDescription = null,
-            tint = Color.Unspecified,
-            modifier = Modifier.size(size.dp), // ic_logo carries its own padding
+            tint = if (sig) Brand.accent else Color.Unspecified,
+            modifier = Modifier.size((size * if (sig) 0.72f else 1f).dp),
         )
     }
 }
+
+/** Translucent dark glass surface + hairline champagne border used in Zeekr Signature mode. */
+fun Modifier.glassSurface(
+    cornerRadius: Dp = 14.dp,
+    alpha: Float = 0.88f,
+    borderAlpha: Float = 0.16f,
+): Modifier = clip(RoundedCornerShape(cornerRadius))
+    .background(Brand.surface2.copy(alpha = alpha))
+    .border(1.dp, Brand.accent.copy(alpha = borderAlpha), RoundedCornerShape(cornerRadius))
 
 /** Rounded surface panel — the cockpit "card". */
 @Composable
 fun CockpitCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp),
+        modifier
+            .fillMaxWidth()
+            .let {
+                if (Brand.isSignature) it.glassSurface(cornerRadius = 18.dp)
+                else it.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)
+            }
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )

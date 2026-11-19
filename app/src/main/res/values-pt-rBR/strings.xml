@@ -153,6 +153,9 @@
     <string name="settings_ccc_btn">Código de pareamento CCC (Apple Wallet)</string>
     <string name="settings_saved">Salvo.</string>
     <string name="settings_about">Sobre</string>
+    <string name="settings_theme_title">Aparência</string>
+    <string name="settings_theme_classic">Clássico</string>
+    <string name="settings_theme_signature">Zeekr Signature</string>
     <string name="settings_value_dash">-</string>
     <string name="settings_dev_mode_on">Modo de desenvolvedor ATIVADO</string>
     <string name="settings_dev_mode_taps">Mais %1$d toques para ativar o modo de desenvolvedor</string>

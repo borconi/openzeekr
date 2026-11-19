@@ -5,6 +5,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -49,6 +52,39 @@ private val DarkColors = darkColorScheme(
     onError = Color(0xFF2A0A0A),
 )
 
+private val SigBg       = Color(0xFF07090C)
+private val SigSurface  = Color(0xFF0D1014)
+private val SigSurface2 = Color(0xFF13171D)
+private val SigSurface3 = Color(0xFF1A2028)
+private val SigLine     = Color(0xFF282D35)
+private val SigTextC    = Color(0xFFECEFF3)
+private val SigMuted    = Color(0xFF8E96A0)
+private val SigFaint    = Color(0xFF5D656E)
+private val SigAccent   = Color(0xFFD6B27C)   // champagne gold — Zeekr Signature
+private val SigEnergy   = Color(0xFFE5A952)
+private val SigGood     = Color(0xFF3CD09A)
+
+private val SignatureDarkColors = darkColorScheme(
+    primary = SigAccent,
+    onPrimary = Color(0xFF0B0D10),
+    primaryContainer = Color(0xFF2B2316),
+    onPrimaryContainer = Color(0xFFF3DEC0),
+    secondary = SigGood,
+    onSecondary = Color(0xFF00251A),
+    tertiary = SigEnergy,
+    onTertiary = Color(0xFF2A1E00),
+    background = SigBg,
+    onBackground = SigTextC,
+    surface = SigSurface,
+    onSurface = SigTextC,
+    surfaceVariant = SigSurface2,
+    onSurfaceVariant = SigMuted,
+    outline = SigLine,
+    outlineVariant = Color(0xFF1E232A),
+    error = Crit,
+    onError = Color(0xFF2A0A0A),
+)
+
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(10.dp),
     small = RoundedCornerShape(12.dp),
@@ -59,19 +95,22 @@ private val AppShapes = Shapes(
 
 /** Extra brand tokens the screens use directly (beyond the Material scheme). */
 object Brand {
-    val accent = Accent
-    val energy = Energy
-    val neon = Neon
-    val good = Good
+    var isSignature by mutableStateOf(false)
+        internal set
+
+    val accent get() = if (isSignature) SigAccent else Accent
+    val energy get() = if (isSignature) SigEnergy else Energy
+    val neon get() = if (isSignature) SigGood else Neon
+    val good get() = if (isSignature) SigGood else Good
     val crit = Crit
-    val surface2 = Surface2
-    val surface3 = Surface3
-    val line = Line
-    val muted = Muted
-    val faint = Faint
-    val badge = listOf(Color(0xFF6DB4FF), Color(0xFF3A6FF0))
+    val surface2 get() = if (isSignature) SigSurface2 else Surface2
+    val surface3 get() = if (isSignature) SigSurface3 else Surface3
+    val line get() = if (isSignature) SigLine else Line
+    val muted get() = if (isSignature) SigMuted else Muted
+    val faint get() = if (isSignature) SigFaint else Faint
+    val badge get() = if (isSignature) listOf(Color(0xFFE2C18E), Color(0xFFB3894E)) else listOf(Color(0xFF6DB4FF), Color(0xFF3A6FF0))
     /** Back-compat alias (used by BrandBadge / ParkingScreen). */
-    val gradient = badge
+    val gradient get() = badge
 
     /** Metallic paint "identity card" gradient for a given paint colour. */
     fun paintCard(paint: Color): Brush = Brush.radialGradient(
@@ -95,13 +134,18 @@ object Brand {
 private const val MAX_FONT_SCALE = 1.30f
 
 @Composable
-fun OpenZeekrTheme(dark: Boolean = true, content: @Composable () -> Unit) {
+fun OpenZeekrTheme(dark: Boolean = true, signature: Boolean = false, content: @Composable () -> Unit) {
+    Brand.isSignature = signature
     val base = androidx.compose.ui.platform.LocalDensity.current
     val clamped = if (base.fontScale > MAX_FONT_SCALE)
         androidx.compose.ui.unit.Density(base.density, MAX_FONT_SCALE) else base
     androidx.compose.runtime.CompositionLocalProvider(
         androidx.compose.ui.platform.LocalDensity provides clamped,
     ) {
-        MaterialTheme(colorScheme = DarkColors, shapes = AppShapes, content = content)
+        MaterialTheme(
+            colorScheme = if (signature) SignatureDarkColors else DarkColors,
+            shapes = AppShapes,
+            content = content,
+        )
     }
 }

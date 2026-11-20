@@ -255,6 +255,8 @@ data class SecretsConfig(
     val tempUnit: String = "c",
     /** Distance / range unit: "km" | "mi". */
     val distanceUnit: String = "km",
+    /** UI visual theme: "classic" (default) | "signature" (Obsidian + Champagne Gold). */
+    val uiTheme: String = "classic",
 
     // ---- remembered set-points (UI note, like stock) ----
     /** Last charge-limit target the user set (%). The car exposes no reliable limit-read

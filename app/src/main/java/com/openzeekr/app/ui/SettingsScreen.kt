@@ -286,6 +286,21 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
 
         if (status.isNotBlank()) Text(status, color = Brand.muted, fontSize = 13.sp)
 
+        // -------- appearance / theme switcher --------
+        SettingsCard {
+            CardTitle(stringResource(R.string.settings_theme_title))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SelectChip(
+                    stringResource(R.string.settings_theme_classic),
+                    selected = liveCfg.uiTheme != "signature",
+                ) { store.update { it.copy(uiTheme = "classic") } }
+                SelectChip(
+                    stringResource(R.string.settings_theme_signature),
+                    selected = liveCfg.uiTheme == "signature",
+                ) { store.update { it.copy(uiTheme = "signature") } }
+            }
+        }
+
         // -------- about --------
         SettingsCard {
             CardTitle(stringResource(R.string.settings_about))
@@ -570,7 +585,12 @@ private fun CardTitle(text: String) = Text(text, fontWeight = FontWeight.Bold, f
 @Composable
 private fun SettingsCard(content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp),
+        Modifier.fillMaxWidth()
+            .let {
+                if (Brand.isSignature) it.glassSurface(cornerRadius = 16.dp)
+                else it.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface)
+            }
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) { content() }
 }

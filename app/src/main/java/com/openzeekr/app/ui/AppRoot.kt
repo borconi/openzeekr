@@ -306,8 +306,12 @@ fun AppRoot(deps: Deps) {
                 }
                 Spacer(Modifier.width(6.dp))
                 Row(
-                    Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).padding(horizontal = 11.dp, vertical = 7.dp),
+                    Modifier
+                        .let {
+                            if (Brand.isSignature) it.glassSurface(cornerRadius = 999.dp, alpha = 0.85f, borderAlpha = 0.18f)
+                            else it.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                        }
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
                     Box(Modifier.size(7.dp).clip(CircleShape).background(connColor))
@@ -322,8 +326,8 @@ fun AppRoot(deps: Deps) {
             // label under each icon; when it gets tight (many tabs + a small/large-display-size screen)
             // we drop to clean ICONS-ONLY instead of letting labels crowd and ellipsize ("Sched…").
             Column {
-                Box(Modifier.fillMaxWidth().height(1.dp).background(Brand.line))
-                BoxWithConstraints(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(if (Brand.isSignature) Brand.accent.copy(alpha = 0.16f) else Brand.line))
+                BoxWithConstraints(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface.copy(alpha = if (Brand.isSignature) 0.94f else 1f))) {
                     // ~50 dp per tab is the minimum for an icon + the longest single-line label ("Schedule"
                     // / "Settings" at 10 sp). Standard phones keep labels; only tight / large-display-size
                     // screens (where 7 labels would ellipsize) drop to icons-only.
@@ -334,9 +338,17 @@ fun AppRoot(deps: Deps) {
                     ) {
                         tabs.forEach { t ->
                             val selected = selectedTab == t
-                            val tint = if (selected) Brand.accent else Brand.muted
+                            val tint = when {
+                                selected && Brand.isSignature -> Color(0xFF0A0C0F)
+                                selected -> Brand.accent
+                                else -> Brand.muted
+                            }
                             Column(
                                 Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                                    .let {
+                                        if (selected && Brand.isSignature) it.background(androidx.compose.ui.graphics.Brush.verticalGradient(Brand.badge))
+                                        else it
+                                    }
                                     .clickable { selectedTab = t }.padding(vertical = 6.dp, horizontal = 2.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(3.dp),

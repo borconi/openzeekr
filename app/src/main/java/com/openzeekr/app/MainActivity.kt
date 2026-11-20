@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.openzeekr.app.ui.AppRoot
 import com.openzeekr.app.ui.theme.OpenZeekrTheme
 
@@ -13,7 +15,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val deps = (application as App).deps
         setContent {
-            OpenZeekrTheme {
+            val cfg by deps.config.config.collectAsState()
+            OpenZeekrTheme(signature = cfg.uiTheme == "signature") {
                 AppRoot(deps)
             }
         }

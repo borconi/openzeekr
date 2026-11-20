@@ -1,0 +1,29 @@
+<!-- Static widget-picker preview image (android:previewImage). A simple schematic of the live
+     widget - a dark rounded cockpit card, a status dot, and a 3x2 grid of tinted action badges -
+     so the picker never has to inflate a RemoteViews layout (which is what failed before). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="150dp"
+    android:viewportWidth="240"
+    android:viewportHeight="150">
+
+    <!-- Card ground -->
+    <path
+        android:fillColor="#FF14181C"
+        android:pathData="M16,0 L224,0 Q240,0 240,16 L240,134 Q240,150 224,150 L16,150 Q0,150 0,134 L0,16 Q0,0 16,0 Z" />
+
+    <!-- Header status dot -->
+    <path
+        android:fillColor="#FF46D8A0"
+        android:pathData="M14,18 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z" />
+
+    <!-- Row 1 badges -->
+    <path android:fillColor="#FF46D8A0" android:pathData="M56,74 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
+    <path android:fillColor="#FFF5B740" android:pathData="M120,74 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
+    <path android:fillColor="#FF5AA9FF" android:pathData="M184,74 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
+
+    <!-- Row 2 badges -->
+    <path android:fillColor="#FF31E08A" android:pathData="M56,118 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
+    <path android:fillColor="#FF5AA9FF" android:pathData="M120,118 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
+    <path android:fillColor="#FF8B979E" android:pathData="M184,118 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
+</vector>

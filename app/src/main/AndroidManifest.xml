@@ -25,7 +25,7 @@
 
         <!-- Send-to-car: register as a navigation / location target. Picking OpenZeekr from a
              map pin's share, a geo: link, or a "navigate with" chooser pushes that POI to the
-             car's built-in nav (cloud sendToCar). Transparent, no UI — fires and finishes. -->
+             car's built-in nav (cloud sendToCar). Transparent, no UI - fires and finishes. -->
         <activity
             android:name=".SendToCarActivity"
             android:exported="true"
@@ -108,5 +108,19 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="car_alerts" />
+
+        <!-- Home-screen quick-action widget (Jetpack Glance). Not exported: only the system AppWidget
+             host and our own ActionCallbacks talk to it. One resizable widget; its layout adapts to
+             the cell size via SizeMode.Exact. -->
+        <receiver
+            android:name=".widget.QuickActionWidgetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_action_widget_info" />
+        </receiver>
     </application>
 </manifest>

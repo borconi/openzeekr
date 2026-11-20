@@ -45,13 +45,14 @@ class AccountLogin(private val store: ConfigStore) {
     /** user-center session token (from loginByEmailEncrypt), added to later UC calls. */
     @Volatile private var ucToken: String = ""
 
-    // Pipe OkHttp's HEADERS-level log into our on-device ring buffer too. Level is flipped to
-    // NONE when debug logging is off (via httpLogGate below), so nothing is formatted/logged then.
-    // Built via HttpLog so sensitive headers are redacted and body values are scrubbed to "***".
+    // Pipe OkHttp's log into our on-device ring buffer at BASIC level (request line + response status,
+    // NOT the per-header dump - that flooded testers' capped log buffer). The hand-rolled execRoot line
+    // below still logs each scrubbed response body, so login debugging keeps its detail. Level is flipped
+    // to NONE when debug logging is off (via httpLogGate), so nothing is formatted/logged then.
     private val httpLog = HttpLog.interceptor()
     // Runs just before httpLog and sets its level from the debug-logging toggle.
     private val httpLogGate = okhttp3.Interceptor { chain ->
-        httpLog.level = if (Logx.isHttpEnabled) okhttp3.logging.HttpLoggingInterceptor.Level.HEADERS
+        httpLog.level = if (Logx.isHttpEnabled) okhttp3.logging.HttpLoggingInterceptor.Level.BASIC
             else okhttp3.logging.HttpLoggingInterceptor.Level.NONE
         chain.proceed(chain.request())
     }
@@ -140,6 +141,27 @@ class AccountLogin(private val store: ConfigStore) {
                 ?: info?.get("id")?.jsonPrimitive?.contentOrNull
             val accountUuid = info?.get("uuid")?.jsonPrimitive?.contentOrNull
             Logx.d("login", "step 3/6 user/info OK, userId=${userId ?: "(none)"} uuid=${accountUuid ?: "(none)"}")
+
+            // 3b. Adopt the account's OWN country for the usercenter DEFAULT_HEADERS when it reports one, so
+            //     a non-EU user on a region whose DEFAULT country isn't theirs (e.g. an Australian on the
+            //     SEA region, which defaults to "SG") shows their real country instead of the region
+            //     default. This is cosmetic for the cloud (login works with either country), so we ONLY
+            //     override on a clean ISO-2 value and never fail on its absence - keeping the region default
+            //     otherwise. The country then flows into every later call via UcInterceptor/HeaderInterceptor
+            //     (both read store.current().countryCode per-request). It also survives a later region
+            //     switch, since ConfigStore.setRegion treats a value != the region default as a manual edit.
+            //     TODO(0.2.7): the candidate field names below are INFERRED from the stock userinfo shape -
+            //     confirm against a live login and prune/extend them once the real field is known.
+            runCatching {
+                val acctCountry = listOf("countryCode", "country", "nationCode", "registCountry", "registerCountry", "nationality")
+                    .firstNotNullOfOrNull { k ->
+                        info?.get(k)?.jsonPrimitive?.contentOrNull?.takeIf { it.length == 2 && it.all(Char::isLetter) }
+                    }?.uppercase()
+                if (acctCountry != null && !acctCountry.equals(cfg.countryCode, ignoreCase = true)) {
+                    Logx.d("login", "step 3b account country=$acctCountry (was ${cfg.countryCode}) - adopting for headers")
+                    store.update { it.copy(countryCode = acctCountry) }
+                }
+            }.onFailure { Logx.d("login", "step 3b account-country adopt skipped: ${it.message}") }
 
             // 4. tsp code
             Logx.d("login", "step 4/6 tspCode …")
@@ -484,6 +506,30 @@ class AccountLogin(private val store: ConfigStore) {
             // password step rejections
             "9300", "9301" -> "Login rejected - check your password (and, on SEA, that no email verification code is required)"
             else -> null
+        }
+    }
+
+    companion object {
+        /**
+         * Does this failure look like a TSP AUTH rejection (an expired/mismatched token), as opposed to a
+         * plain network/offline error? We key off the strings [requireSuccess]/[execRoot] bake into the
+         * thrown message: the business code 079020, an HTTP 401, or the "Invalid token" text. Used by the
+         * heartbeat loop to back off + raise the region-mismatch banner only for real auth failures (an
+         * offline phone must NOT trigger the banner). See [AuthAlertState].
+         */
+        fun isAuthRejection(t: Throwable?): Boolean {
+            val m = t?.message ?: return false
+            return m.contains("079020") || m.contains("HTTP 401") || m.contains("Invalid token", ignoreCase = true)
+        }
+
+        /** The rejection code to show in the banner hint ("079020" preferred, else "401"), or null. */
+        fun authRejectionCode(t: Throwable?): String? {
+            val m = t?.message ?: return null
+            return when {
+                m.contains("079020") -> "079020"
+                m.contains("HTTP 401") -> "401"
+                else -> null
+            }
         }
     }
 }

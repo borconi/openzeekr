@@ -3,6 +3,53 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.7] - 2026-11-21
+
+### Added
+- **Home-screen widget.** A resizable OpenZeekr quick-action widget for your Android home screen - a
+  Lock/Unlock toggle, Trunk, Charge port, Flash + honk and a Sentry toggle - that fire straight to the car
+  without opening the app. The buttons shown adapt to the widget's size (lay all five in a row when it is
+  wide, stack when it is tall), the Lock and Sentry tiles flip to reflect your last action, and a command
+  to a sleeping car reads "Car offline - move closer or wake it" rather than a raw error. Signed-out taps
+  just say "Open app to sign in". (#69)
+- **"Session rejected" banner with a one-tap re-check.** If the app keeps getting turned away by the
+  server (an expired or wrong-region sign-in), the Vehicle screen now shows a calm banner explaining that
+  this usually means the wrong region is selected, with a "Re-check now" button that retries straight
+  away. No more silent failures where nothing works and nothing says why.
+
+### Changed
+- **Opening the trunk is now one tap, no confirmation.** The trunk tile fires directly, like lock/unlock.
+  When your phone key is connected over Bluetooth (or on a powered tailgate) it reads "Open" and actually
+  opens the boot; a cloud-only car that can only unlatch honestly reads "Unlock". (#69)
+- **Approach-unlock and walk-away-lock now work fully offline.** Whether you are inside one of your
+  exclusion zones (e.g. "Home") is now judged from your phone's own location first, instead of the car's
+  cloud position. The phone is right next to the car as you walk away, so this needs no connectivity and
+  works in a concrete garage or when the servers are down. The car's cloud position is used only as a
+  fallback when the phone has no fix.
+- **Much quieter diagnostic logs.** When HTTP logging is on, the app no longer dumps every request and
+  response header (that was drowning the log). It keeps the request line, the result and its own summary
+  lines, so the Bluetooth/proximity traces you actually need now survive in the on-device log.
+- **Your country follows your account.** After sign-in the app adopts the country your account reports,
+  so a non-EU user whose region defaults to a different country (for example an Australian on the
+  Australia/SEA servers) no longer sees the wrong country code.
+
+### Fixed
+- **Sentry trusted areas no longer block your digital key.** A Sentry "trusted area" was being treated as
+  a proximity exclusion zone, so a Sentry Home area silently switched off approach-unlock and walk-away-
+  lock even when you had set no proximity zone at all ("proximity doesn't work"). The two lists are now
+  fully independent: only the dedicated proximity exclusion zones affect the key; Sentry areas affect only
+  Sentry.
+- **The app stops hammering a dead server.** When sign-in is being rejected, the online heartbeat now
+  backs off (waiting longer between tries, up to a few minutes) instead of retrying every 30 seconds
+  forever. It snaps back to normal the moment it succeeds, or when you tap "Re-check now". This also
+  spares the car's 12V battery.
+
+### Notes
+- **Car-side passive entry is run by the car, not the app.** The developer "Car-side passive entry"
+  controls and the exclusion-zones screen now make clear that once you arm the car's own approach/walk-
+  away behaviour, the car runs it everywhere - the app's exclusion zones cannot hold it back, so it can
+  trigger at home too. Whether the car honours it at all depends on your market and firmware.
+
 ## [0.2.6] - 2026-11-18
 
 ### Added

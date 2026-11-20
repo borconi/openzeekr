@@ -21,8 +21,8 @@ android {
         applicationId = "com.openzeekr.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 18
-        versionName = "0.2.6"
+        versionCode = 19
+        versionName = "0.2.7"
         // App-global secrets are baked in :core (SecretsConfig + BuildConfig live there).
     }
 
@@ -105,4 +105,8 @@ dependencies {
 
     // Wear Data Layer — clones the digital key to the paired watch on request.
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
+
+    // Home-screen quick-action widgets (Lock/Unlock/Sentry/Trunk/Charge port). Jetpack Glance renders
+    // the widget with a Compose-like API and runs each button tap through an ActionCallback.
+    implementation("androidx.glance:glance-appwidget:1.1.1")
 }

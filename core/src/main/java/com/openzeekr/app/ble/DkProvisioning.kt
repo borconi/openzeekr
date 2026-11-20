@@ -65,7 +65,7 @@ class DkProvisioning(
             .addInterceptor(HeaderInterceptor(store))
             .addInterceptor(SignInterceptor(store))
             .addInterceptor { chain ->
-                httpLog.level = if (Logx.isHttpEnabled) okhttp3.logging.HttpLoggingInterceptor.Level.BODY
+                httpLog.level = if (Logx.isHttpEnabled) okhttp3.logging.HttpLoggingInterceptor.Level.BASIC
                     else okhttp3.logging.HttpLoggingInterceptor.Level.NONE
                 chain.proceed(chain.request())
             }

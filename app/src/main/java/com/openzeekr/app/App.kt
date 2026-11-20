@@ -8,8 +8,10 @@ import com.openzeekr.app.util.CarNotifier
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class App : Application(), DepsHolder {
     override lateinit var deps: Deps
@@ -44,12 +46,38 @@ class App : Application(), DepsHolder {
         deps.vehicleState.start()   // live status polling follows the foreground too
         if (heartbeatJob?.isActive == true) return
         heartbeatJob = deps.appScope.launch {
+            // Exponential backoff for AUTH rejections (HTTP 401 / 079020 "Invalid token"). A tester log
+            // showed the app hammering a dead gateway 262x over 56 min when the WRONG region was selected
+            // (EU token -> SEA gateway). Instead of retrying at full cadence forever, we double the wait
+            // on each consecutive auth failure up to a cap, raise a user banner (see Deps.authAlert), and
+            // reset the moment anything succeeds. A plain network/offline failure does NOT escalate (the
+            // car's offline features keep working; we just retry at the normal cadence).
+            var backoffMs = HEARTBEAT_INTERVAL_MS
             while (isActive) {
                 if (deps.config.current().accessToken.isNotBlank()) {
-                    runCatching { AccountLogin(deps.config).heartbeat() }
-                        .onFailure { Logx.w("app", "app/hb failed: ${it.message}") }
+                    val r = runCatching { AccountLogin(deps.config).heartbeat() }
+                    if (r.isSuccess) {
+                        backoffMs = HEARTBEAT_INTERVAL_MS
+                        deps.authAlert.onAuthOk()
+                    } else {
+                        val e = r.exceptionOrNull()
+                        Logx.w("app", "app/hb failed: ${e?.message}")
+                        if (AccountLogin.isAuthRejection(e)) {
+                            deps.authAlert.onAuthRejected(AccountLogin.authRejectionCode(e))
+                            backoffMs = (backoffMs * 2).coerceAtMost(HEARTBEAT_BACKOFF_MAX_MS)
+                            Logx.w("app", "app/hb auth-rejected (wrong region?) - backing off to ${backoffMs / 1000}s")
+                        } else {
+                            backoffMs = HEARTBEAT_INTERVAL_MS   // transient/offline: keep normal cadence
+                        }
+                    }
+                } else {
+                    // Logged out: nothing to heartbeat. Reset so a later sign-in starts clean.
+                    backoffMs = HEARTBEAT_INTERVAL_MS
+                    deps.authAlert.onAuthOk()
                 }
-                delay(HEARTBEAT_INTERVAL_MS)
+                // Wait out the (possibly backed-off) interval, but wake IMMEDIATELY on a manual
+                // "Re-check now" tap so the retry bypasses the backoff.
+                withTimeoutOrNull(backoffMs) { deps.recheckAuth.first() }
             }
         }
     }
@@ -79,5 +107,8 @@ class App : Application(), DepsHolder {
 
     private companion object {
         private const val HEARTBEAT_INTERVAL_MS = 30_000L
+        // Cap for the auth-failure backoff: ~4 min between retries once a 401 persists, so a wrong-region
+        // token can't keep hammering the gateway while the user fixes it (or taps "Re-check now").
+        private const val HEARTBEAT_BACKOFF_MAX_MS = 240_000L
     }
 }

@@ -118,12 +118,29 @@ class SentryAutoArmer(
      * cached fix, or the phone is outside every zone. "Am I at home" tolerates a slightly stale fix.
      */
     @SuppressLint("MissingPermission")
-    suspend fun isInsideAnyZoneFast(zones: List<GeoZone>): Boolean {
-        if (zones.isEmpty() || !hasLocationPermission()) return false
-        val client = runCatching { LocationServices.getFusedLocationProviderClient(appCtx) }.getOrNull() ?: return false
+    suspend fun isInsideAnyZoneFast(zones: List<GeoZone>): Boolean =
+        phoneZoneStateFast(zones) == true
+
+    /**
+     * Tri-state cached-location zone test for the OFFLINE-FIRST proximity gate (#42, 0.2.7). Same fast
+     * cached-only path as [isInsideAnyZoneFast] (never blocks on a fresh GPS fix, so approach-unlock stays
+     * instant), but DISTINGUISHES "outside" from "unknown":
+     *   - true  = the phone is inside one of [zones],
+     *   - false = the phone is outside every zone (or [zones] is empty),
+     *   - null  = no usable location (permission missing, Play Services absent, or no cached fix).
+     * The caller treats null as "ask the car's cloud position instead" - NOT as "outside". The phone is
+     * next to the car at the moment you walk away, so its own location is the connectivity-free PRIMARY
+     * source (the car's cloud position is null exactly when the car is offline/asleep, which is when the
+     * walk-away lock must still work).
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun phoneZoneStateFast(zones: List<GeoZone>): Boolean? {
+        if (zones.isEmpty()) return false
+        if (!hasLocationPermission()) return null
+        val client = runCatching { LocationServices.getFusedLocationProviderClient(appCtx) }.getOrNull() ?: return null
         val loc = withTimeoutOrNull(FAST_LOCATION_TIMEOUT_MS) {
             runCatching { awaitLocation { client.lastLocation } }.getOrNull()
-        } ?: return false
+        } ?: return null
         return enclosingZone(loc, zones) != null
     }
 

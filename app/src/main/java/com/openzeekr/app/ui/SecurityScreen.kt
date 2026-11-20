@@ -373,6 +373,9 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
 
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(stringResource(R.string.sec_exclusion_zones_prox), color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        // #42: make the scope explicit - these zones only gate OpenZeekr's OWN proximity actions, not the
+        // car's built-in passive entry (which the car runs itself, ignoring these zones).
+        Text(stringResource(R.string.sec_exclusion_zones_prox_note), color = Brand.faint, fontSize = 11.sp)
         if (cfg.proximityExclusionZones.isEmpty()) {
             Text(stringResource(R.string.sec_no_zones_prox),
                 color = Brand.faint, fontSize = 11.5.sp)

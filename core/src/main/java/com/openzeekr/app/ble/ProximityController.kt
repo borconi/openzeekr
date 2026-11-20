@@ -663,9 +663,10 @@ class ProximityController(
         needToUnlock = false; unlockJob?.cancel(); unlockJob = null
         lockJob = scope.launch {
             // #42: every BLE lock path (walk-away, idle-far, link-down) funnels through here, so the
-            // trusted-zone suppression lives here too - if the car is parked in a trusted area, leave it
-            // as-is. (The onSample path also pre-checks, to additionally suppress the Sentry-arm / return
-            // window it would otherwise trigger.) Based on the CAR's position, not the phone's (see Deps).
+            // trusted-zone suppression lives here too - if we're in a trusted area, leave the car as-is.
+            // (The onSample path also pre-checks, to additionally suppress the Sentry-arm / return window
+            // it would otherwise trigger.) The zone is evaluated PHONE-first (offline-safe), car cloud
+            // position only as a fallback - see Deps.isInExclusionZone.
             if (isInExclusionZone()) {
                 Logx.d("prox", "$reason: SKIPPED - car is in a trusted (exclusion) zone")
                 return@launch
@@ -857,7 +858,7 @@ class ProximityController(
                 }
                 // #42: the ranging-independent cloud backstop must also honour trusted zones - at home
                 // the BLE link glitches constantly, and this path (not the RSSI dwell) is what was still
-                // locking the car inside the zone. Based on the car's position (see Deps).
+                // locking the car inside the zone. Evaluated phone-first (offline-safe) - see Deps.
                 if (isInExclusionZone()) {
                     Logx.d("prox", "$reason: SKIPPED cloud backstop - car is in a trusted (exclusion) zone"); return@launch
                 }

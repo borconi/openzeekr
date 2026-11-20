@@ -27,10 +27,11 @@ class ApiClient private constructor(private val store: ConfigStore) {
         private set
 
     private fun build(): Retrofit {
-        // Route OkHttp logging into the on-device log (Logx) at BODY level so cloud
-        // request/response bodies are visible on-device while debugging. The level is
-        // flipped to NONE when debug logging is off, so with the toggle off OkHttp never
-        // even formats request/response bodies (no tokens built into strings, nothing to leak).
+        // Route OkHttp logging into the on-device log (Logx) at BASIC level: the request line +
+        // response status/size only, NOT the per-header dump. In a tester log the full header dump was
+        // ~91% of all lines and evicted the BLE/prox diagnostics from the capped ring buffer, so we drop
+        // it here; the app's own scrubbed summary lines (status/net/login) carry the meaningful detail.
+        // The level is flipped to NONE when HTTP logging is off, so nothing is even formatted then.
         val logging = HttpLog.interceptor()
         val ok = OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
@@ -46,7 +47,7 @@ class ApiClient private constructor(private val store: ConfigStore) {
             // which reads its level at the start of its own intercept()).
             .addInterceptor { chain ->
                 logging.level = if (com.openzeekr.app.util.Logx.isHttpEnabled)
-                    HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+                    HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
                 chain.proceed(chain.request())
             }
             .addInterceptor(logging)

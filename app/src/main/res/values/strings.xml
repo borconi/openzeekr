@@ -266,6 +266,9 @@
     <string name="vehicle_cmd_progress">%1$s…</string>
     <string name="vehicle_cmd_ok">%1$s ✓</string>
     <string name="vehicle_cmd_fail">%1$s ✗ %2$s</string>
+    <string name="vehicle_auth_banner_title" tools:ignore="MissingTranslation">Session rejected</string>
+    <string name="vehicle_auth_banner_body" tools:ignore="MissingTranslation">The server keeps turning down your sign-in. This usually means the wrong region is selected. Re-check, or sign in again in Settings.</string>
+    <string name="vehicle_auth_recheck" tools:ignore="MissingTranslation">Re-check now</string>
     <string name="vehicle_stat_central_lock">Central lock</string>
     <string name="vehicle_stat_battery">Battery</string>
     <string name="vehicle_stat_range">Range</string>
@@ -468,6 +471,7 @@
     <string name="setup_carside_approach_sub">Car unlocks as you walk up</string>
     <string name="setup_carside_walkaway_title">Walk-away auto-lock (car-side)</string>
     <string name="setup_carside_walkaway_sub">Car locks itself as you leave</string>
+    <string name="setup_carside_zone_warning" tools:ignore="MissingTranslation">Once armed, the car runs this on its own and does not know where it is - OpenZeekr\'s exclusion zones cannot hold it back, so it can trigger even at home. Whether the car honours it depends on your market and firmware.</string>
 
     <!-- ===== CarShareScreen (carshare_) ===== -->
     <string name="carshare_cd_back">Back</string>
@@ -787,6 +791,7 @@
     <string name="sec_add_on_map">"  Add on map"</string>
     <string name="sec_saved_zone">Saved \"%1$s\".</string>
     <string name="sec_exclusion_zones_prox">Exclusion zones (no auto-lock/unlock here)</string>
+    <string name="sec_exclusion_zones_prox_note" tools:ignore="MissingTranslation">These only govern OpenZeekr\'s own approach-unlock and walk-away-lock. They do not affect any car-side passive entry you turned on - the car runs that itself, everywhere.</string>
     <string name="sec_no_zones_prox">None yet. Add your home so the car isn\'t auto-locked or unlocked (and doesn\'t keep chirping) while parked there.</string>
     <string name="sec_add_exclusion_zone">Add exclusion zone</string>
     <string name="sec_close">Close</string>
@@ -812,4 +817,20 @@
     <string name="setup_probe_rpa">Probe RPA start (0x0A)</string>
     <string name="setup_probe_error">error: %1$s</string>
     <string name="setup_car_reply">Car reply: %1$s</string>
+
+    <!-- ===== Home-screen quick-action widget (widget_) ===== -->
+    <string name="widget_description" tools:ignore="MissingTranslation">OpenZeekr quick actions - lock, unlock, trunk, charge port and Sentry.</string>
+    <string name="widget_open_trunk" tools:ignore="MissingTranslation">Open trunk</string>
+    <string name="widget_charge_port" tools:ignore="MissingTranslation">Charge port</string>
+    <string name="widget_status_sign_in" tools:ignore="MissingTranslation">Open app to sign in</string>
+    <string name="widget_status_error" tools:ignore="MissingTranslation">App not ready - open it once</string>
+    <string name="widget_status_ready" tools:ignore="MissingTranslation">Ready</string>
+    <string name="widget_status_offline" tools:ignore="MissingTranslation">Car offline - move closer or wake it</string>
+    <string name="widget_flash_short" tools:ignore="MissingTranslation">Flash</string>
+    <!-- Short labels for the compact widget sizes where a full phrase would not fit. -->
+    <string name="widget_trunk_short" tools:ignore="MissingTranslation">Trunk</string>
+    <string name="widget_charge_short" tools:ignore="MissingTranslation">Charge port</string>
+    <string name="widget_sentry_short" tools:ignore="MissingTranslation">Sentry</string>
+    <string name="widget_sentry_on_short" tools:ignore="MissingTranslation">Sentry on</string>
+    <string name="widget_sentry_off_short" tools:ignore="MissingTranslation">Sentry off</string>
 </resources>

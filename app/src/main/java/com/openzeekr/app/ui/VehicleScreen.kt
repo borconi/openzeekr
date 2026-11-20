@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Luggage
 import androidx.compose.material.icons.filled.Power
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -203,7 +204,6 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     var showCharge by remember { mutableStateOf(false) }
     var showClimate by remember { mutableStateOf(false) }
     var showWindows by remember { mutableStateOf(false) }
-    var showTrunk by remember { mutableStateOf(false) }
     var showFridge by remember { mutableStateOf(false) }
     // Fridge (ZAE) has no reliable on/off readback, so keep an on-screen session state (like steer/vent).
     var fridgeOn by remember { mutableStateOf(false) }
@@ -239,6 +239,8 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     }
 
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
+        // Persistent-401 / wrong-region banner (only shows after several consecutive auth rejections).
+        AuthAlertBanner(deps)
         Hero(model, paint, charging, soc, powerKw, driving = driving, speedNum = heroSpeed,
             speedUnit = heroSpeedUnit, loading = info == null)
 
@@ -274,7 +276,28 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                 // action — the car only supports flash-only and flash+honk together.)
                 add { Ctl(Icons.Filled.Campaign, stringResource(R.string.vehicle_tile_flash_honk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_action_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } } }
                 add { Ctl(Icons.Filled.FlashOn, stringResource(R.string.vehicle_flash), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_flash)) { deps.vehicleControl.send(Command.FLASH) } } }
-                add { Ctl(Icons.Filled.Luggage, if (trunkOpen) stringResource(R.string.vehicle_label_open) else stringResource(R.string.vehicle_trunk), tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) { showTrunk = true } }
+                // Trunk: a DIRECT action (no confirmation sheet), exactly like lock/unlock. When a BLE
+                // key session is live the boot is actually POPPED open (CTRL_TRUNK_UNLOCK), so the tile
+                // reads "Open"; a powered tailgate is cloud power-opened (RDU_2) and also reads "Open".
+                // A cloud-only, non-powered car can only UNLATCH the boot, so it honestly reads "Unlock".
+                // When the boot is already open, a powered tailgate closes it on the next tap.
+                add {
+                    val trunkPowered = caps.tailgate
+                    val trunkCmd = when {
+                        trunkOpen && trunkPowered -> Command.TRUNK_LOCK   // powered close
+                        bleReady -> Command.TRUNK_UNLOCK                  // BLE pops it open
+                        trunkPowered -> Command.TRUNK_OPEN                // cloud power-open (RDU_2)
+                        else -> Command.TRUNK_UNLOCK                      // cloud latch release only
+                    }
+                    val trunkLabel = when {
+                        trunkOpen && trunkPowered -> stringResource(R.string.vehicle_label_close)
+                        bleReady || trunkPowered -> stringResource(R.string.vehicle_label_open)
+                        else -> stringResource(R.string.vehicle_unlock)
+                    }
+                    Ctl(Icons.Filled.Luggage, trunkLabel, tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) {
+                        fire(trunkLabel) { deps.vehicleControl.send(trunkCmd) }
+                    }
+                }
                 if (caps.fridge) add { Ctl(Icons.Filled.Kitchen, stringResource(R.string.vehicle_fridge), tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) { showFridge = true } }
                 if (caps.frunk) add { Ctl(Icons.Filled.Inventory2, stringResource(R.string.vehicle_frunk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_frunk)) { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
             }
@@ -358,17 +381,51 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         windowsOpen = windowsOpen, windowsVenting = windowsVenting, sunroofOpen = climate?.sunroofOpen == true,
         onCmd = { c, label -> showWindows = false; fire(label) { deps.vehicleControl.send(c) } },
         onDismiss = { showWindows = false })
-    if (showTrunk) TrunkSheet(
-        poweredOpen = caps.tailgate,
-        trunkOpen = trunkOpen,
-        onCmd = { c, label -> showTrunk = false; fire(label) { deps.vehicleControl.send(c) } },
-        onDismiss = { showTrunk = false })
     if (showFridge) FridgeSheet(
         isOn = fridgeOn, initialTemp = fridgeTemp,
         onTempChange = { t -> fridgeTemp = t; writeFridgeTemp(ctx, t) },
         onSetOn = { on -> fridgeOn = on },
         onCmd = { c, extra -> fireQuiet(ctx.getString(R.string.vehicle_fridge)) { deps.control.send(c, extra) } },
         onDismiss = { showFridge = false })
+}
+
+/**
+ * Calm banner shown when the online heartbeat keeps getting a 401 / 079020 "Invalid token" - almost
+ * always the WRONG region selected (see [com.openzeekr.app.remote.AuthAlertState]). Hidden until a run
+ * of consecutive rejections, so a single blip never flashes it. Offers a one-tap "Re-check now" that
+ * wakes the heartbeat loop immediately; the banner clears itself the moment auth succeeds again.
+ */
+@Composable
+private fun AuthAlertBanner(deps: Deps) {
+    val alert by deps.authAlert.state.collectAsState()
+    var rechecking by remember { mutableStateOf(false) }
+    // Drop the "re-checking" spinner once the alert state changes - i.e. the triggered heartbeat came
+    // back (success clears the banner; a fresh rejection bumps consecutiveFailures). Either re-enables
+    // the button so the user isn't stuck on a disabled spinner after a failed re-check. Declared BEFORE
+    // the early-return so it still resets when a success hides the banner.
+    LaunchedEffect(alert) { rechecking = false }
+    if (!alert.showBanner) return
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(14.dp)).background(Brand.crit.copy(alpha = 0.14f))
+            .border(1.dp, Brand.crit.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Warning, null, tint = Brand.crit, modifier = Modifier.size(22.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.vehicle_auth_banner_title), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.vehicle_auth_banner_body), color = Brand.muted, fontSize = 12.sp)
+        }
+        Button(
+            onClick = { rechecking = true; deps.requestAuthRecheck() },
+            enabled = !rechecking,
+            colors = ButtonDefaults.buttonColors(containerColor = Brand.crit),
+        ) {
+            if (rechecking) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+            else Text(stringResource(R.string.vehicle_auth_recheck), fontSize = 13.sp)
+        }
+    }
 }
 
 @Composable
@@ -684,33 +741,6 @@ private fun WindowsSheet(
 private fun StateBtn(text: String, active: Boolean, modifier: Modifier = Modifier, tint: Color = Brand.accent, onClick: () -> Unit) {
     if (active) PrimaryButton(text, modifier, tint = tint, onClick = onClick)
     else GhostButton(text, modifier, tint = tint, onClick = onClick)
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TrunkSheet(poweredOpen: Boolean, trunkOpen: Boolean, onCmd: (Command, String) -> Unit, onDismiss: () -> Unit) {
-    val sheet = rememberModalBottomSheetState()
-    val context = LocalContext.current
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 26.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.vehicle_trunk), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text(if (trunkOpen) stringResource(R.string.vehicle_trunk_currently_open) else stringResource(R.string.vehicle_trunk_currently_closed), color = Brand.muted, fontSize = 12.sp)
-            if (poweredOpen) {
-                // Powered tailgate: Open = RDU_2/start, Close = RDL_2/start (the stock app toggles by
-                // trunkOpenStatus - see TRUNK_CHARGEPORT_FINDINGS.md), so these are open/close, not latch.
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton(stringResource(R.string.vehicle_label_open), Modifier.weight(1f)) { onCmd(Command.TRUNK_OPEN, context.getString(R.string.vehicle_cmd_trunk_open)) }
-                    GhostButton(stringResource(R.string.vehicle_label_close), Modifier.weight(1f), tint = Brand.good) { onCmd(Command.TRUNK_LOCK, context.getString(R.string.vehicle_cmd_trunk_close)) }
-                }
-            } else {
-                // No powered tailgate: only the latch unlock (pop) + lock are available.
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton(stringResource(R.string.vehicle_unlock), Modifier.weight(1f)) { onCmd(Command.TRUNK_UNLOCK, context.getString(R.string.vehicle_cmd_trunk_unlock)) }
-                    GhostButton(stringResource(R.string.vehicle_lock), Modifier.weight(1f), tint = Brand.good) { onCmd(Command.TRUNK_LOCK, context.getString(R.string.vehicle_cmd_trunk_lock)) }
-                }
-            }
-        }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

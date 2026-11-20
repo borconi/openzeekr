@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -471,6 +472,15 @@ private fun CarSidePassiveEntry(
     }
     PassiveToggle(stringResource(R.string.setup_carside_walkaway_title), stringResource(R.string.setup_carside_walkaway_sub), walkAwayOn, enabled) {
         walkAwayOn = it; config.setPassiveEntry(approachOn, it); calib.setWalkAwayLock(it)
+    }
+    // #42: the CAR runs these itself once armed, with no location awareness - the app's exclusion zones
+    // cannot gate them, so warn that it will trigger even at home (and is market/firmware-dependent).
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.energy.copy(alpha = 0.12f)).padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(Icons.Filled.Warning, null, tint = Brand.energy, modifier = Modifier.size(16.dp))
+        Text(stringResource(R.string.setup_carside_zone_warning), color = Brand.muted, fontSize = 11.5.sp)
     }
 }
 

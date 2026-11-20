@@ -25,7 +25,10 @@ import com.openzeekr.app.net.UpdateChecker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -39,6 +42,16 @@ class Deps(context: Context) {
         runCatching { appCtx.packageManager.getPackageInfo(appCtx.packageName, 0).versionName }.getOrNull() ?: ""
     /** A newer GitHub release than the installed build, or null. Set by [checkForUpdate]; observed by Settings. */
     val updateAvailable = MutableStateFlow<ReleaseInfo?>(null)
+
+    /** "Cloud session rejected" state (persistent 401 / 079020 on the heartbeat, usually a wrong-region
+     *  token). Raised by the heartbeat loop in App; observed by the Vehicle screen to show a banner. */
+    val authAlert = com.openzeekr.app.remote.AuthAlertState()
+    // Manual "Re-check now" signal: emitting it wakes the heartbeat loop's backoff wait immediately so it
+    // retries once without waiting out the backoff. extraBufferCapacity=1 so tryEmit never drops the tap.
+    private val _recheckAuth = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val recheckAuth: SharedFlow<Unit> = _recheckAuth.asSharedFlow()
+    /** Ask the heartbeat loop to retry the online heartbeat right now, bypassing any auth backoff. */
+    fun requestAuthRecheck() { _recheckAuth.tryEmit(Unit) }
 
     /** Query GitHub for a newer release, update [updateAvailable], and return it (or null if up to date). */
     suspend fun checkForUpdate(): ReleaseInfo? {
@@ -155,31 +168,44 @@ class Deps(context: Context) {
                 com.openzeekr.app.util.CarNotifier.LOCK_ALERT_ID, ongoing,
             )
         },
-        // #42: suppress approach-unlock / walk-away-lock inside the user's proximity exclusion zones
-        // (e.g. "Home"). The zone describes where the CAR is parked, so we test the car's own position
-        // first (from the latest status poll) - correct by construction, zero-latency (a cache read),
-        // and more reliable than the phone's drifting indoor GPS. We fall back to the phone's cached
-        // location when the car has no trusted fix, and only fail toward locking (return false) when
-        // neither position is known.
+        // #42 (0.2.7 OFFLINE-FIRST): suppress approach-unlock / walk-away-lock inside the user's proximity
+        // exclusion zones (e.g. "Home"). This MUST work with zero connectivity (server down, concrete
+        // garage), so the PHONE's own location is the primary source: it is right next to the car the
+        // moment you walk away, and needs no cloud. The car's cloud position is only a fallback (it is null
+        // exactly when the car is offline/asleep - which is when the lock must still run), and we fail
+        // TOWARD acting (return false) with a clear `prox` log only when NEITHER position is known.
         isInExclusionZone = {
-            // Honour BOTH the dedicated auto-lock zones AND the Sentry trusted areas (the two are
-            // separate lists, but a "trusted place" should suppress locking either way - this also makes
-            // the 0.2.4 note "the zones you set for Sentry can hold off walk-away lock" actually true, and
-            // means a zone added in either place just works). (#42, finding 5.)
+            // ONLY the dedicated proximity exclusion zones gate approach-unlock / walk-away-lock. The
+            // Sentry trusted areas are a SEPARATE list and must NEVER interfere with proximity: folding
+            // them in meant a Sentry "Home" area silently suppressed the digital key (testers reported
+            // "proximity doesn't work" with no proximity zone set). The two lists stay fully independent.
             val cfg = config.current()
-            val zones = cfg.proximityExclusionZones + cfg.sentryExclusionZones
+            val zones = cfg.proximityExclusionZones
             if (zones.isEmpty()) {
                 false
-            } else {
-                val pos = vehicleState.state.value?.basicVehicleStatus?.position
-                val carLat = pos?.latitude
-                val carLng = pos?.longitude
-                val carTrusted = pos?.posCanBeTrusted != false   // null = assume trusted
-                if (carLat != null && carLng != null && carTrusted && (carLat != 0.0 || carLng != 0.0)) {
-                    sentryAutoArm.isPointInAnyZone(carLat, carLng, zones)
-                } else {
-                    // No usable car fix - fall back to the phone's cached location (the old behaviour).
-                    sentryAutoArm.isInsideAnyZoneFast(zones)
+            } else when (sentryAutoArm.phoneZoneStateFast(zones)) {
+                // PRIMARY: the phone has a cached fix - trust it (offline-safe, no cloud read).
+                true -> true
+                false -> false
+                // No usable phone fix - fall back to the car's last cloud position (needs connectivity /
+                // a recent status poll; absent when offline). Only trust a non-zero, posCanBeTrusted fix.
+                null -> {
+                    val pos = vehicleState.state.value?.basicVehicleStatus?.position
+                    val carLat = pos?.latitude
+                    val carLng = pos?.longitude
+                    val carTrusted = pos?.posCanBeTrusted != false   // null = assume trusted
+                    if (carLat != null && carLng != null && carTrusted && (carLat != 0.0 || carLng != 0.0)) {
+                        sentryAutoArm.isPointInAnyZone(carLat, carLng, zones)
+                    } else {
+                        // Neither the phone nor the car can place us: do NOT silently fail-open. Proceed
+                        // with the lock/unlock (return false) but say why, so a tester's log shows it.
+                        com.openzeekr.app.util.Logx.d(
+                            "prox",
+                            "exclusion-zone check: no phone fix AND no trusted car position " +
+                                "- proceeding with the proximity action (fail toward acting)",
+                        )
+                        false
+                    }
                 }
             }
         },

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen quick-action widget (Jetpack Glance). The initialLayout is Glance's own loading
+     layout; Glance swaps in the real RemoteViews on first update. The live widget sizes itself from
+     the actual cell (SizeMode.Exact in QuickActionWidget.kt); these bounds just tell the launcher how
+     small / large it may be resized. targetCell* is the default drop size (4x2 -> full layout); min*
+     allows shrinking down to ~2x1 (compact Lock / Unlock) and to a single 4-wide row (one action
+     row). previewImage is a static vector thumbnail for the widget picker only. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="60dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="60dp"
+    android:maxResizeWidth="320dp"
+    android:maxResizeHeight="300dp"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description"
+    android:previewImage="@drawable/widget_preview"
+    android:initialLayout="@layout/glance_default_loading_layout" />

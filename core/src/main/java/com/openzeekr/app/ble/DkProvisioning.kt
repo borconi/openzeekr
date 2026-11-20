@@ -346,7 +346,7 @@ class DkProvisioning(
             if (st == 3 || st == 5) { Logx.d("provision", "car sync confirmed (dkStatus=$st)"); return }
             kotlinx.coroutines.delay(2000)
         }
-        Logx.w("provision", "loop-key-status timed out (last dkStatus=$last) — vehicle may not be synced; BLE may 0x0105")
+        Logx.w("provision", "loop-key-status timed out (last dkStatus=$last) - vehicle has NOT confirmed the key sync. BLE first-pair will likely be rejected (silent / 0x0105). Fix: delete the key and create it again; if it still never reaches dkStatus 3/5, this phone may not be supported for this car model (see the DK 1.0 supported-phone list).")
     }
 
     /**

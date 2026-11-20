@@ -133,6 +133,12 @@ class RealDkSession(
         // RF calibration for this phone/car - and the BLE log is encrypted on copy.
         Logx.d("dk", "coefSmall=${hexOf(cred.coefSmall)}")
         Logx.d("dk", "coefBig=${hexOf(cred.coefBig)}")
+        // X-diag: flag the uncalibrated 0xFF / empty coef stub. Per the official DK 1.0 supported-device
+        // list, DK 1.0 only works on a CALIBRATED phone that is supported for THAT exact Zeekr model; a
+        // stub coef means no calibration profile for this phone+car and is a strong predictor of a silent
+        // car-side reject of 0x0101 (no 0x0102, link torn down).
+        if (cred.coefSmall.all { it == 0xFF.toByte() } || cred.coefBig.all { it == 0xFF.toByte() })
+            Logx.w("dk", "CALIB STUB: coef is the 0xFF/empty placeholder - this phone is not calibrated for this car; the car may silently reject 0x0101. Check the DK 1.0 supported-phone list for this model.")
         // The car's DK module can answer 0x100c EEC_busy ("BNCM Busy") when it's momentarily
         // occupied (waking, or tearing down a stale session). Stock (n0/g) does NOT abort on
         // this: it keeps the BLE link, logs "EEC_busy Wait 2.5s ReStart", waits 0x9c4=2500ms
@@ -279,6 +285,10 @@ class RealDkSession(
      */
     private suspend fun connectConfirm(cred: DkCredential, rnd: ByteArray, connectKey: ByteArray, initState: Int): Int? {
         val confirm = buildConfirmCodeNew(cred, rnd, initState)          // 47B plaintext
+        // X-diag (BX1E "car stays silent"): dump the PRE-encryption 0x0101 plaintext + the connectKey/IV
+        // it is sealed with. This splits a silent car into a decrypt/connectKey problem (wrong VIN or
+        // broadcastRnd -> car can't AES-CBC-decrypt) vs a car-side key-not-registered rejection.
+        Logx.d("dk", "0x0101 PRE-ENCRYPT confirm(${confirm.size}B)=${hexOf(confirm)} connectKey=${hexOf(connectKey)} cbcIv=${hexOf(DkCrypto.CBC_IV)} initState=$initState")
         val body = DkCrypto.aesCbcEncryptPkcs7(connectKey, DkCrypto.CBC_IV, confirm)
         val rx = exchangeRaw(DkProtocol.CMD_A2V_CONNECT_CONFIRM, body, false, DkProtocol.CMD_V2A_DK_STATUS)
         val status = try {

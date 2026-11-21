@@ -115,8 +115,12 @@ object HttpLog {
     )
 
     private val keyAlt = SENSITIVE_KEYS.joinToString("|")
-    // "key":"value"  ->  "key":"***"
-    private val jsonQuoted = Regex("(\"(?:$keyAlt)[A-Za-z0-9_]*\"\\s*:\\s*\")[^\"]*(\")", RegexOption.IGNORE_CASE)
+    // "key":"value"  ->  "key":"***"   (line-bounded: raw newlines can't occur inside a JSON string)
+    private val jsonQuoted = Regex("(\"(?:$keyAlt)[A-Za-z0-9_]*\"\\s*:\\s*\")[^\"\\r\\n]*(\")", RegexOption.IGNORE_CASE)
+    // "key":"value-cut-off-by-truncation   (no closing quote before end of line/input)  ->  "key":"***
+    // Callers (and OkHttp's logger) may truncate a body before it reaches scrub(); without this a
+    // long token cut mid-value matches neither jsonQuoted nor jsonScalar and leaks almost whole.
+    private val jsonUnterminated = Regex("(\"(?:$keyAlt)[A-Za-z0-9_]*\"\\s*:\\s*\")[^\"\\r\\n]*(?=[\\r\\n]|\\z)", RegexOption.IGNORE_CASE)
     // "key":123 / true / null (unquoted scalar)  ->  "key":***
     private val jsonScalar = Regex("(\"(?:$keyAlt)[A-Za-z0-9_]*\"\\s*:\\s*)(?!\")[^,}\\]\\s]+", RegexOption.IGNORE_CASE)
     // key=value (form body / query string)  ->  key=***
@@ -125,6 +129,7 @@ object HttpLog {
     /** Scrub secret VALUES out of a single log line before it is logged. */
     fun scrub(line: String): String {
         var s = jsonQuoted.replace(line) { m -> m.groupValues[1] + "***" + m.groupValues[2] }
+        s = jsonUnterminated.replace(s) { m -> m.groupValues[1] + "***" }
         s = jsonScalar.replace(s) { m -> m.groupValues[1] + "***" }
         s = formKv.replace(s) { m -> m.groupValues[1] + "=***" }
         return s

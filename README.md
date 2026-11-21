@@ -2,7 +2,9 @@
 
 [![Latest release](https://img.shields.io/github/v/release/borconi/openzeekr?label=version&sort=semver)](https://github.com/borconi/openzeekr/releases/latest) · [⬇ Download the latest signed APK](https://github.com/borconi/openzeekr/releases/latest) · [Changelog & releases](https://github.com/borconi/openzeekr/releases)
 
-> 🧪 **Early beta — testing in progress.** This is an experimental research project
+Please vote on desgin improvement suggestions: [![Poll](https://github.com/borconi/openzeekr/discussions/74)]
+
+> 🧪 **Beta — testing in progress.** This is an experimental research project
 > under active development. It's usable and being tested by early users, but expect
 > rough edges and changes without notice. **Support is best-effort** — this is not a
 > commercial product (at least not for now), so there are no warranties, guarantees or

@@ -1,0 +1,105 @@
+syntax = "proto2";
+
+package androidauto.ev.proto;
+
+message IntWithUncertainity {
+  required uint64 mean = 1;
+  optional float standard_deviation = 2;
+}
+
+message FloatWithUncertainity {
+  required float mean = 1;
+}
+
+message VehicleInfo {
+  // Missing field 1
+  required IntWithUncertainity mass_kilograms = 2;
+  required IntWithUncertainity battery_level_wh = 3;
+  required IntWithUncertainity battery_capacity_wh = 4;
+  optional uint64 hvac_status = 5;
+  required float reference_air_density = 6;
+  required float external_temp_celsius = 7;
+}
+
+message RoadLoad {
+  required FloatWithUncertainity constant = 1;
+  required FloatWithUncertainity linear = 2;
+  required FloatWithUncertainity quadratic = 3;
+}
+
+message LossAtPower {
+  optional uint64 power_watts = 1;
+  required IntWithUncertainity loss_watts = 2;
+}
+
+message DriveTrainPowerLoss {
+  optional float speed_meters_per_second = 1;
+  repeated LossAtPower loss_at_power = 2;
+}
+
+message DriveTrainLosses {
+  // Missing fields 1,2,3,4,5,6
+  repeated DriveTrainPowerLoss drivetrain_power_loss = 7;
+}
+
+message RegenerationRateAtEnergyLevel {
+  required uint64 energy_level_wh = 1;
+  required uint64 regeneration_rate_watts = 2;
+}
+
+message MaxRegenPower {
+  repeated RegenerationRateAtEnergyLevel regeneration_rate_at_energy_level = 1;
+}
+
+message BatteryPowerLoss {
+  required uint64 power_watts = 1;
+  required IntWithUncertainity loss_watts = 2;
+}
+
+message BatteryLosses {
+  // Missing fields 1,2,3
+  repeated BatteryPowerLoss battery_power_loss = 4;
+}
+
+message DrainAtTime {
+  required uint64 relative_time_sec = 1;
+  required IntWithUncertainity drain_watts = 2;
+}
+
+message DrainAtTemp {
+  required float temp_celsius = 1;
+  required bytes hvac_drain_watts = 2;
+  required bytes battery_conditioning_drain_watts = 3;
+  required IntWithUncertainity total_drain_watts = 4;
+}
+
+message TimeToFullBattery {
+  optional uint64 energy_to_full_wh = 1;
+  optional uint64 time_to_full_secs = 2;
+}
+
+message ChargingCurveAtPower {
+  required uint64 input_power_watts = 1;
+  repeated TimeToFullBattery time_to_full_battery = 2;
+}
+
+message ChargingCurves {
+  repeated ChargingCurveAtPower charging_curve_at_power = 1;
+}
+
+message CurrentChargingTime {
+  optional uint64 target_battery_level_wh = 1;
+  optional string time_remaining_secs = 2;
+}
+
+message EnergyModel {
+  required VehicleInfo vehicle_info = 1;
+  required RoadLoad road_load = 2;
+  optional DriveTrainLosses drivetrain_losses = 3;
+  optional MaxRegenPower max_regen_power = 4;
+  optional BatteryLosses battery_losses = 5;
+  repeated DrainAtTime auxiliary_drain_at_time = 6;
+  repeated DrainAtTemp auxiliary_drain_at_temp = 7;
+  optional ChargingCurves charging_curves = 8;
+  optional CurrentChargingTime current_charging_time = 9;
+}

@@ -9,6 +9,8 @@ plugins {
     // Kotlin 2.0+ moves the Compose compiler into this Gradle plugin (replaces the old
     // composeOptions.kotlinCompilerExtensionVersion). Applied in :app and :wear.
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.0" apply false
+    // protobuf-lite codegen for the ported Android Auto message models. Applied in :aa only.
+    id("com.google.protobuf") version "0.9.6" apply false
 }
 
 // ---- Verification entry points --------------------------------------------------------------

@@ -413,8 +413,8 @@
     <string name="setup_cd_disconnect">Koble fra</string>
     <string name="setup_cd_connect">Koble til</string>
     <string name="setup_passive_entry">Passiv tilgang</string>
-    <string name="setup_passive_title">Opplåsing ved tilnærming &amp; låsing ved bortgang</string>
-    <string name="setup_passive_subtitle">Lås opp når du nærmer deg bilen, lås når du går.</string>
+    <string name="setup_passive_title">Opplåsing ved tilnærming &amp; låsing ved avgang</string>
+    <string name="setup_passive_subtitle">Lås opp når du nærmer deg bilen, lås når du går vekk.</string>
     <string name="setup_calibrated">✓ Kalibrert ved bilen din · dør %1$s dBm · 6 m %2$s dBm</string>
     <string name="setup_recalibrate">Kalibrer på nytt</string>
     <string name="setup_connecting_try_again">Kobler til bilen - prøv Kalibrer igjen når tilkoblet</string>
@@ -424,15 +424,15 @@
     <string name="setup_calibrate_btn">Kalibrer ved bilen din</string>
     <string name="setup_toggle_approach_title">Automatisk opplåsing ved tilnærming</string>
     <string name="setup_toggle_approach_sub">Lås opp når du går bort til bilen</string>
-    <string name="setup_toggle_walkaway_title">Automatisk låsing ved bortgang</string>
-    <string name="setup_toggle_walkaway_sub">Lås bilen når du går</string>
+    <string name="setup_toggle_walkaway_title">Automatisk låsing ved avgang</string>
+    <string name="setup_toggle_walkaway_sub">Lås bilen når du går vekk</string>
     <string name="setup_sensitivity_label">Følsomhet - hvor nær før den låser opp</string>
     <string name="setup_sens_veryclose">Svært nær</string>
     <string name="setup_sens_close">Nær</string>
     <string name="setup_sens_far">Langt</string>
     <string name="setup_sens_desc_veryclose">Låser opp innen armlengdes avstand · sikrest</string>
     <string name="setup_sens_desc_far">Låser opp lengst unna · mest bekvemt</string>
-    <string name="setup_sens_desc_mid">Låser opp omtrent halvveis · låser når du går</string>
+    <string name="setup_sens_desc_mid">Låser opp omtrent halvveis · låser når du går vekk</string>
     <string name="setup_lock_sensitivity_label">Låseavstand - hvor langt før den låser</string>
     <string name="setup_lock_sensitivity_hint">Stilles inn separat fra opplåsing. Svært nær låser så snart du går; Langt venter til du er et stykke fra bilen.</string>
     <string name="setup_proximity_footnote">Kjører en strømsparende skanning, kobler deretter til &amp; låser opp via BLE-nøkkelen. Bruker en forgrunnstjeneste - tillat ubegrenset bakgrunn for pålitelighet.</string>
@@ -452,7 +452,7 @@
     <string name="setup_remove">Fjern</string>
     <string name="setup_close">Lukk</string>
     <string name="setup_calib_walk_title">Kalibrer nærhet</string>
-    <string name="setup_calib_walk_desc">Gå til 4 steder rundt bilen din én gang. Vi måler denne telefonens faktiske signal ved døren og på ~6 m og bruker dem som terskler for opplåsing / bortgang - slik at opplåsing ved tilnærming fungerer for DIN telefon og bil, ikke en generisk gjetning. Bær telefonen slik du normalt gjør.</string>
+    <string name="setup_calib_walk_desc">Gå til 4 steder rundt bilen din én gang. Vi måler denne telefonens faktiske signal ved døren og på ~6 m og bruker dem som terskler for opplåsing / avgang - slik at opplåsing ved tilnærming fungerer for DIN telefon og bil, ikke en generisk gjetning. Bær telefonen slik du normalt gjør.</string>
     <string name="setup_calib_measuring">Måler… %1$ss - stå stille</string>
     <string name="setup_calib_in_position">Jeg er på plass - Fortsett</string>
     <string name="setup_calib_running">Kjører…</string>
@@ -461,9 +461,9 @@
     <string name="setup_calib_walk_footnote">Hold deg nær bilen under hele turen og hold området fritt for andre personer.</string>
     <string name="setup_carside_title">Bilsidens passive tilgang (utvikler)</string>
     <string name="setup_carside_approach_title">Opplåsing ved tilnærming (bilsiden)</string>
-    <string name="setup_carside_approach_sub">Bilen låser opp når du går bort</string>
-    <string name="setup_carside_walkaway_title">Automatisk låsing ved bortgang (bilsiden)</string>
-    <string name="setup_carside_walkaway_sub">Bilen låser seg selv når du går</string>
+    <string name="setup_carside_approach_sub">Bilen låser opp når du nærmer deg</string>
+    <string name="setup_carside_walkaway_title">Automatisk låsing ved avgang (bilsiden)</string>
+    <string name="setup_carside_walkaway_sub">Bilen låser seg selv når du går vekk</string>
 
     <!-- ===== CarShareScreen (carshare_) ===== -->
     <string name="carshare_cd_back">Tilbake</string>
@@ -625,7 +625,7 @@
     <string name="ctrl_open_fmt">Åpen: %1$s</string>
     <string name="ctrl_updated_fmt">oppdatert %1$s</string>
     <string name="ctrl_proximity_unlock">Opplåsing ved nærhet</string>
-    <string name="ctrl_rssi_approach">RSSI tilnærming / bortgang</string>
+    <string name="ctrl_rssi_approach">RSSI tilnærming / avgang</string>
     <string name="ctrl_calibrate_hint">Kalibrer ved bilen din (Nøkkel-fanen) for å aktivere</string>
     <string name="ctrl_zone_near">NÆR → lås opp</string>
     <string name="ctrl_zone_far">LANGT → lås</string>
@@ -773,7 +773,7 @@
     <string name="sec_no_location_fix">Kunne ikke få en posisjonsbestemmelse - sjekk posisjonstillatelsen og at posisjon er på.</string>
     <string name="sec_location_perm_needed">Posisjonstillatelse kreves for å legge til en utelukkelsessone.</string>
     <string name="sec_auto_sentry_title">Aktiver Sentry automatisk når bilen låser</string>
-    <string name="sec_auto_sentry_sub">Aktiverer Sentry ved låsing ved bortgang (og manuell). Hoppes over innenfor utelukkelsessonene dine nedenfor.</string>
+    <string name="sec_auto_sentry_sub">Aktiverer Sentry ved låsing ved avgang (og manuell). Hoppes over innenfor utelukkelsessonene dine nedenfor.</string>
     <string name="sec_exclusion_zones_sentry">Utelukkelsessoner (ingen Sentry her)</string>
     <string name="sec_no_zones_sentry">Ingen ennå. Legg til hjemmet ditt eller andre betrodde steder slik at Sentry ikke aktiveres der.</string>
     <string name="sec_unnamed_zone">Navnløs sone</string>
@@ -808,4 +808,65 @@
     <string name="setup_probe_rpa">Probe RPA-start (0x0A)</string>
     <string name="setup_probe_error">feil: %1$s</string>
     <string name="setup_car_reply">Bilens svar: %1$s</string>
+
+    <!-- Android Auto tab (AndroidAutoScreen) -->
+    <string name="aa_heading">Android Auto-forbedring</string>
+    <string name="aa_enable_feature">Aktiver Android Auto-forbedring</string>
+    <string name="aa_enable_feature_desc">Slår på elbil-ruteplanlegging og politivarsler fra Waze i bilen. Av som standard.</string>
+    <string name="aa_cert_error_desc">OpenZeekr kunne ikke lese sertifikatet den trenger fra Android Auto. Sørg for at Android Auto er installert og oppdatert, og trekk det ut på nytt.</string>
+    <string name="aa_what_header">Hva den gjør</string>
+    <string name="aa_what_ev_routing">Legger til elbil-ruteplanlegging i Google Maps.</string>
+    <string name="aa_what_police_alerts">Viser politivarsler fra Waze på instrumentpanelet og erstatter det sekundære kartet.</string>
+    <string name="aa_setup_header">Oppsett</string>
+    <string name="aa_setup_step1">Aktiver utviklerinnstillinger i Android Auto: åpne innstillingene, trykk på \'Version\' 10 ganger, og bekreft deretter.</string>
+    <string name="aa_setup_devmode_help">Slik aktiverer du utviklerinnstillinger (Google-veiledning)</string>
+    <string name="aa_setup_step2">Slå av Wireless Android Auto i utviklerinnstillingene til Android Auto.</string>
+    <string name="aa_setup_step3">Velg og start Head unit server fra trepunktsmenyen i Android Auto-innstillingene - den må fortsette å kjøre.</string>
+    <string name="aa_setup_step4">Ved den første tilkoblingen må du holde telefonen våken og opplåst - Android viser en systemdialog som ber deg la OpenZeekr koble til bilens Wi-Fi, og du må godkjenne den (den kan ikke godkjennes mens skjermen er låst).</string>
+    <string name="aa_subtitle">Trådløs Android Auto-manipulator: starter bilen via Bluetooth, bygger bro for projeksjonen, injiserer en energimodell for elbil, og kan tegne Waze-politi på instrumentpanelet.</string>
+    <string name="aa_android_version_notice">Denne enheten kjører Android %1$s. Trådløs Android Auto-brobygging krever Android 13 eller nyere; innstillingene nedenfor lagres fortsatt, men tjenesten kan ikke starte her.</string>
+    <string name="aa_status_header">Status</string>
+    <string name="aa_cert_unknown">Sertifikat: ikke sjekket ennå</string>
+    <string name="aa_cert_checking">Sertifikat: sjekker…</string>
+    <string name="aa_cert_real_extracted">Sertifikat: ekte AA-sertifikat OK</string>
+    <string name="aa_cert_extraction_failed">Sertifikat: uttrekk MISLYKTES</string>
+    <string name="aa_service_running">Tjenesten kjører</string>
+    <string name="aa_service_stopped">Tjenesten er stoppet</string>
+    <string name="aa_connection_fmt">Tilkobling: %1$s</string>
+    <string name="aa_connection_idle">Inaktiv</string>
+    <string name="aa_advice_not_installed">Android Auto er ikke installert - sertifikatet kan ikke trekkes ut, og ingenting vil fungere før du installerer det.</string>
+    <string name="aa_requirement_hint">Denne appen må være den som snakker med bilen, så innebygd Trådløs Android Auto må være AV (Android Auto → Utviklerinnstillinger → Trådløs Android Auto).</string>
+    <string name="aa_service_header">Tjeneste</string>
+    <string name="aa_service_desc">Vanligvis starter tjenesten automatisk når bilens Android Auto-Bluetooth kobler til. Bruk disse for manuell start/stopp under testing.</string>
+    <string name="aa_start_service">Start tjeneste</string>
+    <string name="aa_stop_service">Stopp tjeneste</string>
+    <string name="aa_trigger_device_header">Utløserenhet</string>
+    <string name="aa_trigger_any_device">Enhver enhet med Android Auto-profilen</string>
+    <string name="aa_choose_device">Velg enhet</string>
+    <string name="aa_cert_header">Android Auto-sertifikat</string>
+    <string name="aa_cert_desc">AA-klientsertifikatet trekkes ut fra den installerte Android Auto-appen. Trekk det ut på nytt hvis bilen avviser nøkkelen, eller åpne Android Auto for å slå av innebygd Trådløs Android Auto.</string>
+    <string name="aa_reextract_cert">Trekk ut sertifikat på nytt</string>
+    <string name="aa_reextracting_detail">trekker ut på nytt fra Android Auto...</string>
+    <string name="aa_open_android_auto">Åpne Android Auto</string>
+    <string name="aa_energy_header">Energimodell</string>
+    <string name="aa_energy_desc">Injiseres i bilens Android Auto-energivisning.</string>
+    <string name="aa_police_hud_header">Politi-HUD (Waze)</string>
+    <string name="aa_replace_maps">Erstatt kart med trafikk-HUD</string>
+    <string name="aa_replace_maps_desc">Tegn politi i nærheten på instrumentpanelet.</string>
+    <string name="aa_waze_api_key_label">Waze- / OpenWeb Ninja-API-nøkkel</string>
+    <string name="aa_waze_api_help">Politivarsler kommer fra OpenWeb Ninja, et tredjeparts-Waze-data-API. Opprett en gratis konto, abonner på Waze-API-et for varsler og køer, og lim inn nøkkelen din her.</string>
+    <string name="aa_get_api_key">Hent en API-nøkkel</string>
+    <string name="aa_poll_interval_label">Spørreintervall (sekunder)</string>
+    <string name="aa_test_waze">Test Waze-kall</string>
+    <string name="aa_testing_waze">Tester Waze-kall...</string>
+    <string name="aa_ok_prefix">"OK  "</string>
+    <string name="aa_failed_prefix">"Mislyktes  "</string>
+    <string name="aa_cluster_offset_header">Justering av rekkeviddeestimat</string>
+    <string name="aa_range_tuning_desc">Juster elbil-rekkevidden som vises i Google Maps. Negativ = mer konservativ (antar høyere forbruk); positiv = mer optimistisk.</string>
+    <string name="aa_offset_fmt">Forskyvning: %1$d</string>
+    <string name="aa_grant_nearby_permission">Gi tillatelsen Enheter i nærheten for å vise de sammenkoblede enhetene dine.</string>
+    <string name="aa_picker_any_device">Enhver enhet med Android Auto-profil</string>
+    <string name="aa_close">Lukk</string>
+    <string name="aa_energy_profile_title">Energiprofil</string>
+    <string name="aa_unnamed_device">(uten navn)</string>
 </resources>

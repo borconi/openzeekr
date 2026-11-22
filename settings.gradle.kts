@@ -17,6 +17,8 @@ rootProject.name = "OpenZeekr"
 include(":app")
 include(":core")
 include(":wear")
+// Wireless Android Auto manipulator (ported Java + protobuf). Driven by :app's "Android Auto" tab.
+include(":aa")
 
 // ---- Environment preflight ------------------------------------------------------------------
 // Catches the usual first-build setup problems up front, with the fix, instead of a deep AGP

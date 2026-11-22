@@ -21,8 +21,8 @@ android {
         applicationId = "com.openzeekr.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 19
-        versionName = "0.2.7"
+        versionCode = 20
+        versionName = "0.2.8"
         // App-global secrets are baked in :core (SecretsConfig + BuildConfig live there).
     }
 
@@ -81,6 +81,10 @@ dependencies {
     // Shared BLE/DK/crypto/cloud logic (also carries okhttp/retrofit/serialization/
     // security-crypto/bouncycastle transitively via `api`).
     implementation(project(":core"))
+
+    // Wireless Android Auto manipulator (ported Java service + protobuf AA messages +
+    // Waze police HUD). Driven by the "Android Auto" Compose tab (AndroidAutoScreen).
+    implementation(project(":aa"))
 
     // Compose 1.8 (brings the new semantics-based autofill that can SAVE logins, #31). Bump to the
     // latest 1.8+ BOM your Studio/AndroidX offers if this one lags.

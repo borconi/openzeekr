@@ -9,7 +9,10 @@
     <string name="nav_tab_schedule">Schedule</string>
     <string name="nav_tab_key">Key</string>
     <string name="nav_tab_updates">Updates</string>
+    <string name="nav_tab_android_auto">Android Auto</string>
     <string name="nav_tab_settings">Settings</string>
+    <string name="nav_scroll_left_cd">Scroll tabs left</string>
+    <string name="nav_scroll_right_cd">Scroll tabs right</string>
     <string name="nav_signed_out_elsewhere">Signed out - your account was opened on another device (e.g. the Zeekr app). Sign in again to reconnect.</string>
     <string name="nav_session_expired">Session expired - please sign in again.</string>
     <string name="nav_default_car_name">My Zeekr</string>
@@ -833,4 +836,65 @@
     <string name="widget_sentry_short" tools:ignore="MissingTranslation">Sentry</string>
     <string name="widget_sentry_on_short" tools:ignore="MissingTranslation">Sentry on</string>
     <string name="widget_sentry_off_short" tools:ignore="MissingTranslation">Sentry off</string>
+
+    <!-- Android Auto tab (AndroidAutoScreen) -->
+    <string name="aa_heading">Android Auto Enhancement</string>
+    <string name="aa_enable_feature">Enable Android Auto Enhancement</string>
+    <string name="aa_enable_feature_desc">Turn on EV routing and Waze police alerts in the car. Off by default.</string>
+    <string name="aa_cert_error_desc">OpenZeekr could not read the certificate it needs from Android Auto. Make sure Android Auto is installed and up to date, then re-extract.</string>
+    <string name="aa_what_header">What it does</string>
+    <string name="aa_what_ev_routing">Adds EV routing to Google Maps.</string>
+    <string name="aa_what_police_alerts">Shows police alerts from Waze on the dashboard, replacing the secondary map.</string>
+    <string name="aa_setup_header">Setup</string>
+    <string name="aa_setup_step1">Enable developer settings inside Android Auto: open its settings, tap \'Version\' 10 times, then confirm.</string>
+    <string name="aa_setup_devmode_help">How to enable developer settings (Google guide)</string>
+    <string name="aa_setup_step2">In Android Auto\'s developer settings, turn off Wireless Android Auto.</string>
+    <string name="aa_setup_step3">From the Android Auto settings three-dot menu, select and start the Head unit server - it must stay running.</string>
+    <string name="aa_setup_step4">On the first connection, keep your phone awake and unlocked - Android shows a system dialog asking you to let OpenZeekr join the car\'s Wi-Fi, and you must approve it (it cannot be approved while the screen is locked).</string>
+    <string name="aa_subtitle">Wireless Android Auto manipulator: bootstraps the car over Bluetooth, bridges the projection, injects an EV energy model, and can draw Waze police on the instrument cluster.</string>
+    <string name="aa_android_version_notice">This device runs Android %1$s. Wireless Android Auto bridging needs Android 13 or newer; the settings below still save, but the service can\'t start here.</string>
+    <string name="aa_status_header">Status</string>
+    <string name="aa_cert_unknown">Cert: not yet checked</string>
+    <string name="aa_cert_checking">Cert: checking…</string>
+    <string name="aa_cert_real_extracted">Cert: real AA cert OK</string>
+    <string name="aa_cert_extraction_failed">Cert: extraction FAILED</string>
+    <string name="aa_service_running">Service running</string>
+    <string name="aa_service_stopped">Service stopped</string>
+    <string name="aa_connection_fmt">Connection: %1$s</string>
+    <string name="aa_connection_idle">Idle</string>
+    <string name="aa_advice_not_installed">Android Auto is not installed - the cert cannot be extracted and nothing will work until you install it.</string>
+    <string name="aa_requirement_hint">This app must be the one that talks to the car, so native Wireless Android Auto has to be OFF (Android Auto → Developer settings → Wireless Android Auto).</string>
+    <string name="aa_service_header">Service</string>
+    <string name="aa_service_desc">Normally the service auto-starts when the car\'s Android Auto Bluetooth connects. Use these for a manual start/stop while testing.</string>
+    <string name="aa_start_service">Start service</string>
+    <string name="aa_stop_service">Stop service</string>
+    <string name="aa_trigger_device_header">Trigger device</string>
+    <string name="aa_trigger_any_device">Any device with the Android Auto profile</string>
+    <string name="aa_choose_device">Choose device</string>
+    <string name="aa_cert_header">Android Auto certificate</string>
+    <string name="aa_cert_desc">The AA client certificate is extracted from the installed Android Auto app. Re-extract it if the car rejects the key, or open Android Auto to turn off native Wireless Android Auto.</string>
+    <string name="aa_reextract_cert">Re-extract cert</string>
+    <string name="aa_reextracting_detail">re-extracting from Android Auto...</string>
+    <string name="aa_open_android_auto">Open Android Auto</string>
+    <string name="aa_energy_header">Energy model</string>
+    <string name="aa_energy_desc">Injected into the car\'s Android Auto energy readout.</string>
+    <string name="aa_police_hud_header">Police HUD (Waze)</string>
+    <string name="aa_replace_maps">Replace maps with traffic HUD</string>
+    <string name="aa_replace_maps_desc">Draw nearby police on the instrument cluster.</string>
+    <string name="aa_waze_api_key_label">Waze / OpenWeb Ninja API key</string>
+    <string name="aa_waze_api_help">Police alerts come from OpenWeb Ninja, a third-party Waze data API. Create a free account, subscribe to the Waze alerts-and-jams API, and paste your key here.</string>
+    <string name="aa_get_api_key">Get an API key</string>
+    <string name="aa_poll_interval_label">Poll interval (seconds)</string>
+    <string name="aa_test_waze">Test Waze call</string>
+    <string name="aa_testing_waze">Testing Waze call...</string>
+    <string name="aa_ok_prefix">"OK  "</string>
+    <string name="aa_failed_prefix">"Failed  "</string>
+    <string name="aa_cluster_offset_header">Range estimate tuning</string>
+    <string name="aa_range_tuning_desc">Nudge the EV range shown in Google Maps. Negative = more conservative (assumes higher use); positive = more optimistic.</string>
+    <string name="aa_offset_fmt">Offset: %1$d</string>
+    <string name="aa_grant_nearby_permission">Grant the Nearby devices permission to list your paired devices.</string>
+    <string name="aa_picker_any_device">Any device with Android Auto profile</string>
+    <string name="aa_close">Close</string>
+    <string name="aa_energy_profile_title">Energy profile</string>
+    <string name="aa_unnamed_device">(unnamed)</string>
 </resources>

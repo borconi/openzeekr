@@ -3,12 +3,16 @@ package com.openzeekr.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -22,6 +26,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Edit
@@ -57,8 +64,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -82,6 +91,7 @@ private enum class Tab(@StringRes val labelRes: Int, val icon: ImageVector) {
     SCHEDULE(R.string.nav_tab_schedule, Icons.Filled.CalendarMonth),
     KEY(R.string.nav_tab_key, Icons.Filled.VpnKey),
     UPDATES(R.string.nav_tab_updates, Icons.Filled.SystemUpdate),
+    ANDROID_AUTO(R.string.nav_tab_android_auto, Icons.Filled.Cast),
     SETTINGS(R.string.nav_tab_settings, Icons.Filled.Settings),
     // Sentry footage/live-view stays hidden (sentinel-monitoring-service is CN-only /
     // unrouted on EU). SentryScreen is kept in the tree for when a workaround is found.
@@ -116,7 +126,7 @@ fun AppRoot(deps: Deps) {
     AppBootstrap(deps, serviceEnabled = loggedIn && provisioned)
 
     // Account taken over on another device (TSP 079021): the interceptor already cleared the
-    // token (so we're now on the signed-out flow) — just explain why. Mirrors the stock app,
+    // token (so we're now on the signed-out flow) - just explain why. Mirrors the stock app,
     // which also signs you out when the account goes active elsewhere.
     val loggedInElsewhere by com.openzeekr.app.net.SessionSignal.loggedInElsewhere.collectAsState()
     LaunchedEffect(loggedInElsewhere) {
@@ -125,7 +135,7 @@ fun AppRoot(deps: Deps) {
             com.openzeekr.app.net.SessionSignal.loggedInElsewhere.value = false
         }
     }
-    // Token aged out (079012). The token is already cleared, so we're on the signed-out flow — explain why. (#22)
+    // Token aged out (079012). The token is already cleared, so we're on the signed-out flow - explain why. (#22)
     val sessionExpired by com.openzeekr.app.net.SessionSignal.sessionExpired.collectAsState()
     LaunchedEffect(sessionExpired) {
         if (sessionExpired) {
@@ -184,7 +194,7 @@ fun AppRoot(deps: Deps) {
     var draftName by remember { mutableStateOf("") }
     var showCarMenu by remember { mutableStateOf(false) }   // multi-car switcher dropdown
 
-    // Message center (charging done, abnormal parking, alarms, OTA, …) — a bell in the
+    // Message center (charging done, abnormal parking, alarms, OTA, …) - a bell in the
     // top bar with an unread badge; opening it takes over the screen.
     var showInbox by remember { mutableStateOf(false) }
     var unread by remember { mutableIntStateOf(0) }
@@ -199,7 +209,7 @@ fun AppRoot(deps: Deps) {
     }
     LaunchedEffect(loggedIn) { refreshUnread() }
 
-    // Car-share invitations addressed to us (a car someone shared) — surfaced as a dialog so the
+    // Car-share invitations addressed to us (a car someone shared) - surfaced as a dialog so the
     // user can accept/decline in-app instead of opening the stock app. Held in Deps as a shared flow
     // so both the auto-check here AND the manual "Check for shared cars" button in Settings drive the
     // same dialog. Re-checked on login, when the app returns to the foreground, and after acting on one.
@@ -241,7 +251,7 @@ fun AppRoot(deps: Deps) {
                 val multiCar = cfg.vehicles.size > 1
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        // Car name — a tappable dropdown when the account has more than one car.
+                        // Car name - a tappable dropdown when the account has more than one car.
                         Box {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -316,39 +326,83 @@ fun AppRoot(deps: Deps) {
             }
         },
         bottomBar = {
-            // Every tab shares the width equally (RowScope weight) so ALL of them are ALWAYS on screen,
-            // on any resolution - no horizontal scroll (users on narrow phones could not tell there were
-            // more tabs off-screen to the right). ADAPTIVE labels: with enough width per tab we show the
-            // label under each icon; when it gets tight (many tabs + a small/large-display-size screen)
-            // we drop to clean ICONS-ONLY instead of letting labels crowd and ellipsize ("Sched…").
+            // The tab count grew past what fits on a phone (8 tabs), so the bar is now
+            // HORIZONTALLY SCROLLABLE with fixed-width items and explicit left/right chevrons that
+            // appear only when there is more off-screen in that direction (canScrollBackward /
+            // canScrollForward). Tapping a chevron smoothly scrolls the row that way. On a wide
+            // screen where every tab fits, the row is centered and the chevrons hide. Labels stay
+            // under every icon now that it scrolls; selected = Brand.accent, unselected = Brand.muted.
+            val navScroll = rememberScrollState()
+            val navScope = rememberCoroutineScope()
+            val density = LocalDensity.current
+            val tabWidth = 78.dp
             Column {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Brand.line))
-                BoxWithConstraints(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                    // ~50 dp per tab is the minimum for an icon + the longest single-line label ("Schedule"
-                    // / "Settings" at 10 sp). Standard phones keep labels; only tight / large-display-size
-                    // screens (where 7 labels would ellipsize) drop to icons-only.
-                    val showLabels = (maxWidth / tabs.size.coerceAtLeast(1)) >= 50.dp
+                BoxWithConstraints(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding(),
+                ) {
+                    val fits = tabWidth * tabs.size.coerceAtLeast(1) <= maxWidth
+                    val rowBase = if (fits) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().horizontalScroll(navScroll)
                     Row(
-                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 4.dp, vertical = 6.dp),
+                        rowBase.padding(horizontal = 4.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = if (fits) Arrangement.Center else Arrangement.Start,
                     ) {
                         tabs.forEach { t ->
                             val selected = selectedTab == t
                             val tint = if (selected) Brand.accent else Brand.muted
                             Column(
-                                Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                                Modifier.width(tabWidth).clip(RoundedCornerShape(14.dp))
                                     .clickable { selectedTab = t }.padding(vertical = 6.dp, horizontal = 2.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(3.dp),
                             ) {
-                                Icon(t.icon, stringResource(t.labelRes), tint = tint, modifier = Modifier.size(if (showLabels) 24.dp else 26.dp))
-                                if (showLabels) {
-                                    Text(
-                                        stringResource(t.labelRes), color = tint, fontSize = 10.sp,
-                                        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                    )
-                                }
+                                Icon(t.icon, stringResource(t.labelRes), tint = tint, modifier = Modifier.size(24.dp))
+                                Text(
+                                    stringResource(t.labelRes), color = tint, fontSize = 10.sp,
+                                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+
+                    // Left / right scroll affordances: only drawn when the row can actually scroll
+                    // that way. Each sits over a short surface->transparent fade so it reads as "more".
+                    val surface = MaterialTheme.colorScheme.surface
+                    val step = with(density) { (tabWidth * 2).toPx() }
+                    // matchParentSize() overlays each affordance at the tab row's height WITHOUT
+                    // forcing the bar to grow. A direct fillMaxHeight() child here fills the bottomBar's
+                    // LOOSE height constraint (the whole screen), which stretched the nav to full height
+                    // (tabs pinned top, chevron floating mid-screen, content squeezed to nothing). Only
+                    // the chevron box inside is clickable, so taps on the tabs still register.
+                    if (navScroll.canScrollBackward) {
+                        Row(Modifier.matchParentSize(), horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier.fillMaxHeight()
+                                    .background(Brush.horizontalGradient(listOf(surface, Color.Transparent)))
+                                    .clickable { navScope.launch { navScroll.animateScrollBy(-step) } }
+                                    .padding(horizontal = 2.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Filled.ChevronLeft, stringResource(R.string.nav_scroll_left_cd),
+                                    tint = Brand.accent, modifier = Modifier.size(26.dp))
+                            }
+                        }
+                    }
+                    if (navScroll.canScrollForward) {
+                        Row(Modifier.matchParentSize(), horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier.fillMaxHeight()
+                                    .background(Brush.horizontalGradient(listOf(Color.Transparent, surface)))
+                                    .clickable { navScope.launch { navScroll.animateScrollBy(step) } }
+                                    .padding(horizontal = 2.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Icons.Filled.ChevronRight, stringResource(R.string.nav_scroll_right_cd),
+                                    tint = Brand.accent, modifier = Modifier.size(26.dp))
                             }
                         }
                     }
@@ -384,6 +438,7 @@ fun AppRoot(deps: Deps) {
                 )
             }
             Tab.UPDATES -> OtaScreen(deps, m)
+            Tab.ANDROID_AUTO -> AndroidAutoScreen(deps, m)
             Tab.SETTINGS -> SettingsScreen(deps, m)
         }
     }
@@ -416,7 +471,7 @@ fun AppRoot(deps: Deps) {
         )
     }
 
-    // Pending car-share invitation — accept/decline the first one; the rest surface in turn.
+    // Pending car-share invitation - accept/decline the first one; the rest surface in turn.
     invites.firstOrNull()?.let { invite ->
         val respond: (Boolean) -> Unit = { accept ->
             inviteBusy = true

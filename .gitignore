@@ -6,13 +6,17 @@
 /app/build/
 /core/build/
 /wear/build/
+/aa/build/
 /captures/
 .externalNativeBuild/
 .cxx/
 # Signed release build outputs (APK is *.apk; also ignore the metadata + baseline profiles).
 /app/release/
 /wear/release/
+/aa/release/
 *.apk
+# Reverse-engineering scratch blob - never commit.
+blob.tct
 *.keystore
 *.jks
 # Never commit real secrets:

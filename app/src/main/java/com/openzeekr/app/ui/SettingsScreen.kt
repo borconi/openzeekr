@@ -94,15 +94,17 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
         signingIn = true; status = ctx.getString(R.string.settings_signing_in)
         scope.launch {
             try {
-                store.replace(cfg).fold(
-                    onSuccess = {
-                        status = when (val r = deps.auth.login()) {
-                            is CallResult.Ok -> { cfg = store.current(); ctx.getString(R.string.settings_signed_in) }
-                            is CallResult.Err -> ctx.getString(R.string.settings_sign_in_failed, r.message)
-                        }
-                    },
-                    onFailure = { status = ctx.getString(R.string.settings_save_failed, it.message) }
-                )
+                // Persist ONLY the typed credentials onto the LIVE store config. Replacing with the
+                // whole stale `cfg` snapshot (captured when this screen opened) reverted the region
+                // and gateway hosts - e.g. a region the user had just switched to SEA - back to EU,
+                // so login ran against the wrong gateway (issue #77). Region/hosts/units are written
+                // live by their own controls; only email/password flow through the snapshot here.
+                // Matches OnboardingScreen.signIn.
+                store.update { it.copy(email = cfg.email.trim(), password = cfg.password) }
+                status = when (val r = deps.auth.login()) {
+                    is CallResult.Ok -> { cfg = store.current(); ctx.getString(R.string.settings_signed_in) }
+                    is CallResult.Err -> ctx.getString(R.string.settings_sign_in_failed, r.message)
+                }
             } finally {
                 signingIn = false
             }
@@ -277,8 +279,19 @@ fun SettingsScreen(deps: Deps, modifier: Modifier = Modifier) {
 
         if (!baked) {
             SecretsSection(cfg, { upd -> cfg = upd(cfg) }) {
-                store.replace(cfg)
-                    .onSuccess { deps.onEndpointChanged(); status = ctx.getString(R.string.settings_saved) }
+                // Overlay only the user-entered secret/credential fields from the snapshot onto the
+                // LIVE config, so the region and gateway hosts (written live by the Region picker /
+                // host overrides since this screen opened) are preserved rather than reverted by the
+                // stale snapshot (issue #77).
+                store.replace(store.current().copy(
+                    email = cfg.email.trim(), password = cfg.password,
+                    hmacAccessKey = cfg.hmacAccessKey, hmacSecretKey = cfg.hmacSecretKey,
+                    passwordPublicKey = cfg.passwordPublicKey, prodSecret = cfg.prodSecret,
+                    vinKey = cfg.vinKey, vinIv = cfg.vinIv, xchangerSignSecret = cfg.xchangerSignSecret,
+                    overseasAccessKey = cfg.overseasAccessKey, overseasSecretKey = cfg.overseasSecretKey,
+                    vin = cfg.vin,
+                ))
+                    .onSuccess { cfg = store.current(); deps.onEndpointChanged(); status = ctx.getString(R.string.settings_saved) }
                     .onFailure { status = ctx.getString(R.string.settings_save_failed, it.message) }
             }
             importExport(store) { cfg = store.current() }

@@ -3,6 +3,42 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.8] - 2026-11-22
+
+### Added
+- **Android Auto Enhancement (optional, experimental; off by default).** A new tab that improves Android
+  Auto on the car's screen. It adds EV routing to Google Maps, so Maps plans your route around the battery
+  and charging, and it can show Waze police alerts on the instrument cluster in place of the secondary
+  map. It is opt-in behind a single on/off switch and needs Android 13 or newer. It only ever starts when
+  your car's Bluetooth connects and the head unit is a Zeekr - it only ever bootstraps against a Zeekr
+  head unit, so a stray Android Auto device just does nothing. The Android Auto certificate it needs is fetched and kept
+  current silently in the background; you are only shown a certificate button if it genuinely cannot be
+  read. The tab walks you through the one-time Android Auto setup (enable developer settings, turn off
+  Wireless Android Auto, start the Head unit server) with links to the guides.
+
+### Changed
+- **The bottom tab bar now scrolls sideways.** With the extra tab the navigation bar scrolls horizontally,
+  with left and right arrows that appear when there are more tabs off-screen, so every tab stays reachable
+  on any phone.
+
+### Fixed
+- **Sign-in no longer reverts your region to Europe.** On the Settings sign-in, choosing a non-EU region
+  (for example Australia / SEA) could silently snap back to EU the instant you tapped Sign in, so the app
+  logged in to the wrong servers and sign-in failed. Your chosen region is now kept. (#77)
+- **Norwegian wording for walk-away lock.** The texts said "bortgang" (which reads as "passing away")
+  instead of "avgang", with one approach line also phrased backwards. Corrected throughout. Thanks to
+  Arnfinn Bakke for the catch.
+- **Seat heating and cooling no longer snap back a level.** Cycling a seat through its levels quickly
+  (for example low to medium to high to off) could leave it stuck on an in-between level: a slightly
+  stale status update from the car would overwrite the level you had just set. The app now holds your
+  choice for a few seconds after you tap and sends a single command once the taps settle, so a fast
+  cycle to off goes straight to off. Thanks to David Pincus for the report.
+- **The fridge now stays on in the app.** The fridge on/off state was forgotten whenever you left the
+  Vehicle tab or the app went to the background, so the fridge tile snapped back to Off even though the
+  fridge was still running. People then re-toggled it to match, which sent a real Off to the car and
+  switched the actual fridge off. The on/off state is now remembered (like the temperature already was),
+  so it survives tab changes and restarts. (#79) Thanks to the testers who reported it.
+
 ## [0.2.7] - 2026-11-21
 
 ### Added

@@ -1,0 +1,124 @@
+syntax = "proto2";
+
+package androidauto.bluetooth.proto;
+
+// 1
+message WifiStartRequest {
+  optional string ip_address = 1;
+  optional uint32 port = 2;
+}
+
+// 2
+message WifiInfoRequest {
+}
+
+// 3
+message WifiInfoResponse {
+  optional string ssid = 1; //mo15384a
+  optional string key = 2; //mo15385b
+  optional string bssid = 3; //mo15386c
+  optional SecurityMode security_mode = 4;
+  optional AccessPointType access_point_type = 5;
+
+  enum SecurityMode {
+    UNKNOWN_SECURITY_MODE = 0;
+    OPEN = 1;
+    WEP_64 = 2;
+    WEP_128 = 3;
+    WPA_PERSONAL = 4;
+    WPA2_PERSONAL = 8;
+    WPA_WPA2_PERSONAL = 12;
+    WPA_ENTERPRISE = 20;
+    WPA2_ENTERPRISE = 24;
+    WPA_WPA2_ENTERPRISE = 28;
+  }
+
+  enum AccessPointType {
+    STATIC = 0;
+    DYNAMIC = 1;
+  }
+}
+
+// 4
+message WifiVersionRequest {
+  optional uint32 major_version = 1;
+  optional uint32 minor_version = 2;
+  repeated int32 supported_wifi_channels = 3;
+  optional HeadUnitInfo car_info = 4;
+  optional WifiProjectionProtocolInfo wifi_projection_protocol_info = 5;
+
+  message HeadUnitInfo {
+    optional string make = 1;
+    optional string model = 2;
+    optional string year = 3;
+    optional string vehicle_id = 4;
+    optional string head_unit_make = 5;
+    optional string head_unit_model = 6;
+    optional string head_unit_software_build = 7;
+    optional string head_unit_software_version = 8;
+  }
+
+  message WifiProjectionProtocolInfo {
+    optional string ip_address = 1;
+    optional uint32 port = 2;
+  }
+}
+
+// 5
+message WifiVersionResponse {
+  optional uint32 major_version = 1;
+  optional uint32 minor_version = 2;
+  optional string device_serial = 3;
+  optional WifiStatus status = 4;
+  optional WifiChannelType selected_wifi_channel_type = 5;
+  optional WifiDeviceInfo device_info = 6;
+
+  enum WifiChannelType {
+    CHANNELS_5GHZ_ONLY = 0;
+    CHANNELS_24GHZ_ONLY = 2;
+    CHANNELS_DUAL_BAND = 3;
+  }
+
+  message WifiDeviceInfo {
+    optional string device_id = 1;
+    optional string connectivity_lifetime_id = 2;
+  }
+}
+
+// 6
+message WifiConnectStatus {
+  optional WifiStatus status = 1;
+  optional string error_message_hint = 2;
+}
+
+// 7
+message WifiStartResponse {
+  optional string ip_address = 1;
+  optional uint32 port = 2;
+  optional WifiStatus status = 3;
+}
+
+// 8
+message WifiPingRequest {
+  optional int64 timestamp = 1;
+}
+
+// 9
+message WifiPingResponse {
+  optional int64 timestamp = 1;
+}
+
+enum WifiStatus {
+  STATUS_UNSOLICITED_MESSAGE = 1;
+  STATUS_SUCCESS = 0;
+  STATUS_NO_COMPATIBLE_VERSION = -1;
+  STATUS_WIFI_INACCESSIBLE_CHANNEL = -2;
+  STATUS_WIFI_INCORRECT_CREDENTIALS = -3;
+  STATUS_PROJECTION_ALREADY_STARTED = -4;
+  STATUS_WIFI_DISABLED = -5;
+  STATUS_WIFI_NOT_YET_STARTED = -6;
+  STATUS_INVALID_HOST = -7;
+  STATUS_NO_SUPPORTED_WIFI_CHANNELS = -8;
+  STATUS_INSTRUCT_USER_TO_CHECK_THE_PHONE = -9;
+  STATUS_PHONE_WIFI_DISABLED = -10;
+}

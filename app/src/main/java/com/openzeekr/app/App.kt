@@ -33,10 +33,19 @@ class App : Application(), DepsHolder {
         // stays alive because the BLE foreground service keeps the process up; the per-screen-on gate
         // (flag + secure lock) is re-checked live, so this is safe to arm unconditionally at startup.
         com.openzeekr.app.forceunlock.ForceUnlockManager.init(this)
+        // Silent Android Auto cert upkeep: if the AA Enhancement feature is enabled, load the
+        // cached cert and (throttled) refresh it from the latest gearhead APK before it expires.
+        // Runs on a background thread and no-ops when the feature is off or on pre-13 devices, so
+        // the user never sees a cert prompt unless extraction is completely unusable.
+        AaCertMaintenance.maintain(this, deps.appScope)
+        // Mirror the Android Auto status bus into the shared on-device log so the projection
+        // lifecycle (WiFi connected, head-unit-server mode, bootstrap complete, errors) is visible
+        // in the "Copy (encrypted)" log - the :aa module otherwise only writes to logcat.
+        AaCertMaintenance.installLogBridge()
     }
 
     /**
-     * The account's "online device" heartbeat (ms-app-online-manager/app/hb) — the
+     * The account's "online device" heartbeat (ms-app-online-manager/app/hb) - the
      * vehicle only executes remote (cloud) commands for the online device. We keep it
      * strictly a foreground concern (NOT in the BLE foreground service): it starts when
      * the app comes to the foreground and stops when it leaves. Manual commands also

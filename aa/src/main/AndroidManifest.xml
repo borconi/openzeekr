@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifest additions for the Wireless Android Auto manipulator. As a library manifest these
+  permissions and components merge into :app's merged manifest automatically. There is NO
+  launcher activity here on purpose: the old MainActivity is replaced by the Compose
+  "Android Auto" tab, so OpenZeekr's MainActivity stays the single launcher.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_BASIC_PHONE_STATE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Wake + show the Wi-Fi enabler activity over the lock screen when the BT
+         handshake happens while the phone is locked and backgrounded. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+
+    <!-- Android 12+ -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+
+    <!-- Package visibility (Android 11+): needed so we can read the installed
+         Android Auto (gearhead) APK to extract the AA client certificate. -->
+    <queries>
+        <package android:name="com.google.android.projection.gearhead" />
+    </queries>
+
+    <application>
+        <receiver
+            android:name="io.aawireless.wirelessaamanipulator.receivers.BluetoothReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+                <action android:name="android.bluetooth.device.action.UUID" />
+                <!-- Best-effort: the car may re-connect A2DP to signal a fresh AA session. This
+                     profile broadcast is not manifest-exempt from the implicit-broadcast ban on
+                     API 26+, so MainTaskService also registers this receiver dynamically. -->
+                <action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name="io.aawireless.wirelessaamanipulator.helpers.wifi.WifiEnableActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:launchMode="singleInstance"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Plain (non-foreground) started service. OpenZeekr already runs ONE foreground
+             service (com.openzeekr.app.ble.ProximityService in :core) that keeps the app
+             process alive; this AA bridge runs under that umbrella, started with
+             startService() from the BluetoothReceiver (broadcast temp-allowlist) and the
+             Android Auto tab (app in foreground). No own notification or FGS type. -->
+        <service
+            android:name="io.aawireless.wirelessaamanipulator.services.MainTaskService"
+            android:exported="false" />
+    </application>
+
+</manifest>

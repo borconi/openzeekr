@@ -205,8 +205,9 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     var showClimate by remember { mutableStateOf(false) }
     var showWindows by remember { mutableStateOf(false) }
     var showFridge by remember { mutableStateOf(false) }
-    // Fridge (ZAE) has no reliable on/off readback, so keep an on-screen session state (like steer/vent).
-    var fridgeOn by remember { mutableStateOf(false) }
+    // Fridge (ZAE) has no reliable on/off readback, so keep the last on/off ourselves. Persisted (not a
+    // bare remember) so it survives leaving the Vehicle tab / backgrounding - see readFridgeOn.
+    var fridgeOn by remember { mutableStateOf(readFridgeOn(ctx)) }
     var fridgeTemp by remember { mutableStateOf(readFridgeTemp(ctx)) }
 
     // On success also kick a spaced status-refresh burst so the on-screen state (lock/windows/charge/
@@ -384,7 +385,7 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     if (showFridge) FridgeSheet(
         isOn = fridgeOn, initialTemp = fridgeTemp,
         onTempChange = { t -> fridgeTemp = t; writeFridgeTemp(ctx, t) },
-        onSetOn = { on -> fridgeOn = on },
+        onSetOn = { on -> fridgeOn = on; writeFridgeOn(ctx, on) },
         onCmd = { c, extra -> fireQuiet(ctx.getString(R.string.vehicle_fridge)) { deps.control.send(c, extra) } },
         onDismiss = { showFridge = false })
 }
@@ -956,8 +957,25 @@ private fun SeatCabinTile(
     label: String, pos: String, seedHeat: String?, seedCool: String?, showCool: Boolean,
     modifier: Modifier = Modifier, onCmd: (Command, List<ServiceParameter>) -> Unit,
 ) {
-    var heat by remember(seedHeat) { mutableStateOf(seedHeat?.toIntOrNull() ?: 0) }
-    var cool by remember(seedCool) { mutableStateOf(seedCool?.toIntOrNull() ?: 0) }
+    // Optimistic level state. NOT keyed on the seed: a status poll must not silently reset it while
+    // the user is cycling the control. We re-seed from the car's readback only outside a short
+    // "user owns it" window after the last tap (below) - otherwise a lagging readback snaps the bars
+    // back to an intermediate level (car still applying our queued commands), which is the "pressed to
+    // off, sits on medium" bug.
+    var heat by remember { mutableStateOf(seedHeat?.toIntOrNull() ?: 0) }
+    var cool by remember { mutableStateOf(seedCool?.toIntOrNull() ?: 0) }
+    var lastTouchMs by remember { mutableStateOf(0L) }
+    // Debounced target level: a burst of taps collapses to ONE command (the final level), sent after
+    // the taps settle - so cycling low/med/high/off sends just "off", not four queued commands.
+    var heatPending by remember { mutableStateOf<Int?>(null) }
+    var coolPending by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(seedHeat) {
+        if (System.currentTimeMillis() - lastTouchMs > SEAT_OWN_WINDOW_MS) heat = seedHeat?.toIntOrNull() ?: 0
+    }
+    LaunchedEffect(seedCool) {
+        if (System.currentTimeMillis() - lastTouchMs > SEAT_OWN_WINDOW_MS) cool = seedCool?.toIntOrNull() ?: 0
+    }
 
     fun sendHeat(n: Int) = onCmd(
         Command.CLIMATE_ZAF,
@@ -975,6 +993,16 @@ private fun SeatCabinTile(
             ServiceParameter("SV.$pos.duration", "15"), ServiceParameter("SH.$pos", "false"),
         ),
     )
+
+    // Each key change (a tap) cancels the previous delay, so only the settled final level is sent.
+    LaunchedEffect(heatPending) {
+        val n = heatPending ?: return@LaunchedEffect
+        delay(SEAT_DEBOUNCE_MS); sendHeat(n); heatPending = null
+    }
+    LaunchedEffect(coolPending) {
+        val n = coolPending ?: return@LaunchedEffect
+        delay(SEAT_DEBOUNCE_MS); sendCool(n); coolPending = null
+    }
 
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().height(124.dp), contentAlignment = Alignment.BottomCenter) {
@@ -1014,11 +1042,17 @@ private fun SeatCabinTile(
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
                 SeatMiniBtn(Icons.Filled.Whatshot, heat, Brand.energy) {
-                    val n = (heat + 1) % 4; heat = n; if (n > 0) cool = 0; sendHeat(n)
+                    val n = (heat + 1) % 4; heat = n; if (n > 0) cool = 0
+                    lastTouchMs = System.currentTimeMillis()
+                    coolPending = null   // heat wins; sendHeat>0 also turns cooling off at the car
+                    heatPending = n
                 }
                 // Cooled/ventilated seats only where the car advertises them (VehicleCapabilities.seatCool).
                 if (showCool) SeatMiniBtn(Icons.Filled.Air, cool, Brand.accent) {
-                    val n = (cool + 1) % 4; cool = n; if (n > 0) heat = 0; sendCool(n)
+                    val n = (cool + 1) % 4; cool = n; if (n > 0) heat = 0
+                    lastTouchMs = System.currentTimeMillis()
+                    heatPending = null
+                    coolPending = n
                 }
             }
         }
@@ -1154,6 +1188,11 @@ private fun writeTargetTemp(ctx: android.content.Context, t: Double) {
     }
 }
 
+// Seat heat/vent: how long after a tap we trust the UI over the (lagging) status readback, and how
+// long we wait for a burst of taps to settle before sending the single final level.
+private const val SEAT_OWN_WINDOW_MS = 6_000L
+private const val SEAT_DEBOUNCE_MS = 500L
+
 // Remembered fridge (ZAE) target temperature (°C). Like the A/C setpoint, the car doesn't report it,
 // so keep the last value. Default 5.0 (a normal fridge temp; the box also heats above the setpoint).
 private const val KEY_FRIDGE_TEMP = "fridge_temp_c"
@@ -1165,5 +1204,24 @@ private fun writeFridgeTemp(ctx: android.content.Context, t: Double) {
     runCatching {
         ctx.getSharedPreferences(CLIMATE_PREFS, android.content.Context.MODE_PRIVATE)
             .edit().putFloat(KEY_FRIDGE_TEMP, t.toFloat()).apply()
+    }
+}
+
+// Remembered fridge (ZAE) on/off. The car gives no fridge on/off readback, so this is the only record
+// that the fridge is running. It MUST outlive VehicleScreen: the bottom-nav is a plain `when` swap, so
+// leaving the Vehicle tab (or backgrounding the app) discards every VehicleScreen remember{}. Keeping
+// this in remember{} alone reset the tile to OFF on every tab switch - the user then re-toggled to
+// reconcile a stale OFF tile against a fridge that was actually still running, and those stray taps
+// sent real FRIDGE_OFF commands ("won't remain on in app; also turns off the actual fridge", issue #79).
+// Persisting to prefs (like the setpoint above) makes the on-state survive navigation and restart.
+private const val KEY_FRIDGE_ON = "fridge_on"
+private fun readFridgeOn(ctx: android.content.Context): Boolean = runCatching {
+    ctx.getSharedPreferences(CLIMATE_PREFS, android.content.Context.MODE_PRIVATE)
+        .getBoolean(KEY_FRIDGE_ON, false)
+}.getOrDefault(false)
+private fun writeFridgeOn(ctx: android.content.Context, on: Boolean) {
+    runCatching {
+        ctx.getSharedPreferences(CLIMATE_PREFS, android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_FRIDGE_ON, on).apply()
     }
 }

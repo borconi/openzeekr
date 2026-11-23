@@ -868,4 +868,9 @@
     <string name="aa_close">Κλείσιμο</string>
     <string name="aa_energy_profile_title">Ενεργειακό προφίλ</string>
     <string name="aa_unnamed_device">(χωρίς όνομα)</string>
+    <string name="aa_camera_sources_header">Πηγές καμερών ταχύτητας</string>
+    <string name="aa_camera_sources_desc">Οι ειδοποιήσεις για κάμερες και παραβίαση κόκκινου στον πίνακα οργάνων προέρχονται από αυτές τις ανοιχτές ροές του GitHub. Προσθέστε μια περιοχή για να τη συμπεριλάβετε· η ροή πρέπει να δημοσιεύει την ίδια μορφή GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Επαναφορά προεπιλογών</string>
+    <string name="aa_add">Προσθήκη</string>
+    <string name="aa_remove">Αφαίρεση</string>
 </resources>

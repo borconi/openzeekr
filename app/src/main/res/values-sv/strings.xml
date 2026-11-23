@@ -869,4 +869,9 @@
     <string name="aa_close">Stäng</string>
     <string name="aa_energy_profile_title">Energiprofil</string>
     <string name="aa_unnamed_device">(namnlös)</string>
+    <string name="aa_camera_sources_header">Källor för fartkameror</string>
+    <string name="aa_camera_sources_desc">Varningar om fartkameror och rödljus på instrumentpanelen kommer från dessa öppna GitHub-flöden. Lägg till en region för att inkludera den; flödet måste publicera samma GATSO_ALL.csv-format.</string>
+    <string name="aa_camera_sources_reset">Återställ till standard</string>
+    <string name="aa_add">Lägg till</string>
+    <string name="aa_remove">Ta bort</string>
 </resources>

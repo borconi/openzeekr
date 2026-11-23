@@ -868,4 +868,9 @@
     <string name="aa_close">Uždaryti</string>
     <string name="aa_energy_profile_title">Energijos profilis</string>
     <string name="aa_unnamed_device">(be pavadinimo)</string>
+    <string name="aa_camera_sources_header">Greičio kamerų šaltiniai</string>
+    <string name="aa_camera_sources_desc">Kamerų ir raudono šviesoforo signalo įspėjimai prietaisų skydelyje gaunami iš šių atvirų GitHub srautų. Pridėkite regioną, kad jį įtrauktumėte; srautas turi skelbti tą patį GATSO_ALL.csv formatą.</string>
+    <string name="aa_camera_sources_reset">Atstatyti numatytuosius</string>
+    <string name="aa_add">Pridėti</string>
+    <string name="aa_remove">Pašalinti</string>
 </resources>

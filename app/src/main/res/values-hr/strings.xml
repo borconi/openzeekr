@@ -868,4 +868,9 @@
     <string name="aa_close">Zatvori</string>
     <string name="aa_energy_profile_title">Energetski profil</string>
     <string name="aa_unnamed_device">(bez naziva)</string>
+    <string name="aa_camera_sources_header">Izvori kamera za brzinu</string>
+    <string name="aa_camera_sources_desc">Upozorenja na kamere i prolazak kroz crveno na instrumentnoj ploči dolaze iz ovih otvorenih GitHub feedova. Dodajte regiju da je uključite; feed mora objavljivati isti format GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Vrati na zadano</string>
+    <string name="aa_add">Dodaj</string>
+    <string name="aa_remove">Ukloni</string>
 </resources>

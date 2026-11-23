@@ -868,4 +868,9 @@
     <string name="aa_close">Zavřít</string>
     <string name="aa_energy_profile_title">Energetický profil</string>
     <string name="aa_unnamed_device">(bez názvu)</string>
+    <string name="aa_camera_sources_header">Zdroje rychlostních radarů</string>
+    <string name="aa_camera_sources_desc">Upozornění na radary a jízdu na červenou na přístrojovém štítu pocházejí z těchto otevřených zdrojů na GitHubu. Přidejte region, abyste jej zahrnuli; zdroj musí publikovat stejný formát GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Obnovit výchozí nastavení</string>
+    <string name="aa_add">Přidat</string>
+    <string name="aa_remove">Odebrat</string>
 </resources>

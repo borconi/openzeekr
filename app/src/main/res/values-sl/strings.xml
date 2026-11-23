@@ -868,4 +868,9 @@
     <string name="aa_close">Zapri</string>
     <string name="aa_energy_profile_title">Energijski profil</string>
     <string name="aa_unnamed_device">(brez imena)</string>
+    <string name="aa_camera_sources_header">Viri hitrostnih kamer</string>
+    <string name="aa_camera_sources_desc">Opozorila o kamerah in rdeči luči na merilniški plošči prihajajo iz teh odprtih virov GitHub. Dodajte regijo, da jo vključite; vir mora objavljati isto obliko GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Ponastavi na privzeto</string>
+    <string name="aa_add">Dodaj</string>
+    <string name="aa_remove">Odstrani</string>
 </resources>

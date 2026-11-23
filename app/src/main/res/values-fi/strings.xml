@@ -868,4 +868,9 @@
     <string name="aa_close">Sulje</string>
     <string name="aa_energy_profile_title">Energiaprofiili</string>
     <string name="aa_unnamed_device">(nimetön)</string>
+    <string name="aa_camera_sources_header">Nopeuskameroiden lähteet</string>
+    <string name="aa_camera_sources_desc">Mittariston kamera- ja liikennevalovaroitukset tulevat näistä avoimista GitHub-syötteistä. Lisää alue ottaaksesi sen mukaan; syötteen on julkaistava sama GATSO_ALL.csv-muoto.</string>
+    <string name="aa_camera_sources_reset">Palauta oletukset</string>
+    <string name="aa_add">Lisää</string>
+    <string name="aa_remove">Poista</string>
 </resources>

@@ -868,4 +868,9 @@
     <string name="aa_close">Bezárás</string>
     <string name="aa_energy_profile_title">Energiaprofil</string>
     <string name="aa_unnamed_device">(névtelen)</string>
+    <string name="aa_camera_sources_header">Sebességmérő kamerák forrásai</string>
+    <string name="aa_camera_sources_desc">A műszerfalon megjelenő kamera- és piroslámpa-riasztások ezekből a nyílt GitHub-hírcsatornákból származnak. Adjon hozzá egy régiót a felvételéhez; a hírcsatornának ugyanazt a GATSO_ALL.csv formátumot kell közzétennie.</string>
+    <string name="aa_camera_sources_reset">Visszaállítás az alapértelmezettekre</string>
+    <string name="aa_add">Hozzáadás</string>
+    <string name="aa_remove">Eltávolítás</string>
 </resources>

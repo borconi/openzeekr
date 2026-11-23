@@ -869,4 +869,9 @@
     <string name="aa_close">Agħlaq</string>
     <string name="aa_energy_profile_title">Profil tal-enerġija</string>
     <string name="aa_unnamed_device">(bla isem)</string>
+    <string name="aa_camera_sources_header">Sorsi tal-kameras tal-veloċità</string>
+    <string name="aa_camera_sources_desc">L-avżi tal-kameras u tad-dawl aħmar fuq il-pannell tal-istrumenti jiġu minn dawn il-feeds miftuħa ta\' GitHub. Żid reġjun biex tinkludih; il-feed irid jippubblika l-istess format GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Erġa\' lura għall-valuri prestabbiliti</string>
+    <string name="aa_add">Żid</string>
+    <string name="aa_remove">Neħħi</string>
 </resources>

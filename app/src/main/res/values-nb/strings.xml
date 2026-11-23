@@ -869,4 +869,9 @@
     <string name="aa_close">Lukk</string>
     <string name="aa_energy_profile_title">Energiprofil</string>
     <string name="aa_unnamed_device">(uten navn)</string>
+    <string name="aa_camera_sources_header">Kilder for fartskameraer</string>
+    <string name="aa_camera_sources_desc">Varsler om fartskameraer og rødt lys på instrumentpanelet kommer fra disse åpne GitHub-feedene. Legg til en region for å inkludere den; feeden må publisere samme GATSO_ALL.csv-format.</string>
+    <string name="aa_camera_sources_reset">Tilbakestill til standard</string>
+    <string name="aa_add">Legg til</string>
+    <string name="aa_remove">Fjern</string>
 </resources>

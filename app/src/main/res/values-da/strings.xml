@@ -869,4 +869,9 @@
     <string name="aa_close">Luk</string>
     <string name="aa_energy_profile_title">Energiprofil</string>
     <string name="aa_unnamed_device">(uden navn)</string>
+    <string name="aa_camera_sources_header">Kilder til fartkameraer</string>
+    <string name="aa_camera_sources_desc">Advarsler om fartkameraer og rødt lys på instrumentpanelet kommer fra disse åbne GitHub-feeds. Tilføj en region for at inkludere den; feedet skal udgive det samme GATSO_ALL.csv-format.</string>
+    <string name="aa_camera_sources_reset">Nulstil til standard</string>
+    <string name="aa_add">Tilføj</string>
+    <string name="aa_remove">Fjern</string>
 </resources>

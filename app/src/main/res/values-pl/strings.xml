@@ -868,4 +868,9 @@
     <string name="aa_close">Zamknij</string>
     <string name="aa_energy_profile_title">Profil energetyczny</string>
     <string name="aa_unnamed_device">(bez nazwy)</string>
+    <string name="aa_camera_sources_header">Źródła fotoradarów</string>
+    <string name="aa_camera_sources_desc">Alerty o fotoradarach i przejeździe na czerwonym świetle na zestawie wskaźników pochodzą z tych otwartych kanałów GitHub. Dodaj region, aby go uwzględnić; kanał musi publikować ten sam format GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Przywróć domyślne</string>
+    <string name="aa_add">Dodaj</string>
+    <string name="aa_remove">Usuń</string>
 </resources>

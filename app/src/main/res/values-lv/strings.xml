@@ -868,4 +868,9 @@
     <string name="aa_close">Aizvērt</string>
     <string name="aa_energy_profile_title">Enerģijas profils</string>
     <string name="aa_unnamed_device">(bez nosaukuma)</string>
+    <string name="aa_camera_sources_header">Ātruma kameru avoti</string>
+    <string name="aa_camera_sources_desc">Kameru un sarkanās gaismas brīdinājumi instrumentu panelī nāk no šīm atvērtajām GitHub plūsmām. Pievienojiet reģionu, lai to iekļautu; plūsmai jāpublicē tas pats GATSO_ALL.csv formāts.</string>
+    <string name="aa_camera_sources_reset">Atiestatīt uz noklusējumu</string>
+    <string name="aa_add">Pievienot</string>
+    <string name="aa_remove">Noņemt</string>
 </resources>

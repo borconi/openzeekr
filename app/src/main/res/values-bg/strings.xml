@@ -868,4 +868,9 @@
     <string name="aa_close">Затвори</string>
     <string name="aa_energy_profile_title">Енергиен профил</string>
     <string name="aa_unnamed_device">(без име)</string>
+    <string name="aa_camera_sources_header">Източници на камери за скорост</string>
+    <string name="aa_camera_sources_desc">Сигналите за камери и червени светофари на арматурното табло идват от тези отворени емисии в GitHub. Добавете регион, за да го включите; емисията трябва да публикува същия формат GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Възстановяване на стойностите по подразбиране</string>
+    <string name="aa_add">Добавяне</string>
+    <string name="aa_remove">Премахване</string>
 </resources>

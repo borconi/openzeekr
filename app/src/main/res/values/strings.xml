@@ -897,4 +897,10 @@
     <string name="aa_close">Close</string>
     <string name="aa_energy_profile_title">Energy profile</string>
     <string name="aa_unnamed_device">(unnamed)</string>
+    <string name="aa_camera_sources_header">Speed camera sources</string>
+    <string name="aa_camera_sources_desc">Camera and red-light alerts on the cluster come from these open GitHub feeds. Add a region to include it; the feed must publish the same GATSO_ALL.csv format.</string>
+    <string name="aa_camera_sources_add_label" translatable="false">owner/repo</string>
+    <string name="aa_camera_sources_reset">Reset to defaults</string>
+    <string name="aa_add">Add</string>
+    <string name="aa_remove">Remove</string>
 </resources>

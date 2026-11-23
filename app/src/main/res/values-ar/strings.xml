@@ -869,4 +869,9 @@
     <string name="aa_close">إغلاق</string>
     <string name="aa_energy_profile_title">ملف تعريف الطاقة</string>
     <string name="aa_unnamed_device">(بدون اسم)</string>
+    <string name="aa_camera_sources_header">مصادر كاميرات السرعة</string>
+    <string name="aa_camera_sources_desc">تأتي تنبيهات الكاميرات والإشارات الحمراء على لوحة العدادات من موجزات GitHub المفتوحة هذه. أضف منطقة لتضمينها؛ يجب أن ينشر الموجز نفس تنسيق GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">إعادة التعيين إلى الإعدادات الافتراضية</string>
+    <string name="aa_add">إضافة</string>
+    <string name="aa_remove">إزالة</string>
 </resources>

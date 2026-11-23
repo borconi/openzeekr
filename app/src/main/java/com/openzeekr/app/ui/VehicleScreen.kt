@@ -209,6 +209,10 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     // bare remember) so it survives leaving the Vehicle tab / backgrounding - see readFridgeOn.
     var fridgeOn by remember { mutableStateOf(readFridgeOn(ctx)) }
     var fridgeTemp by remember { mutableStateOf(readFridgeTemp(ctx)) }
+    // Animated hero (Hero3d.kt): used whenever the model's asset pack is bundled (7GT, 7X); other models and
+    // builds without the packs keep the classic hero card.
+    val heroFx = remember { Hero3dFx() }
+    val hero3d = remember(model.key) { Hero3dAssets.available(ctx, model.key) }
 
     // On success also kick a spaced status-refresh burst so the on-screen state (lock/windows/charge/
     // climate…) catches up once the car applies the command, instead of lagging to the next routine
@@ -242,7 +246,34 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         // Persistent-401 / wrong-region banner (only shows after several consecutive auth rejections).
         AuthAlertBanner(deps)
-        Hero(model, paint, charging, soc, powerKw, driving = driving, speedNum = heroSpeed,
+        // The animated rendered car replaces the static hero card when its asset pack is bundled
+        // (see WIP_DEV_HERO.md). Everything else keeps the classic hero.
+        if (hero3d && info != null) {
+            fun isOpen(s: String?) = !s.isNullOrBlank() && s != "0"
+            // The pack's camera looks at the car's RIGHT-hand side ("near"). Which doors those are depends
+            // on the steering side: the cloud config says so when it can (VehicleInfo.rightHandDrive),
+            // otherwise we go by the account's country.
+            val rhd = info?.rightHandDrive ?: (cfg.countryCode.uppercase() in RHD_COUNTRIES)
+            val drv = isOpen(safety?.doorOpenStatusDriver)
+            val drvRear = isOpen(safety?.doorOpenStatusDriverRear)
+            val pas = isOpen(safety?.doorOpenStatusPassenger)
+            val pasRear = isOpen(safety?.doorOpenStatusPassengerRear)
+            Box {
+                Hero3d(model.key, paint.color, Hero3dStatus(
+                    doorNearFront = if (rhd) drv else pas,
+                    doorNearRear = if (rhd) drvRear else pasRear,
+                    doorFarFront = if (rhd) pas else drv,
+                    doorFarRear = if (rhd) pasRear else drvRear,
+                    hood = isOpen(safety?.engineHoodOpenStatus),
+                    tailgate = trunkOpen,
+                    window = when { windowsVenting -> 0.25f; windowsOpen -> 1f; else -> 0f },
+                    speedKmh = (speedKmh ?: 0).toFloat(),
+                    charging = charging,
+                    soc = (soc ?: 0f) / 100f,
+                ), heroFx)
+                if (driving) HeroSpeedBadge(heroSpeed, heroSpeedUnit, Modifier.align(Alignment.TopEnd).padding(end = 20.dp))
+            }
+        } else Hero(model, paint, charging, soc, powerKw, driving = driving, speedNum = heroSpeed,
             speedUnit = heroSpeedUnit, loading = info == null)
 
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -275,8 +306,8 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                 // flash + honk together), so it's BLE-first (instant in range) with cloud fallback.
                 // Flash-only has NO BLE opcode, so it always goes via the cloud. (There is no honk-only
                 // action — the car only supports flash-only and flash+honk together.)
-                add { Ctl(Icons.Filled.Campaign, stringResource(R.string.vehicle_tile_flash_honk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_action_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } } }
-                add { Ctl(Icons.Filled.FlashOn, stringResource(R.string.vehicle_flash), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_flash)) { deps.vehicleControl.send(Command.FLASH) } } }
+                add { Ctl(Icons.Filled.Campaign, stringResource(R.string.vehicle_tile_flash_honk), modifier = Modifier.weight(1f)) { heroFx.onCommand(scope, Command.FLASH_HORN); fire(ctx.getString(R.string.vehicle_action_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } } }
+                add { Ctl(Icons.Filled.FlashOn, stringResource(R.string.vehicle_flash), modifier = Modifier.weight(1f)) { heroFx.onCommand(scope, Command.FLASH); fire(ctx.getString(R.string.vehicle_flash)) { deps.vehicleControl.send(Command.FLASH) } } }
                 // Trunk: a DIRECT action (no confirmation sheet), exactly like lock/unlock. When a BLE
                 // key session is live the boot is actually POPPED open (CTRL_TRUNK_UNLOCK), so the tile
                 // reads "Open"; a powered tailgate is cloud power-opened (RDU_2) and also reads "Open".
@@ -296,11 +327,12 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                         else -> stringResource(R.string.vehicle_unlock)
                     }
                     Ctl(Icons.Filled.Luggage, trunkLabel, tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) {
+                        heroFx.onCommand(scope, trunkCmd)
                         fire(trunkLabel) { deps.vehicleControl.send(trunkCmd) }
                     }
                 }
                 if (caps.fridge) add { Ctl(Icons.Filled.Kitchen, stringResource(R.string.vehicle_fridge), tint = Brand.accent, active = fridgeOn, modifier = Modifier.weight(1f)) { showFridge = true } }
-                if (caps.frunk) add { Ctl(Icons.Filled.Inventory2, stringResource(R.string.vehicle_frunk), modifier = Modifier.weight(1f)) { fire(ctx.getString(R.string.vehicle_frunk)) { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
+                if (caps.frunk) add { Ctl(Icons.Filled.Inventory2, stringResource(R.string.vehicle_frunk), modifier = Modifier.weight(1f)) { heroFx.onCommand(scope, Command.FRONT_TRUNK); fire(ctx.getString(R.string.vehicle_frunk)) { deps.vehicleControl.send(Command.FRONT_TRUNK) } } }
             }
             tiles.chunked(4).forEach { rowTiles ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -380,7 +412,7 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
     if (showWindows) WindowsSheet(
         sunroof = caps.sunroof, sunshade = caps.sunshade,
         windowsOpen = windowsOpen, windowsVenting = windowsVenting, sunroofOpen = climate?.sunroofOpen == true,
-        onCmd = { c, label -> showWindows = false; fire(label) { deps.vehicleControl.send(c) } },
+        onCmd = { c, label -> showWindows = false; heroFx.onCommand(scope, c); fire(label) { deps.vehicleControl.send(c) } },
         onDismiss = { showWindows = false })
     if (showFridge) FridgeSheet(
         isOn = fridgeOn, initialTemp = fridgeTemp,
@@ -462,21 +494,7 @@ private fun Hero(
         }
         // Being driven: a live-speed badge in the top-right corner (falls back to a "Driving" chip when the
         // car is on but not reporting a road speed). Distinguishes an in-use car from a parked/idle one.
-        if (driving) {
-            Row(
-                Modifier.align(Alignment.TopEnd).padding(12.dp).clip(RoundedCornerShape(14.dp))
-                    .background(Color.Black.copy(alpha = .38f)).padding(horizontal = 12.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (speedNum != null) {
-                    Text("$speedNum", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text(speedUnit, color = Color.White.copy(alpha = .85f), fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 3.dp))
-                } else {
-                    Text(stringResource(R.string.vehicle_driving), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
+        if (driving) HeroSpeedBadge(speedNum, speedUnit, Modifier.align(Alignment.TopEnd).padding(12.dp))
         if (charging && soc != null) {
             val phase by trans.animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart), label = "soc")
             val shimmer = Brush.linearGradient(
@@ -485,6 +503,24 @@ private fun Hero(
             Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp).background(Color.White.copy(alpha = .10f))) {
                 Box(Modifier.fillMaxWidth(soc / 100f).height(4.dp).background(shimmer))
             }
+        }
+    }
+}
+
+/** Live-speed badge shown on the hero while the car is being driven (a "Driving" chip when no speed is reported). */
+@Composable
+private fun HeroSpeedBadge(speedNum: Int?, speedUnit: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(RoundedCornerShape(14.dp))
+            .background(Color.Black.copy(alpha = .38f)).padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        if (speedNum != null) {
+            Text("$speedNum", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text(speedUnit, color = Color.White.copy(alpha = .85f), fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 3.dp))
+        } else {
+            Text(stringResource(R.string.vehicle_driving), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

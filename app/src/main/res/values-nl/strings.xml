@@ -869,4 +869,9 @@
     <string name="aa_close">Sluiten</string>
     <string name="aa_energy_profile_title">Energieprofiel</string>
     <string name="aa_unnamed_device">(naamloos)</string>
+    <string name="aa_camera_sources_header">Bronnen voor flitspalen</string>
+    <string name="aa_camera_sources_desc">Camera- en roodlichtwaarschuwingen op het instrumentenpaneel komen van deze open GitHub-feeds. Voeg een regio toe om deze op te nemen; de feed moet dezelfde GATSO_ALL.csv-indeling publiceren.</string>
+    <string name="aa_camera_sources_reset">Standaardinstellingen herstellen</string>
+    <string name="aa_add">Toevoegen</string>
+    <string name="aa_remove">Verwijderen</string>
 </resources>

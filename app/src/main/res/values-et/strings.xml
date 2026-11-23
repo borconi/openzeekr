@@ -868,4 +868,9 @@
     <string name="aa_close">Sulge</string>
     <string name="aa_energy_profile_title">Energiaprofiil</string>
     <string name="aa_unnamed_device">(nimeta)</string>
+    <string name="aa_camera_sources_header">Kiiruskaamerate allikad</string>
+    <string name="aa_camera_sources_desc">Näidikuplokil kuvatavad kaamera- ja punase tule hoiatused pärinevad nendest avatud GitHubi voogudest. Lisa piirkond selle kaasamiseks; voog peab avaldama sama GATSO_ALL.csv vormingu.</string>
+    <string name="aa_camera_sources_reset">Lähtesta vaikeväärtustele</string>
+    <string name="aa_add">Lisa</string>
+    <string name="aa_remove">Eemalda</string>
 </resources>

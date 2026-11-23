@@ -869,4 +869,9 @@
     <string name="aa_close">Schließen</string>
     <string name="aa_energy_profile_title">Energieprofil</string>
     <string name="aa_unnamed_device">(ohne Namen)</string>
+    <string name="aa_camera_sources_header">Blitzer-Quellen</string>
+    <string name="aa_camera_sources_desc">Blitzer- und Rotlicht-Warnungen im Kombiinstrument stammen aus diesen offenen GitHub-Feeds. Füge eine Region hinzu, um sie einzubinden; der Feed muss dasselbe GATSO_ALL.csv-Format veröffentlichen.</string>
+    <string name="aa_camera_sources_reset">Auf Standard zurücksetzen</string>
+    <string name="aa_add">Hinzufügen</string>
+    <string name="aa_remove">Entfernen</string>
 </resources>

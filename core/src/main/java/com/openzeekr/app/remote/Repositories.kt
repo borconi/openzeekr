@@ -74,7 +74,39 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
     private val configCache = java.util.concurrent.ConcurrentHashMap<String, VehicleConfigInfo>()
 
     /** The two identity fields we read from the azure config endpoint. Blank string = present-but-empty. */
-    private data class VehicleConfigInfo(val colorName: String, val seriesName: String)
+    private data class VehicleConfigInfo(val colorName: String, val seriesName: String, val rightHandDrive: Boolean? = null)
+
+    /**
+     * Left- or right-hand drive, read from the vehicle-config payload. We have not identified a dedicated
+     * field for it, so this looks for an explicit marker ("RHD" / "right-hand drive" / "LHD" / "left-hand
+     * drive") in any key or value of the config. null = the config does not say (callers fall back to
+     * the account's country). The matching key is logged so the real field can be pinned down later.
+     */
+    private fun steeringSide(data: kotlinx.serialization.json.JsonElement?): Boolean? {
+        val rhdRe = Regex("""(?i)\bRHD\b|right[-_ ]?hand[-_ ]?driv""")
+        val lhdRe = Regex("""(?i)\bLHD\b|left[-_ ]?hand[-_ ]?driv""")
+        var rhd: String? = null
+        var lhd: String? = null
+        fun walk(e: kotlinx.serialization.json.JsonElement?, key: String) {
+            when (e) {
+                is kotlinx.serialization.json.JsonObject -> e.forEach { (k, v) -> walk(v, k) }
+                is kotlinx.serialization.json.JsonArray -> e.forEach { walk(it, key) }
+                is kotlinx.serialization.json.JsonPrimitive -> {
+                    val text = "$key=${e.content}"
+                    if (rhd == null && rhdRe.containsMatchIn(text)) rhd = text.take(80)
+                    if (lhd == null && lhdRe.containsMatchIn(text)) lhd = text.take(80)
+                }
+                else -> {}
+            }
+        }
+        walk(data, "")
+        if (rhd != null || lhd != null) com.openzeekr.app.util.Logx.d("veh", "steering side markers: rhd=$rhd lhd=$lhd")
+        return when {
+            rhd != null && lhd == null -> true
+            lhd != null && rhd == null -> false
+            else -> null
+        }
+    }
 
     /** Fire a catalog command. Physical-actuation ids (RDU_2/RDL_2/RDO/RDC) route through
      *  the ecarx device-api transport (System B); everything else through /ms-remote-control. */
@@ -230,6 +262,7 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                 info.copy(
                     colorName = cfg?.colorName?.ifBlank { null } ?: info.colorName,
                     model = cfg?.seriesName?.ifBlank { null } ?: info.model,
+                    rightHandDrive = cfg?.rightHandDrive,
                 )
             } else info
             colored?.also { if (it.isOwner != store.current().isOwner) store.update { c -> c.copy(isOwner = it.isOwner) } }
@@ -256,7 +289,7 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                 (data?.get("exDecoration") as? kotlinx.serialization.json.JsonObject)?.get("featureName"),
             )
             val series = str(data?.get("seriesName"))
-            VehicleConfigInfo(colorName = color, seriesName = series)
+            VehicleConfigInfo(colorName = color, seriesName = series, rightHandDrive = steeringSide(data))
         }.getOrNull()
         configCache[vin] = info ?: VehicleConfigInfo("", "")   // cache the miss too (don't re-fetch every poll)
         com.openzeekr.app.util.Logx.d("veh",

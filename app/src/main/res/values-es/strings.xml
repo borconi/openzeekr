@@ -868,4 +868,9 @@
     <string name="aa_close">Cerrar</string>
     <string name="aa_energy_profile_title">Perfil de energía</string>
     <string name="aa_unnamed_device">(sin nombre)</string>
+    <string name="aa_camera_sources_header">Fuentes de radares de velocidad</string>
+    <string name="aa_camera_sources_desc">Las alertas de radares y semáforos en rojo del cuadro de instrumentos provienen de estos feeds abiertos de GitHub. Añade una región para incluirla; el feed debe publicar el mismo formato GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Restablecer valores predeterminados</string>
+    <string name="aa_add">Añadir</string>
+    <string name="aa_remove">Quitar</string>
 </resources>

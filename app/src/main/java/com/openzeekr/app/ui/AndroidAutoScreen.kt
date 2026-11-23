@@ -55,6 +55,7 @@ import com.openzeekr.app.ui.theme.Brand
 import io.aawireless.wirelessaamanipulator.helpers.GearheadSettings
 import io.aawireless.wirelessaamanipulator.helpers.energymodel.EnergyProfiles
 import io.aawireless.wirelessaamanipulator.helpers.ssl.CertProvider
+import io.aawireless.wirelessaamanipulator.hud.GatsoUpdater
 import io.aawireless.wirelessaamanipulator.hud.waze.WazeTester
 import io.aawireless.wirelessaamanipulator.status.AppStatus
 import kotlinx.coroutines.Dispatchers
@@ -134,6 +135,14 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
     var wazeTesting by remember { mutableStateOf(false) }
     var wazeResult by remember { mutableStateOf<String?>(null) }
     var wazeOk by remember { mutableStateOf(false) }
+
+    // Editable list of camera-source repos (owner/repo), shared with GatsoUpdater via AA_SETTINGS.
+    var cameraSources by remember { mutableStateOf(GatsoUpdater.configuredRepos(context).toList()) }
+    var newSource by remember { mutableStateOf("") }
+    fun saveCameraSources(list: List<String>) {
+        cameraSources = list
+        prefs.edit().putString(GatsoUpdater.KEY_SOURCES, list.joinToString("\n")).apply()
+    }
 
     Column(
         modifier
@@ -316,6 +325,43 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                     },
                 )
                 wazeResult?.let { Text((if (wazeOk) stringResource(R.string.aa_ok_prefix) else stringResource(R.string.aa_failed_prefix)) + it, fontSize = 11.5.sp, color = if (wazeOk) Brand.good else Brand.crit) }
+            }
+
+            // Speed camera sources: the GitHub feeds the cluster camera / red-light alerts pull from.
+            // Users can add their region's feed (owner/repo) with no app update, as long as it publishes
+            // the same csv_files.zip -> GATSO_ALL.csv format. Shared with GatsoUpdater via AA_SETTINGS.
+            CockpitCard {
+                SectionHeader(stringResource(R.string.aa_camera_sources_header))
+                Text(stringResource(R.string.aa_camera_sources_desc), fontSize = 11.5.sp, color = Brand.muted)
+                cameraSources.forEach { repo ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(repo, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { saveCameraSources(cameraSources - repo) }) {
+                            Text(stringResource(R.string.aa_remove), color = Brand.muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newSource,
+                        onValueChange = { newSource = it },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.aa_camera_sources_add_label)) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(onClick = {
+                        val s = newSource.trim()
+                        if (GatsoUpdater.isValidRepo(s) && !cameraSources.contains(s)) {
+                            saveCameraSources(cameraSources + s); newSource = ""
+                        }
+                    }) {
+                        Text(stringResource(R.string.aa_add), color = Brand.accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    }
+                }
+                TextButton(onClick = { saveCameraSources(GatsoUpdater.DEFAULT_SOURCES.toList()) }) {
+                    Text(stringResource(R.string.aa_camera_sources_reset), color = Brand.muted, fontSize = 12.sp)
+                }
             }
 
             // Cluster offset

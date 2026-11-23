@@ -23,8 +23,9 @@ import java.util.zip.ZipInputStream;
  * feeds. Every feed uses the same Open-GATSO-POI packaging: the latest release carries a
  * {@code csv_files.zip} asset holding {@code GATSO_ALL.csv} (Garmin-POI rows, lon,lat,"...@speed...").
  * Each source is cached in filesDir under its own file + release tag and re-downloaded only when its
- * tag changes; the store is then rebuilt from every cached source MERGED together. Adding a new region
- * (e.g. a community-maintained Brazil feed) is just one more entry in {@link #SOURCES}, as long as it
+ * tag changes; the store is then rebuilt from every cached source MERGED together. The feed list is
+ * user-editable in the Android Auto screen (stored in AA_SETTINGS), defaulting to {@link #DEFAULT_SOURCES},
+ * so adding a new region (e.g. a community-maintained Brazil feed) needs no app update, as long as it
  * ships the exact same format.
  */
 public final class GatsoUpdater {
@@ -33,6 +34,20 @@ public final class GatsoUpdater {
     private static final String CSV_ASSET = "csv_files.zip";
     private static final String CSV_ENTRY = "GATSO_ALL.csv";
     private static final String PREFS = "gatso";
+
+    /** Where the user's editable source list lives (shared with the Android Auto screen). */
+    public static final String SETTINGS_PREFS = "AA_SETTINGS";
+    public static final String KEY_SOURCES = "camera_sources";
+
+    /**
+     * Baked-in default feeds, used until the user edits the list in the Android Auto screen. All feeds
+     * (default or user-added) must publish the identical csv_files.zip -> GATSO_ALL.csv Garmin-POI
+     * format, so the app pulls and merges them the same way.
+     */
+    public static final String[] DEFAULT_SOURCES = {
+            "1e1/Open-GATSO-POI",            // EU + Canada
+            "apgneto/br-open-speedcameras",  // Brazil
+    };
 
     /** A GitHub repo whose latest release ships csv_files.zip -> GATSO_ALL.csv in Garmin-POI format. */
     private static final class Source {
@@ -43,16 +58,29 @@ public final class GatsoUpdater {
         File cacheFile(Context ctx) { return new File(ctx.getFilesDir(), "gatso_" + sanitize(repo) + ".csv"); }
     }
 
-    /**
-     * The camera feeds pulled and merged. All must use the identical csv_files.zip -> GATSO_ALL.csv
-     * Garmin-POI format so the app handles them the same way. Append a region here once its repo exists:
-     *   new Source("owner/br-speed-cameras"),  // Brazil
-     */
-    private static final Source[] SOURCES = {
-            new Source("1e1/Open-GATSO-POI"),   // EU + Canada
-    };
-
     private GatsoUpdater() {}
+
+    /** True if {@code s} is a plausible "owner/repo" slug (GitHub-safe chars only). */
+    public static boolean isValidRepo(String s) {
+        return s != null && s.matches("[A-Za-z0-9._-]+/[A-Za-z0-9._-]+");
+    }
+
+    /**
+     * The camera-source repos to pull, from the user's Android Auto-screen list (newline/comma
+     * separated) or {@link #DEFAULT_SOURCES} when unset. Invalid or duplicate entries are dropped.
+     */
+    public static java.util.List<String> configuredRepos(Context ctx) {
+        String raw = ctx.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).getString(KEY_SOURCES, null);
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (raw != null && !raw.trim().isEmpty()) {
+            for (String t : raw.split("[,\\r\\n]+")) {
+                String s = t.trim();
+                if (isValidRepo(s) && !out.contains(s)) out.add(s);
+            }
+        }
+        if (out.isEmpty()) java.util.Collections.addAll(out, DEFAULT_SOURCES);
+        return out;
+    }
 
     private static String sanitize(String s) {
         return s.replaceAll("[^A-Za-z0-9]+", "_");
@@ -63,11 +91,11 @@ public final class GatsoUpdater {
         reloadAll(ctx);
     }
 
-    /** Rebuild the store from every source's cached CSV that exists. */
+    /** Rebuild the store from every configured source's cached CSV that exists (removed sources drop out). */
     private static void reloadAll(Context ctx) {
         java.util.List<File> files = new java.util.ArrayList<>();
-        for (Source s : SOURCES) {
-            File f = s.cacheFile(ctx);
+        for (String repo : configuredRepos(ctx)) {
+            File f = new Source(repo).cacheFile(ctx);
             if (f.exists() && f.length() > 0) files.add(f);
         }
         if (files.isEmpty()) return;
@@ -78,8 +106,10 @@ public final class GatsoUpdater {
     /** Check every source's latest release; download changed ones, then rebuild the merged store. Blocking. */
     public static void update(Context ctx) {
         SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        java.util.List<String> repos = configuredRepos(ctx);
         boolean changed = false;
-        for (Source s : SOURCES) {
+        for (String repo : repos) {
+            Source s = new Source(repo);
             try {
                 if (updateOne(ctx, prefs, s)) changed = true;
             } catch (Exception e) {
@@ -89,7 +119,7 @@ public final class GatsoUpdater {
         // Rebuild the merged store if any source changed, or if nothing is loaded yet (first run / cache).
         if (changed || !CameraStore.isLoaded()) {
             reloadAll(ctx);
-            Log.i(TAG, "cameras merged: " + CameraStore.size() + " points from " + SOURCES.length + " source(s)");
+            Log.i(TAG, "cameras merged: " + CameraStore.size() + " points from " + repos.size() + " source(s)");
         }
     }
 

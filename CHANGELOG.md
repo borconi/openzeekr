@@ -3,6 +3,19 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.2.9] - 2026-11-23
+
+### Added
+- **Animated car on the Vehicle tab (Zeekr 7GT and 7X).** For these models the Vehicle tab now shows a
+  rendered car, painted to match your car's real colour, that animates as you use the controls: doors,
+  windows, frunk and boot open and close, the headlight flash plays, and it shows motion and a charging
+  glow. It uses your car's steering side (right- or left-hand drive) so the near doors are the correct
+  ones. Other models keep the classic hero card, and more models will follow.
+- **Choose your own speed-camera feeds (Android Auto Enhancement).** The cluster camera and red-light
+  alerts now pull from a list of open GitHub feeds you can edit in the Android Auto tab - add your
+  region's feed (as owner/repo) with no app update needed. Brazil is included by default alongside the
+  existing Europe/Canada feed, thanks to apgneto's open Brazil camera dataset.
+
 ## [0.2.8] - 2026-11-22
 
 ### Added

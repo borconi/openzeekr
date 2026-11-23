@@ -324,6 +324,8 @@ data class VehicleInfo(
      *  OTA version check, whose body needs modelCode/seriesCode/vehicleModelNo (NOT for display). */
     val appModelCode: String? = null,
     val appYearCode: String? = null,
+    /** true = right-hand drive, false = left-hand drive, null = the cloud config did not say. */
+    val rightHandDrive: Boolean? = null,
 )
 
 /** Tolerant parse of the (shape-varying) vehicle-list `data`. */

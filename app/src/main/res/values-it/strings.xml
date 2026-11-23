@@ -868,4 +868,9 @@
     <string name="aa_close">Chiudi</string>
     <string name="aa_energy_profile_title">Profilo energetico</string>
     <string name="aa_unnamed_device">(senza nome)</string>
+    <string name="aa_camera_sources_header">Fonti degli autovelox</string>
+    <string name="aa_camera_sources_desc">Gli avvisi di autovelox e semafori rossi sul quadro strumenti provengono da questi feed GitHub aperti. Aggiungi una regione per includerla; il feed deve pubblicare lo stesso formato GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Ripristina i valori predefiniti</string>
+    <string name="aa_add">Aggiungi</string>
+    <string name="aa_remove">Rimuovi</string>
 </resources>

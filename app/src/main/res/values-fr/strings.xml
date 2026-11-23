@@ -868,4 +868,9 @@
     <string name="aa_close">Fermer</string>
     <string name="aa_energy_profile_title">Profil d\'énergie</string>
     <string name="aa_unnamed_device">(sans nom)</string>
+    <string name="aa_camera_sources_header">Sources de radars</string>
+    <string name="aa_camera_sources_desc">Les alertes de radars et de feux rouges sur le combiné d\'instruments proviennent de ces flux GitHub ouverts. Ajoutez une région pour l\'inclure ; le flux doit publier le même format GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Réinitialiser les valeurs par défaut</string>
+    <string name="aa_add">Ajouter</string>
+    <string name="aa_remove">Supprimer</string>
 </resources>

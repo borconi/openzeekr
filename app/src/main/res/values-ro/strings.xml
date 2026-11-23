@@ -868,4 +868,9 @@
     <string name="aa_close">Închide</string>
     <string name="aa_energy_profile_title">Profil energetic</string>
     <string name="aa_unnamed_device">(fără nume)</string>
+    <string name="aa_camera_sources_header">Surse pentru radare</string>
+    <string name="aa_camera_sources_desc">Alertele pentru radare și semafoare pe roșu de pe panoul de bord provin din aceste fluxuri GitHub deschise. Adaugă o regiune pentru a o include; fluxul trebuie să publice același format GATSO_ALL.csv.</string>
+    <string name="aa_camera_sources_reset">Resetează la valorile implicite</string>
+    <string name="aa_add">Adaugă</string>
+    <string name="aa_remove">Elimină</string>
 </resources>

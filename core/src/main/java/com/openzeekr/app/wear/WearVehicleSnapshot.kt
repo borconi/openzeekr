@@ -33,6 +33,15 @@ data class WearVehicleSnapshot(
     /** Cabin interior temperature (°C), for the climate card. */
     val insideTempC: Double? = null,
     val updatedAt: Long = 0L,
+    // Added with the watch redesign. All optional, so an older phone app or watch app simply goes without.
+    /** The charge limit the phone last set (percent). */
+    val chargeLimit: Int? = null,
+    /** Minutes until the charge reaches its limit, while charging and when the car estimates it. */
+    val minutesToFull: Int? = null,
+    /** The user's distance unit, "km" or "mi" (range is always sent in km). */
+    val distanceUnit: String = "km",
+    /** The car's name as shown in the phone app's top bar. */
+    val carName: String? = null,
 ) {
     fun encode(): String = JSON.encodeToString(this)
 

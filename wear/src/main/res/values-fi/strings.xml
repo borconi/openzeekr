@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Haetaan avainta puhelimesta…</string>
+    <string name="wear_open_on_phone">Avaa OpenZeekr puhelimessa</string>
+    <string name="wear_retry">Yritä uudelleen</string>
+    <string name="wear_key_phone_not_connected">Puhelin ei yhteydessä. Avaa kellosovellus puhelimessa</string>
+    <string name="wear_key_asking">Pyydetään avainta puhelimelta…</string>
+    <string name="wear_key_unreachable_app">Puhelinsovellukseen ei saatu yhteyttä</string>
+    <string name="wear_key_unreachable">Puhelimeen ei saada yhteyttä</string>
+    <string name="wear_key_removed">Avain poistettu puhelimesta</string>
+    <string name="wear_key_none_yet">Puhelimessa ei ole vielä avainta. Määritä se ensin siellä</string>
+
+    <string name="wear_car_cd">Autosi</string>
+    <string name="wear_charge_cd">Akku %1$d prosenttia</string>
+    <string name="wear_live_unavailable">Ei reaaliaikaisia tietoja</string>
+    <string name="wear_plugged">Kytketty</string>
+    <string name="wear_charging">Lataus</string>
+    <string name="wear_time_left">%1$s jäljellä</string>
+    <string name="wear_limit">Raja %1$d%%</string>
+
+    <string name="wear_locked">Lukittu</string>
+    <string name="wear_unlocked">Avattu</string>
+    <string name="wear_tap_to_unlock">Avaa napauttamalla</string>
+    <string name="wear_tap_to_lock">Lukitse napauttamalla</string>
+    <string name="wear_lock_on_approach">Läheisyyslukitus käytössä</string>
+    <string name="wear_use_phone">Läheisyyslukitus on käytössä puhelimessasi. Käytä puhelinta.</string>
+    <string name="wear_checking_phone">Tarkistetaan puhelinta…</string>
+    <string name="wear_locking">Lukitaan…</string>
+    <string name="wear_unlocking">Avataan…</string>
+    <string name="wear_freeing">Vapautetaan autoa…</string>
+    <string name="wear_no_handover">Puhelin ei luovuttanut yhteyttä. Yritä uudelleen</string>
+    <string name="wear_failed">Epäonnistui. Yritä uudelleen</string>
+
+    <string name="wear_ble_connected">Yhdistetty</string>
+    <string name="wear_ble_connecting">Yhdistetään…</string>
+    <string name="wear_ble_finding">Etsitään autoa…</string>
+    <string name="wear_ble_not_connected">Ei yhteyttä</string>
+    <string name="wear_ble_idle">Avaa auton luona napauttamalla</string>
+
+    <string name="wear_climate">Ilmastointi</string>
+    <string name="wear_cabin">Sisällä %1$s</string>
+    <string name="wear_on">Päällä</string>
+    <string name="wear_off">Pois</string>
+    <string name="wear_start">Käynnistä</string>
+    <string name="wear_stop">Pysäytä</string>
+    <string name="wear_cooler_cd">Viileämpi</string>
+    <string name="wear_warmer_cd">Lämpimämpi</string>
+    <string name="wear_cmd_climate">Ilmastointi %1$d°</string>
+    <string name="wear_cmd_climate_off">Ilmastointi pois</string>
+
+    <string name="wear_start_charging">Aloita lataus</string>
+    <string name="wear_stop_charging">Lopeta lataus</string>
+    <string name="wear_open_port">Avaa latausportti</string>
+    <string name="wear_close_port">Sulje latausportti</string>
+    <string name="wear_port_open">Portti auki</string>
+    <string name="wear_unplugged">Irrotettu</string>
+
+    <string name="wear_flash_horn">Vilkuta + Äänimerkki</string>
+    <string name="wear_cmd_locate">Paikanna</string>
+
+    <string name="wear_needs_phone">Lataus ja ilmastointi vaativat puhelimen</string>
+    <string name="wear_phone_standalone">Itsenäinen · puhelin ei tavoitettavissa</string>
+    <string name="wear_phone_prox_connected">Puhelimen läheisyys käytössä · auto yhdistetty</string>
+    <string name="wear_phone_holding">Puhelin pitää autoyhteyttä</string>
+    <string name="wear_phone_prox_armed">Puhelimen läheisyys valmiina · autoon ei yhteyttä</string>
+    <string name="wear_phone_ready">Valmis</string>
+    <string name="wear_err_no_phone">ei puhelinta</string>
+    <string name="wear_err_no_response">ei vastausta</string>
+    <string name="wear_err_failed">epäonnistui</string>
+</resources>

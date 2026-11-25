@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Gaunamas raktas iš telefono…</string>
+    <string name="wear_open_on_phone">Atidarykite OpenZeekr telefone</string>
+    <string name="wear_retry">Kartoti</string>
+    <string name="wear_key_phone_not_connected">Telefonas neprijungtas. Atidarykite laikrodžio programėlę telefone</string>
+    <string name="wear_key_asking">Prašoma rakto iš telefono…</string>
+    <string name="wear_key_unreachable_app">Nepavyko pasiekti telefono programėlės</string>
+    <string name="wear_key_unreachable">Nepavyksta pasiekti telefono</string>
+    <string name="wear_key_removed">Raktas pašalintas telefone</string>
+    <string name="wear_key_none_yet">Telefone dar nėra rakto. Pirmiausia nustatykite jį ten</string>
+
+    <string name="wear_car_cd">Jūsų automobilis</string>
+    <string name="wear_charge_cd">Akumuliatorius %1$d procentų</string>
+    <string name="wear_live_unavailable">Tiesioginiai duomenys nepasiekiami</string>
+    <string name="wear_plugged">Prijungta</string>
+    <string name="wear_charging">Įkrovimas</string>
+    <string name="wear_time_left">Liko %1$s</string>
+    <string name="wear_limit">Riba %1$d%%</string>
+
+    <string name="wear_locked">Užrakinta</string>
+    <string name="wear_unlocked">Atrakinta</string>
+    <string name="wear_tap_to_unlock">Atrakinkite palietę</string>
+    <string name="wear_tap_to_lock">Užrakinkite palietę</string>
+    <string name="wear_lock_on_approach">Užrakinimas pagal artumą aktyvus</string>
+    <string name="wear_use_phone">Užrakinimas pagal artumą įjungtas jūsų telefone. Naudokite telefoną.</string>
+    <string name="wear_checking_phone">Tikrinamas telefonas…</string>
+    <string name="wear_locking">Užrakinama…</string>
+    <string name="wear_unlocking">Atrakinama…</string>
+    <string name="wear_freeing">Automobilis atlaisvinamas…</string>
+    <string name="wear_no_handover">Telefonas neperdavė ryšio. Bandykite dar kartą</string>
+    <string name="wear_failed">Nepavyko. Bandykite dar kartą</string>
+
+    <string name="wear_ble_connected">Prisijungta</string>
+    <string name="wear_ble_connecting">Jungiamasi…</string>
+    <string name="wear_ble_finding">Ieškoma automobilio…</string>
+    <string name="wear_ble_not_connected">Neprisijungta</string>
+    <string name="wear_ble_idle">Atrakinkite palietę prie automobilio</string>
+
+    <string name="wear_climate">Klimatas</string>
+    <string name="wear_cabin">Salone %1$s</string>
+    <string name="wear_on">Įjungta</string>
+    <string name="wear_off">Išjungta</string>
+    <string name="wear_start">Paleisti</string>
+    <string name="wear_stop">Stabdyti</string>
+    <string name="wear_cooler_cd">Vėsiau</string>
+    <string name="wear_warmer_cd">Šilčiau</string>
+    <string name="wear_cmd_climate">Klimatas %1$d°</string>
+    <string name="wear_cmd_climate_off">Klimato išjungimas</string>
+
+    <string name="wear_start_charging">Pradėti įkrovimą</string>
+    <string name="wear_stop_charging">Stabdyti įkrovimą</string>
+    <string name="wear_open_port">Atidaryti lizdą</string>
+    <string name="wear_close_port">Uždaryti lizdą</string>
+    <string name="wear_port_open">Lizdas atidarytas</string>
+    <string name="wear_unplugged">Atjungta</string>
+
+    <string name="wear_flash_horn">Blyksėti + Signalas</string>
+    <string name="wear_cmd_locate">Rasti</string>
+
+    <string name="wear_needs_phone">Įkrovimui ir klimatui reikia telefono</string>
+    <string name="wear_phone_standalone">Savarankiškai · telefonas nepasiekiamas</string>
+    <string name="wear_phone_prox_connected">Telefono artumas aktyvus · automobilis prijungtas</string>
+    <string name="wear_phone_holding">Telefonas laiko ryšį su automobiliu</string>
+    <string name="wear_phone_prox_armed">Telefono artumas paruoštas · automobilis neprijungtas</string>
+    <string name="wear_phone_ready">Paruošta</string>
+    <string name="wear_err_no_phone">nėra telefono</string>
+    <string name="wear_err_no_response">nėra atsakymo</string>
+    <string name="wear_err_failed">nepavyko</string>
+</resources>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Recupero chiave dal telefono…</string>
+    <string name="wear_open_on_phone">Apri OpenZeekr sul telefono</string>
+    <string name="wear_retry">Riprova</string>
+    <string name="wear_key_phone_not_connected">Telefono non connesso. Apri l\'app dell\'orologio sul telefono</string>
+    <string name="wear_key_asking">Richiesta chiave al telefono…</string>
+    <string name="wear_key_unreachable_app">App del telefono non raggiungibile</string>
+    <string name="wear_key_unreachable">Telefono non raggiungibile</string>
+    <string name="wear_key_removed">Chiave rimossa sul telefono</string>
+    <string name="wear_key_none_yet">Il telefono non ha ancora una chiave. Configurala prima lì</string>
+
+    <string name="wear_car_cd">La tua auto</string>
+    <string name="wear_charge_cd">Batteria %1$d percento</string>
+    <string name="wear_live_unavailable">Dati in tempo reale non disponibili</string>
+    <string name="wear_plugged">Collegato</string>
+    <string name="wear_charging">Carica</string>
+    <string name="wear_time_left">%1$s rimanenti</string>
+    <string name="wear_limit">Limite %1$d%%</string>
+
+    <string name="wear_locked">Bloccato</string>
+    <string name="wear_unlocked">Sbloccato</string>
+    <string name="wear_tap_to_unlock">Tocca per sbloccare</string>
+    <string name="wear_tap_to_lock">Tocca per bloccare</string>
+    <string name="wear_lock_on_approach">Blocco per prossimità attivo</string>
+    <string name="wear_use_phone">Il blocco per prossimità è attivo sul tuo telefono. Usa il telefono.</string>
+    <string name="wear_checking_phone">Controllo telefono…</string>
+    <string name="wear_locking">Blocco…</string>
+    <string name="wear_unlocking">Sblocco…</string>
+    <string name="wear_freeing">Rilascio dell\'auto…</string>
+    <string name="wear_no_handover">Il telefono non ha ceduto il collegamento. Riprova</string>
+    <string name="wear_failed">Non riuscito. Riprova</string>
+
+    <string name="wear_ble_connected">Connesso</string>
+    <string name="wear_ble_connecting">Connessione…</string>
+    <string name="wear_ble_finding">Ricerca auto…</string>
+    <string name="wear_ble_not_connected">Non connesso</string>
+    <string name="wear_ble_idle">Tocca per sbloccare vicino all\'auto</string>
+
+    <string name="wear_climate">Clima</string>
+    <string name="wear_cabin">Abitacolo %1$s</string>
+    <string name="wear_on">On</string>
+    <string name="wear_off">Off</string>
+    <string name="wear_start">Avvia</string>
+    <string name="wear_stop">Ferma</string>
+    <string name="wear_cooler_cd">Più freddo</string>
+    <string name="wear_warmer_cd">Più caldo</string>
+    <string name="wear_cmd_climate">Clima %1$d°</string>
+    <string name="wear_cmd_climate_off">Clima spento</string>
+
+    <string name="wear_start_charging">Avvia la carica</string>
+    <string name="wear_stop_charging">Ferma la carica</string>
+    <string name="wear_open_port">Apri sportello</string>
+    <string name="wear_close_port">Chiudi sportello</string>
+    <string name="wear_port_open">Sportello aperto</string>
+    <string name="wear_unplugged">Scollegato</string>
+
+    <string name="wear_flash_horn">Fari + Clacson</string>
+    <string name="wear_cmd_locate">Localizza</string>
+
+    <string name="wear_needs_phone">Carica e clima richiedono il telefono</string>
+    <string name="wear_phone_standalone">Autonomo · telefono non raggiungibile</string>
+    <string name="wear_phone_prox_connected">Prossimità telefono attiva · auto connessa</string>
+    <string name="wear_phone_holding">Il telefono mantiene il collegamento</string>
+    <string name="wear_phone_prox_armed">Prossimità telefono pronta · auto non connessa</string>
+    <string name="wear_phone_ready">Pronto</string>
+    <string name="wear_err_no_phone">nessun telefono</string>
+    <string name="wear_err_no_response">nessuna risposta</string>
+    <string name="wear_err_failed">non riuscito</string>
+</resources>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">جارٍ جلب المفتاح من الهاتف…</string>
+    <string name="wear_open_on_phone">افتح OpenZeekr على هاتفك</string>
+    <string name="wear_retry">إعادة المحاولة</string>
+    <string name="wear_key_phone_not_connected">الهاتف غير متصل. افتح تطبيق الساعة على الهاتف</string>
+    <string name="wear_key_asking">جارٍ طلب المفتاح من الهاتف…</string>
+    <string name="wear_key_unreachable_app">تعذّر الوصول إلى تطبيق الهاتف</string>
+    <string name="wear_key_unreachable">تعذّر الوصول إلى الهاتف</string>
+    <string name="wear_key_removed">تمت إزالة المفتاح على الهاتف</string>
+    <string name="wear_key_none_yet">لا يوجد مفتاح على الهاتف بعد. أعدّه هناك أولًا</string>
+
+    <string name="wear_car_cd">سيارتك</string>
+    <string name="wear_charge_cd">البطارية %1$d بالمئة</string>
+    <string name="wear_live_unavailable">البيانات المباشرة غير متاحة</string>
+    <string name="wear_plugged">موصولة</string>
+    <string name="wear_charging">الشحن</string>
+    <string name="wear_time_left">متبقٍ %1$s</string>
+    <string name="wear_limit">الحد %1$d%%</string>
+
+    <string name="wear_locked">مقفلة</string>
+    <string name="wear_unlocked">مفتوحة القفل</string>
+    <string name="wear_tap_to_unlock">اضغط لفتح القفل</string>
+    <string name="wear_tap_to_lock">اضغط للقفل</string>
+    <string name="wear_lock_on_approach">فتح القفل عند الاقتراب مُفعّل</string>
+    <string name="wear_use_phone">فتح القفل عند الاقتراب مُفعّل على هاتفك. استخدم الهاتف.</string>
+    <string name="wear_checking_phone">جارٍ فحص الهاتف…</string>
+    <string name="wear_locking">جارٍ القفل…</string>
+    <string name="wear_unlocking">جارٍ فتح القفل…</string>
+    <string name="wear_freeing">جارٍ تحرير السيارة…</string>
+    <string name="wear_no_handover">لم يسلّم الهاتف الاتصال. حاول مرة أخرى</string>
+    <string name="wear_failed">فشلت العملية. حاول مرة أخرى</string>
+
+    <string name="wear_ble_connected">متصل</string>
+    <string name="wear_ble_connecting">جارٍ الاتصال…</string>
+    <string name="wear_ble_finding">جارٍ البحث عن السيارة…</string>
+    <string name="wear_ble_not_connected">غير متصل</string>
+    <string name="wear_ble_idle">اضغط لفتح القفل عند السيارة</string>
+
+    <string name="wear_climate">المناخ</string>
+    <string name="wear_cabin">المقصورة %1$s</string>
+    <string name="wear_on">مُفعّل</string>
+    <string name="wear_off">متوقف</string>
+    <string name="wear_start">تشغيل</string>
+    <string name="wear_stop">إيقاف</string>
+    <string name="wear_cooler_cd">أبرد</string>
+    <string name="wear_warmer_cd">أدفأ</string>
+    <string name="wear_cmd_climate">المناخ %1$d°</string>
+    <string name="wear_cmd_climate_off">إيقاف المناخ</string>
+
+    <string name="wear_start_charging">بدء الشحن</string>
+    <string name="wear_stop_charging">إيقاف الشحن</string>
+    <string name="wear_open_port">فتح منفذ الشحن</string>
+    <string name="wear_close_port">إغلاق منفذ الشحن</string>
+    <string name="wear_port_open">المنفذ مفتوح</string>
+    <string name="wear_unplugged">مفصولة</string>
+
+    <string name="wear_flash_horn">وميض + تنبيه</string>
+    <string name="wear_cmd_locate">تحديد الموقع</string>
+
+    <string name="wear_needs_phone">الشحن والمناخ يتطلبان هاتفك</string>
+    <string name="wear_phone_standalone">مستقل · الهاتف غير متاح</string>
+    <string name="wear_phone_prox_connected">قرب الهاتف مُفعّل · السيارة متصلة</string>
+    <string name="wear_phone_holding">الهاتف يحتفظ بالاتصال بالسيارة</string>
+    <string name="wear_phone_prox_armed">قرب الهاتف جاهز · السيارة غير متصلة</string>
+    <string name="wear_phone_ready">جاهز</string>
+    <string name="wear_err_no_phone">لا يوجد هاتف</string>
+    <string name="wear_err_no_response">لا رد</string>
+    <string name="wear_err_failed">فشل</string>
+</resources>

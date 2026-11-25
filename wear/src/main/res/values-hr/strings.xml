@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Dohvaćanje ključa s telefona…</string>
+    <string name="wear_open_on_phone">Otvorite OpenZeekr na telefonu</string>
+    <string name="wear_retry">Pokušaj ponovno</string>
+    <string name="wear_key_phone_not_connected">Telefon nije povezan. Otvorite aplikaciju sata na telefonu</string>
+    <string name="wear_key_asking">Traženje ključa od telefona…</string>
+    <string name="wear_key_unreachable_app">Aplikacija na telefonu nije dostupna</string>
+    <string name="wear_key_unreachable">Telefon nije dostupan</string>
+    <string name="wear_key_removed">Ključ uklonjen na telefonu</string>
+    <string name="wear_key_none_yet">Telefon još nema ključ. Prvo ga postavite ondje</string>
+
+    <string name="wear_car_cd">Vaše vozilo</string>
+    <string name="wear_charge_cd">Baterija %1$d posto</string>
+    <string name="wear_live_unavailable">Podaci uživo nedostupni</string>
+    <string name="wear_plugged">Priključeno</string>
+    <string name="wear_charging">Punjenje</string>
+    <string name="wear_time_left">Još %1$s</string>
+    <string name="wear_limit">Limit %1$d%%</string>
+
+    <string name="wear_locked">Zaključano</string>
+    <string name="wear_unlocked">Otključano</string>
+    <string name="wear_tap_to_unlock">Dodirnite za otključavanje</string>
+    <string name="wear_tap_to_lock">Dodirnite za zaključavanje</string>
+    <string name="wear_lock_on_approach">Zaključavanje po blizini aktivno</string>
+    <string name="wear_use_phone">Zaključavanje po blizini uključeno je na vašem telefonu. Koristite telefon.</string>
+    <string name="wear_checking_phone">Provjera telefona…</string>
+    <string name="wear_locking">Zaključavanje…</string>
+    <string name="wear_unlocking">Otključavanje…</string>
+    <string name="wear_freeing">Oslobađanje vozila…</string>
+    <string name="wear_no_handover">Telefon nije prepustio vezu. Pokušajte ponovno</string>
+    <string name="wear_failed">Neuspjelo. Pokušajte ponovno</string>
+
+    <string name="wear_ble_connected">Povezano</string>
+    <string name="wear_ble_connecting">Povezivanje…</string>
+    <string name="wear_ble_finding">Traženje vozila…</string>
+    <string name="wear_ble_not_connected">Nije povezano</string>
+    <string name="wear_ble_idle">Dodirnite za otključavanje kod vozila</string>
+
+    <string name="wear_climate">Klima</string>
+    <string name="wear_cabin">Kabina %1$s</string>
+    <string name="wear_on">Uključeno</string>
+    <string name="wear_off">Isključeno</string>
+    <string name="wear_start">Pokreni</string>
+    <string name="wear_stop">Zaustavi</string>
+    <string name="wear_cooler_cd">Hladnije</string>
+    <string name="wear_warmer_cd">Toplije</string>
+    <string name="wear_cmd_climate">Klima %1$d°</string>
+    <string name="wear_cmd_climate_off">Isključivanje klime</string>
+
+    <string name="wear_start_charging">Pokreni punjenje</string>
+    <string name="wear_stop_charging">Zaustavi punjenje</string>
+    <string name="wear_open_port">Otvori priključak</string>
+    <string name="wear_close_port">Zatvori priključak</string>
+    <string name="wear_port_open">Priključak otvoren</string>
+    <string name="wear_unplugged">Isključeno</string>
+
+    <string name="wear_flash_horn">Bljesak + Truba</string>
+    <string name="wear_cmd_locate">Pronađi</string>
+
+    <string name="wear_needs_phone">Punjenje i klima trebaju telefon</string>
+    <string name="wear_phone_standalone">Samostalno · telefon nedostupan</string>
+    <string name="wear_phone_prox_connected">Blizina telefona aktivna · vozilo povezano</string>
+    <string name="wear_phone_holding">Telefon drži vezu s vozilom</string>
+    <string name="wear_phone_prox_armed">Blizina telefona spremna · vozilo nije povezano</string>
+    <string name="wear_phone_ready">Spremno</string>
+    <string name="wear_err_no_phone">nema telefona</string>
+    <string name="wear_err_no_response">nema odgovora</string>
+    <string name="wear_err_failed">neuspjelo</string>
+</resources>

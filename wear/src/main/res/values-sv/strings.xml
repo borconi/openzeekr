@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Hämtar nyckel från telefonen…</string>
+    <string name="wear_open_on_phone">Öppna OpenZeekr på telefonen</string>
+    <string name="wear_retry">Försök igen</string>
+    <string name="wear_key_phone_not_connected">Telefonen är inte ansluten. Öppna klockappen på telefonen</string>
+    <string name="wear_key_asking">Ber telefonen om nyckeln…</string>
+    <string name="wear_key_unreachable_app">Kunde inte nå telefonappen</string>
+    <string name="wear_key_unreachable">Kan inte nå telefonen</string>
+    <string name="wear_key_removed">Nyckeln borttagen på telefonen</string>
+    <string name="wear_key_none_yet">Telefonen har ingen nyckel än. Konfigurera den där först</string>
+
+    <string name="wear_car_cd">Din bil</string>
+    <string name="wear_charge_cd">Batteri %1$d procent</string>
+    <string name="wear_live_unavailable">Livedata otillgängliga</string>
+    <string name="wear_plugged">Inkopplad</string>
+    <string name="wear_charging">Laddar</string>
+    <string name="wear_time_left">%1$s kvar</string>
+    <string name="wear_limit">Gräns %1$d%%</string>
+
+    <string name="wear_locked">Låst</string>
+    <string name="wear_unlocked">Upplåst</string>
+    <string name="wear_tap_to_unlock">Tryck för att låsa upp</string>
+    <string name="wear_tap_to_lock">Tryck för att låsa</string>
+    <string name="wear_lock_on_approach">Närhetsupplåsning aktiv</string>
+    <string name="wear_use_phone">Närhetsupplåsning är på för telefonen. Använd telefonen.</string>
+    <string name="wear_checking_phone">Kontrollerar telefonen…</string>
+    <string name="wear_locking">Låser…</string>
+    <string name="wear_unlocking">Låser upp…</string>
+    <string name="wear_freeing">Frigör bilen…</string>
+    <string name="wear_no_handover">Telefonen släppte inte bilen. Försök igen</string>
+    <string name="wear_failed">Misslyckades. Försök igen</string>
+
+    <string name="wear_ble_connected">Ansluten</string>
+    <string name="wear_ble_connecting">Ansluter…</string>
+    <string name="wear_ble_finding">Söker efter bilen…</string>
+    <string name="wear_ble_not_connected">Inte ansluten</string>
+    <string name="wear_ble_idle">Tryck för att låsa upp vid bilen</string>
+
+    <string name="wear_climate">Klimat</string>
+    <string name="wear_cabin">Kupé %1$s</string>
+    <string name="wear_on">På</string>
+    <string name="wear_off">Av</string>
+    <string name="wear_start">Starta</string>
+    <string name="wear_stop">Stoppa</string>
+    <string name="wear_cooler_cd">Kallare</string>
+    <string name="wear_warmer_cd">Varmare</string>
+    <string name="wear_cmd_climate">Klimat %1$d°</string>
+    <string name="wear_cmd_climate_off">Klimat av</string>
+
+    <string name="wear_start_charging">Starta laddning</string>
+    <string name="wear_stop_charging">Stoppa laddning</string>
+    <string name="wear_open_port">Öppna laddport</string>
+    <string name="wear_close_port">Stäng laddport</string>
+    <string name="wear_port_open">Port öppen</string>
+    <string name="wear_unplugged">Urkopplad</string>
+
+    <string name="wear_flash_horn">Blinka + tuta</string>
+    <string name="wear_cmd_locate">Lokalisera</string>
+
+    <string name="wear_needs_phone">Laddning och klimat kräver telefonen</string>
+    <string name="wear_phone_standalone">Fristående · telefonen nås inte</string>
+    <string name="wear_phone_prox_connected">Närhet på telefon aktiv · bil ansluten</string>
+    <string name="wear_phone_holding">Telefonen håller bilanslutningen</string>
+    <string name="wear_phone_prox_armed">Närhet på telefon redo · bil inte ansluten</string>
+    <string name="wear_phone_ready">Klar</string>
+    <string name="wear_err_no_phone">ingen telefon</string>
+    <string name="wear_err_no_response">inget svar</string>
+    <string name="wear_err_failed">misslyckades</string>
+</resources>

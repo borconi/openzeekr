@@ -2,8 +2,12 @@ package com.openzeekr.wear
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,14 +22,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.EvStation
-import androidx.compose.material.icons.filled.PowerOff
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,47 +39,51 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.material.Button
-import androidx.wear.compose.material.ButtonDefaults
-import androidx.wear.compose.material.Chip
-import androidx.wear.compose.material.ChipDefaults
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.CircularProgressIndicator
-import androidx.wear.compose.material.CompactChip
-import androidx.wear.compose.material.Icon
-import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
-import androidx.wear.compose.material.ToggleChip
-import androidx.wear.compose.material.ToggleChipDefaults
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
-import androidx.wear.compose.material.PositionIndicator
-import androidx.compose.ui.text.font.FontWeight
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.ble.DkIdentity
 import com.openzeekr.app.ble.DkLockController
+import com.openzeekr.app.config.Units
 import com.openzeekr.app.wear.WearControl
 import com.openzeekr.app.wear.WearVehicleSnapshot
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * Whether the watch holds a usable digital key. Set from [DkIdentity] on launch/resume and
@@ -99,6 +104,14 @@ object WearKeyState {
     }
 }
 
+/*
+ * The watch app: one scrolling page in the phone app's Studio look (see WearTheme.kt and WearKit.kt).
+ * Top to bottom: the user's own car as the phone renders it, the charge, the lock, climate, charging, locate.
+ * The state of charge is also the arc around the edge of the screen.
+ *
+ * What it does is unchanged from the previous design: lock / unlock run over the watch's own BLE key (with
+ * the hand-over dance with the phone), everything else is relayed to the phone.
+ */
 @Composable
 fun WearApp() {
     val context = LocalContext.current
@@ -115,7 +128,7 @@ fun WearApp() {
     // watch is usable and is shown as a status line — also proves the Data Layer works.
     var phoneStatus by remember { mutableStateOf<PhoneLink.Status?>(null) }
     // The phone's cloud snapshot (SOC / charging / lock / cloud reachability). Drives the charge
-    // card and whether the cloud-control chips are enabled. Lock/unlock never depend on this.
+    // card and whether the cloud-control buttons are enabled. Lock/unlock never depend on this.
     val snap by PhoneLink.snapshot.collectAsState()
     // Climate target temperature set on the wrist (°C). Sent with "Climate on".
     var tempC by remember { mutableStateOf(22) }
@@ -153,23 +166,34 @@ fun WearApp() {
             while (true) {
                 if (!busy) {
                     phoneStatus = PhoneLink.queryStatus(context)
-                    PhoneLink.querySnapshot(context) // updates PhoneLink.snapshot → charge card + greying
+                    PhoneLink.querySnapshot(context) // updates PhoneLink.snapshot → charge readout + greying
                 }
                 delay(4000)
             }
         }
     }
 
+    // The car's picture: show the stored one at once, then ask the phone once each time the app comes to the
+    // front (it answers with bytes only when the model, the paint or the picture itself changed).
+    val picture by WearCarStore.picture.collectAsState()
+    LaunchedEffect(provisioned, lifecycleOwner) {
+        withContext(Dispatchers.IO) { WearCarStore.load(context.applicationContext) }
+        if (!provisioned) return@LaunchedEffect
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            PhoneLink.requestCar(context, WearCarStore.knownId())
+        }
+    }
+
     // Cloud-only actions (climate / charging / locate) are relayed to the phone, which runs them.
-    // They need the phone reachable AND able to reach the car's cloud — otherwise the chips grey out.
+    // They need the phone reachable AND able to reach the car's cloud — otherwise the buttons grey out.
     val cloudEnabled = phoneStatus?.present == true && snap?.cloudOnline == true && !busy
     fun cloud(c: WearControl, label: String, arg: String? = null) {
         if (busy) return
         busy = true
-        message = "$label…"
+        message = context.getString(R.string.wear_msg_progress, label)
         scope.launch {
             val err = PhoneLink.control(context, c, arg)
-            message = if (err == null) "$label ✓" else "$label ✗ $err"
+            message = if (err == null) context.getString(R.string.wear_msg_ok, label) else context.getString(R.string.wear_msg_fail, label, err)
             busy = false
             PhoneLink.querySnapshot(context) // reflect the result once the car applies it
         }
@@ -187,8 +211,9 @@ fun WearApp() {
     fun act(lockIt: Boolean) {
         if (busy) return
         busy = true
-        message = "Checking phone…"
+        message = context.getString(R.string.wear_checking_phone)
         scope.launch {
+            val working = context.getString(if (lockIt) R.string.wear_locking else R.string.wear_unlocking)
             val status = PhoneLink.queryStatus(context)
             val ok: Boolean? = when {
                 // Phone reachable + Lock-on-approach on AND actually holding the car link: leave it to
@@ -201,18 +226,18 @@ fun WearApp() {
                 }
                 // Phone absent — nothing else can hold the link, connect directly.
                 !status.present -> {
-                    message = if (lockIt) "Locking…" else "Unlocking…"
+                    message = working
                     runCatching { connectAndRun(ble, lock, lockIt) }.getOrDefault(false)
                 }
                 // Phone present without proximity: it might grab the car mid-action, so have it
                 // stand down first, act, then hand the link back.
                 else -> {
-                    message = "Freeing the car…"
+                    message = context.getString(R.string.wear_freeing)
                     if (!PhoneLink.pauseAndAwait(context)) {
-                        message = "Phone didn't hand over — try again"
+                        message = context.getString(R.string.wear_no_handover)
                         null
                     } else {
-                        message = if (lockIt) "Locking…" else "Unlocking…"
+                        message = working
                         val r = runCatching { connectAndRun(ble, lock, lockIt) }.getOrDefault(false)
                         runCatching { ble.disconnect() }
                         PhoneLink.resume(context)
@@ -221,91 +246,59 @@ fun WearApp() {
                 }
             }
             if (ok != null) {
-                message = when { ok && lockIt -> "Locked ✓"; ok -> "Unlocked ✓"; else -> "Failed — try again" }
+                message = when {
+                    ok -> context.getString(R.string.wear_msg_ok, context.getString(if (lockIt) R.string.wear_locked else R.string.wear_unlocked))
+                    else -> context.getString(R.string.wear_failed)
+                }
                 if (ok) lockOverride = lockIt // reflect the switch immediately; snapshot confirms later
             }
             busy = false
         }
     }
 
-    val carBmp = rememberWearCar()
-    val heroBrush = remember {
-        // Hero-card feel: a soft lilac glow at centre fading to near-black at the round edges.
-        Brush.radialGradient(listOf(Color(0xFF3B2F4C), Color(0xFF17131F), Color(0xFF0A0810)))
-    }
+    // Shown when the phone has sent no rendered picture (older phone app, or a model without one).
+    val bundledCar = rememberBundledCar()
 
     val listState = rememberScalingLazyListState()
-    Box(Modifier.fillMaxSize().background(heroBrush)) {
+    Box(Modifier.fillMaxSize().background(Oz.bg)) {
         Scaffold(
-            // No vignette: it darkens the exact edge where the battery ring sits.
+            // No vignette: it darkens the exact edge where the battery arc sits.
             timeText = { TimeText() },
             positionIndicator = { if (provisioned) PositionIndicator(scalingLazyListState = listState) },
         ) {
             if (!provisioned) {
-                Column(
-                    Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    CircularProgressIndicator(Modifier.size(22.dp))
-                    Spacer(Modifier.height(10.dp))
-                    Text("Getting key from phone…", textAlign = TextAlign.Center, style = MaterialTheme.typography.caption1)
-                    Text(
-                        syncStatus ?: "Open OpenZeekr on your phone",
-                        textAlign = TextAlign.Center, style = MaterialTheme.typography.caption3,
-                        color = MaterialTheme.colors.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    CompactChip(onClick = { KeySyncClient.requestKey(context) }, label = { Text("Retry") })
-                }
+                WaitingForKey(syncStatus) { KeySyncClient.requestKey(context) }
             } else {
                 Box(Modifier.fillMaxSize()) {
                     ScalingLazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 44.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 40.dp),
                     ) {
-                        if (carBmp != null) {
-                            item {
-                                Image(
-                                    bitmap = carBmp, contentDescription = "Your Zeekr",
-                                    modifier = Modifier.fillMaxWidth(0.5f).aspectRatio(16f / 8f),
-                                )
-                            }
+                        val car = picture?.car ?: bundledCar
+                        if (car != null) {
+                            item { CarHero(car, picture?.neon, charging = snap?.charging == true) }
                         }
-                        item { BatteryHero(snap) }
+                        item { ChargeReadout(snap) }
 
                         item {
                             Text(
-                                message ?: if (standDown) "Lock-on-approach active" else statusLabel(bleState),
-                                textAlign = TextAlign.Center, style = MaterialTheme.typography.caption2,
-                                color = Color.White.copy(alpha = 0.85f),
+                                message ?: if (standDown) stringResource(R.string.wear_lock_on_approach) else statusLabel(bleState),
+                                textAlign = TextAlign.Center, fontSize = 12.sp, color = Oz.muted,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
-                        // Lock / unlock: a slide switch that follows the car's lock state. The watch's own
-                        // BLE key — never gated on cloud reachability.
+                        // Lock / unlock: follows the car's lock state. The watch's own BLE key — never
+                        // gated on cloud reachability.
                         if (standDown) {
-                            item {
-                                Text(
-                                    "Lock-on-approach is on for your phone — use the phone.",
-                                    textAlign = TextAlign.Center, style = MaterialTheme.typography.caption3,
-                                    color = MaterialTheme.colors.onSurfaceVariant,
-                                )
-                            }
+                            item { OzNote(stringResource(R.string.wear_use_phone)) }
                         } else {
-                            item {
-                                SwitchChip(
-                                    checked = lockedState,
-                                    enabled = !busy,
-                                    onLabel = "Locked", offLabel = "Unlocked",
-                                    onIcon = R.drawable.ic_lock, offIcon = R.drawable.ic_unlock,
-                                ) { want -> act(lockIt = want) }
-                            }
+                            item { LockPill(locked = lockedState, busy = busy) { act(lockIt = !lockedState) } }
                         }
 
-                        item { SectionLabel("Climate") }
                         item {
                             ClimateCard(
                                 tempC = tempC,
@@ -314,59 +307,31 @@ fun WearApp() {
                                 enabled = cloudEnabled,
                                 onTemp = { tempC = it.coerceIn(TEMP_MIN, TEMP_MAX) },
                                 onToggle = { on ->
-                                    if (on) cloud(WearControl.CLIMATE_ON, "Climate $tempC°", tempC.toString())
-                                    else cloud(WearControl.CLIMATE_OFF, "Climate off")
+                                    if (on) cloud(WearControl.CLIMATE_ON, context.getString(R.string.wear_cmd_climate, tempC), tempC.toString())
+                                    else cloud(WearControl.CLIMATE_OFF, context.getString(R.string.wear_cmd_climate_off))
                                 },
                             )
                         }
 
-                        item { SectionLabel("Charging") }
                         item {
-                            val portOpen = snap?.portOpen == true
-                            val plugged = snap?.pluggedIn == true
-                            val charging = snap?.charging == true
-                            if (portOpen && plugged) {
-                                // Port open + cable in → start/stop charging, following the car's state.
-                                ControlChip(
-                                    label = if (charging) "Stop charging" else "Start charging",
-                                    icon = if (charging) Icons.Filled.PowerOff else Icons.Filled.Bolt,
-                                    enabled = cloudEnabled,
-                                    primary = !charging,
-                                ) {
-                                    if (charging) cloud(WearControl.CHARGE_STOP, "Stop charging")
-                                    else cloud(WearControl.CHARGE_START, "Start charging")
-                                }
-                            } else {
-                                // Otherwise open/close the charge port, following the car's state.
-                                ControlChip(
-                                    label = if (portOpen) "Close charge port" else "Open charge port",
-                                    icon = Icons.Filled.EvStation,
-                                    enabled = cloudEnabled,
-                                    primary = !portOpen,
-                                ) {
-                                    if (portOpen) cloud(WearControl.CHARGE_PORT_CLOSE, "Close port")
-                                    else cloud(WearControl.CHARGE_PORT_OPEN, "Open port")
-                                }
-                            }
+                            ChargeCard(snap, enabled = cloudEnabled) { control, labelRes -> cloud(control, context.getString(labelRes)) }
                         }
 
                         item {
-                            ControlChip("Flash + horn", Icons.Filled.Campaign, enabled = cloudEnabled) {
-                                cloud(WearControl.FLASH_HORN, "Locate")
+                            OzButton(stringResource(R.string.wear_flash_horn), Icons.Filled.Campaign, OzButtonStyle.Tonal, enabled = cloudEnabled) {
+                                cloud(WearControl.FLASH_HORN, context.getString(R.string.wear_cmd_locate))
                             }
                         }
 
                         item {
                             Text(
-                                if (phoneStatus?.present != true) "Charging & climate need your phone"
-                                else phoneStatusLine(phoneStatus),
-                                textAlign = TextAlign.Center, style = MaterialTheme.typography.caption3,
-                                color = MaterialTheme.colors.onSurfaceVariant.copy(alpha = 0.7f),
-                                modifier = Modifier.padding(top = 6.dp),
+                                if (phoneStatus?.present != true) stringResource(R.string.wear_needs_phone) else phoneStatusLine(phoneStatus),
+                                textAlign = TextAlign.Center, fontSize = 11.sp, color = Oz.faint,
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                             )
                         }
                     }
-                    // Fixed battery arc gauge drawn ON TOP; the list scrolls behind it.
+                    // The charge as an arc around the screen, drawn ON TOP; the list scrolls behind it.
                     BatteryGauge(snap)
                 }
             }
@@ -374,70 +339,146 @@ fun WearApp() {
     }
 }
 
-/** SOC colour by band: ≥50 green, 30-49 olive (brown-green toward orange), 20-29 yellow,
- *  10-19 orange, <10 red. Unknown → grey. */
-private fun batteryColor(soc: Int?): Color = when {
-    soc == null -> Color(0xFF6B6B6B)
-    soc >= 50 -> Color(0xFF43D17A)
-    soc >= 30 -> Color(0xFFB7B13C)
-    soc >= 20 -> Color(0xFFF2D21B)
-    soc >= 10 -> Color(0xFFF5922F)
-    else -> Color(0xFFF0483E)
+// --------------------------------------------------------------------------------------------- first run
+
+@Composable
+private fun WaitingForKey(status: String?, onRetry: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 26.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+    ) {
+        CircularProgressIndicator(Modifier.size(22.dp), indicatorColor = Oz.accent, trackColor = Oz.line, strokeWidth = 3.dp)
+        Text(stringResource(R.string.wear_getting_key), textAlign = TextAlign.Center, fontFamily = Oz.display,
+            fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Oz.text)
+        Text(status ?: stringResource(R.string.wear_open_on_phone), textAlign = TextAlign.Center, fontSize = 11.5.sp, color = Oz.muted)
+        Spacer(Modifier.height(2.dp))
+        OzButton(stringResource(R.string.wear_retry), Icons.Filled.Refresh, OzButtonStyle.Tonal, Modifier.fillMaxWidth(0.72f), compact = true, onClick = onRetry)
+    }
 }
 
-/** The battery gauge: a single dashboard-style arc. 0 % sits at the bottom-LEFT and max at the
- *  bottom-RIGHT, sweeping clockwise up over the top, with a ~90° gap at the BOTTOM of the screen.
- *  A plain Canvas → NO pointer input, so the list underneath still scrolls behind it. */
+// ------------------------------------------------------------------------------------------ car and charge
+
+/**
+ * The user's car in its pool of light. While it charges, the charging outline breathes over it in neon green
+ * (the same effect as on the phone, without the sweep).
+ */
+@Composable
+private fun CarHero(car: ImageBitmap, neon: ImageBitmap?, charging: Boolean) {
+    val glow = if (charging && neon != null) {
+        val loop = rememberInfiniteTransition(label = "charge")
+        val v by loop.animateFloat(0.45f, 1f, infiniteRepeatable(tween(1300), RepeatMode.Reverse), label = "pulse")
+        v
+    } else 0f
+    val description = stringResource(R.string.wear_car_cd)
+    Canvas(
+        Modifier.fillMaxWidth(0.92f).aspectRatio(car.width.toFloat() / car.height.toFloat())
+            .semantics { contentDescription = description },
+    ) {
+        // Light behind the body and a flatter one on the floor, so a dark car keeps its outline on black.
+        lightPool(size.width / 2f, size.height * 0.42f, size.width * 0.50f, size.height * 0.46f, if (charging) 0.20f else 0.30f)
+        lightPool(size.width / 2f, size.height * 0.80f, size.width * 0.46f, size.height * 0.16f, 0.22f)
+        val dst = IntSize(size.width.roundToInt(), size.height.roundToInt())
+        drawImage(car, dstSize = dst)
+        if (neon != null && glow > 0f) {
+            drawImage(neon, dstSize = dst, alpha = glow, colorFilter = ColorFilter.tint(Oz.neon), blendMode = BlendMode.Plus)
+        }
+    }
+}
+
+private val POOL_FALLOFF = listOf(0f to 1f, 0.45f to 0.92f, 0.70f to 0.50f, 0.88f to 0.15f, 1f to 0f)
+
+/** One elliptical glow, brightest in the middle and gone at its edge. */
+private fun DrawScope.lightPool(cx: Float, cy: Float, rx: Float, ry: Float, alpha: Float) {
+    if (rx <= 0f || ry <= 0f || alpha <= 0f) return
+    val stops = POOL_FALLOFF.map { (t, a) -> t to Oz.pool.copy(alpha = a * alpha) }.toTypedArray()
+    withTransform({ translate(cx, cy); scale(1f, ry / rx, pivot = Offset.Zero) }) {
+        drawCircle(Brush.radialGradient(*stops, center = Offset.Zero, radius = rx), radius = rx, center = Offset.Zero)
+    }
+}
+
+/** The colour of the charge: neon while charging, amber when it is getting low, red when nearly empty. */
+private fun chargeColor(snap: WearVehicleSnapshot?): Color {
+    val soc = snap?.soc ?: return Oz.faint
+    return when {
+        snap.charging -> Oz.neon
+        soc < 10 -> Oz.crit
+        soc < 20 -> Oz.energy
+        else -> Oz.text
+    }
+}
+
+/**
+ * The charge as one arc around the screen: empty at the bottom-left, full at the bottom-right, sweeping over
+ * the top. A dot on the arc marks the charge limit. A plain Canvas, so it takes no touches and the list
+ * underneath still scrolls.
+ */
 @Composable
 private fun BatteryGauge(snap: WearVehicleSnapshot?) {
     val frac = ((snap?.soc ?: 0) / 100f).coerceIn(0f, 1f)
-    val color = batteryColor(snap?.soc)
-    val track = Color.White.copy(alpha = 0.12f)
+    val color = chargeColor(snap)
+    val limit = snap?.chargeLimit?.takeIf { it in 1..100 }
     Canvas(Modifier.fillMaxSize().padding(2.dp)) {
-        val sw = 7.dp.toPx()
+        val sw = 6.dp.toPx()
         val topLeft = Offset(sw / 2f, sw / 2f)
         val arc = Size(size.width - sw, size.height - sw)
         val cap = Stroke(sw, cap = StrokeCap.Round)
-        // Origin 0°=3 o'clock, +clockwise. 135°=bottom-left → clockwise 270° (over the top) → 45°
-        // =bottom-right, leaving a 90° gap centred on the bottom (90°).
+        // Origin 0° = 3 o'clock, clockwise. 135° = bottom-left, then 270° over the top to 45° = bottom-right,
+        // which leaves a 90° gap centred on the bottom.
         val start = 135f
         val sweep = 270f
-        drawArc(track, start, sweep, false, topLeft, arc, style = cap)
-        if (frac > 0f)
-            drawArc(color, start, sweep * frac, false, topLeft, arc, style = cap)
+        drawArc(Oz.line, start, sweep, false, topLeft, arc, style = cap)
+        if (frac > 0f) drawArc(color, start, sweep * frac, false, topLeft, arc, style = cap)
+        if (limit != null) {
+            val a = Math.toRadians((start + sweep * limit / 100f).toDouble())
+            val c = Offset(size.width / 2f + (arc.width / 2f) * cos(a).toFloat(), size.height / 2f + (arc.height / 2f) * sin(a).toFloat())
+            drawCircle(Oz.bg, radius = sw * 0.78f, center = c)
+            drawCircle(Oz.accent, radius = sw * 0.46f, center = c)
+        }
     }
 }
 
-/** Centre readout: big SOC %, charging bolt, range / kW underneath. The ring is the edge gauge. */
+/** The charge in figures: the percentage large, then range and what the car is doing about its charge. */
 @Composable
-private fun BatteryHero(snap: WearVehicleSnapshot?) {
+private fun ChargeReadout(snap: WearVehicleSnapshot?) {
     val soc = snap?.soc
     val charging = snap?.charging == true
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(soc?.let { "$it%" } ?: "–", style = MaterialTheme.typography.display3,
-                fontWeight = FontWeight.Bold, color = Color.White)
-            if (charging) {
-                Icon(Icons.Filled.Bolt, contentDescription = "charging",
-                    tint = batteryColor(soc), modifier = Modifier.size(20.dp).padding(start = 2.dp))
-            }
+    val dot = stringResource(R.string.wear_join_dot)
+    val description = soc?.let { stringResource(R.string.wear_charge_cd, it) }
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            Modifier.semantics(mergeDescendants = true) { if (description != null) contentDescription = description },
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Text(soc?.toString() ?: stringResource(R.string.wear_dash), fontFamily = Oz.display, fontSize = 44.sp, lineHeight = 46.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = (-1).sp, color = Oz.text, maxLines = 1, softWrap = false)
+            if (soc != null) Text(stringResource(R.string.wear_percent_sign), fontFamily = Oz.display, fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold, color = Oz.text, modifier = Modifier.padding(start = 1.dp, bottom = 7.dp))
         }
-        val kw = snap?.chargeKw
-        val detail = buildString {
-            snap?.rangeKm?.let { append("$it km") }
-            if (charging && kw != null) { if (isNotEmpty()) append("  ·  "); append("%.1f kW".format(kw)) }
-            else if (snap?.pluggedIn == true) { if (isNotEmpty()) append("  ·  "); append("plugged") }
+        if (snap == null || !snap.cloudOnline) {
+            Text(stringResource(R.string.wear_live_unavailable), fontSize = 12.sp, color = Oz.muted, textAlign = TextAlign.Center)
+            return@Column
         }
-        Text(
-            if (snap == null || !snap.cloudOnline) "live data unavailable" else detail.ifBlank { " " },
-            style = MaterialTheme.typography.caption2, textAlign = TextAlign.Center,
-            color = MaterialTheme.colors.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
-        )
+        snap.rangeKm?.let {
+            Text(Units.distance(it.toDouble(), snap.distanceUnit), fontFamily = Oz.display, fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold, color = Oz.text, maxLines = 1)
+        }
+        // One quiet line: how the charge is going, or where it will stop.
+        val kw = snap.chargeKw?.takeIf { it > 0.0 }?.let { stringResource(R.string.wear_power_kw, "%.1f".format(it)) }
+        val left = snap.minutesToFull?.takeIf { it > 0 }?.let { stringResource(R.string.wear_time_left, "%d:%02d".format(it / 60, it % 60)) }
+        val limit = snap.chargeLimit?.let { stringResource(R.string.wear_limit, it) }
+        val line = when {
+            charging -> listOfNotNull(kw, left).joinToString(dot).ifEmpty { stringResource(R.string.wear_charging) }
+            snap.pluggedIn -> listOfNotNull(stringResource(R.string.wear_plugged), limit).joinToString(dot)
+            else -> limit.orEmpty()
+        }
+        if (line.isNotEmpty()) Text(line, fontSize = 12.sp, color = if (charging) Oz.neon else Oz.muted, textAlign = TextAlign.Center)
     }
 }
 
-/** Target-temperature stepper + a single A/C switch that follows the car's state.
- *  Greyed when the phone/car is unreachable. */
+// ------------------------------------------------------------------------------------------------- climate
+
+/** Cabin temperature, the set-point with its stepper, and one start / stop button that follows the car. */
 @Composable
 private fun ClimateCard(
     tempC: Int,
@@ -447,104 +488,76 @@ private fun ClimateCard(
     onTemp: (Int) -> Unit,
     onToggle: (Boolean) -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        insideTempC?.let {
-            Text("cabin %.0f°C".format(it), style = MaterialTheme.typography.caption3,
-                color = MaterialTheme.colors.onSurfaceVariant)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StepperButton(Icons.Filled.Remove, "cooler", enabled) { onTemp(tempC - 1) }
-            Text("$tempC°", style = MaterialTheme.typography.title3, fontWeight = FontWeight.SemiBold,
-                color = if (enabled) Color.White else Color.White.copy(alpha = 0.4f))
-            StepperButton(Icons.Filled.Add, "warmer", enabled) { onTemp(tempC + 1) }
-        }
-        ToggleChip(
-            checked = acOn,
-            onCheckedChange = onToggle,
-            enabled = enabled,
-            label = { Text(if (acOn) "A/C on" else "A/C off") },
-            appIcon = { Icon(Icons.Filled.Thermostat, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
-            toggleControl = { Icon(ToggleChipDefaults.switchIcon(acOn), contentDescription = null) },
-            modifier = Modifier.fillMaxWidth(),
+    OzCard {
+        OzCardTitle(
+            stringResource(R.string.wear_climate),
+            hint = insideTempC?.let { stringResource(R.string.wear_cabin, stringResource(R.string.wear_deg, it.roundToInt())) },
+            state = stringResource(if (acOn) R.string.wear_on else R.string.wear_off),
+            stateColor = if (acOn) Oz.good else Oz.muted,
         )
+        OzStepper(
+            value = stringResource(R.string.wear_deg, tempC), enabled = enabled,
+            minus = stringResource(R.string.wear_step_minus), plus = stringResource(R.string.wear_step_plus),
+            minusDescription = stringResource(R.string.wear_cooler_cd), plusDescription = stringResource(R.string.wear_warmer_cd),
+            onMinus = { onTemp(tempC - 1) }, onPlus = { onTemp(tempC + 1) },
+        )
+        OzButton(
+            stringResource(if (acOn) R.string.wear_stop else R.string.wear_start), Icons.Filled.PowerSettingsNew,
+            if (acOn) OzButtonStyle.Good else OzButtonStyle.Primary, enabled = enabled,
+        ) { onToggle(!acOn) }
     }
 }
 
-/** A lock-style slide switch (ToggleChip) whose position follows [checked]. */
-@Composable
-private fun SwitchChip(
-    checked: Boolean,
-    enabled: Boolean,
-    onLabel: String,
-    offLabel: String,
-    onIcon: Int,
-    offIcon: Int,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    ToggleChip(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        enabled = enabled,
-        label = { Text(if (checked) onLabel else offLabel) },
-        appIcon = {
-            Image(
-                painter = painterResource(if (checked) onIcon else offIcon),
-                contentDescription = null,
-                modifier = Modifier.size(ChipDefaults.IconSize),
-                colorFilter = ColorFilter.tint(Color.White),
-            )
-        },
-        toggleControl = { Icon(ToggleChipDefaults.switchIcon(checked), contentDescription = null) },
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
+// ------------------------------------------------------------------------------------------------ charging
 
+/**
+ * Charging. With the port open and the cable in, the button starts or stops charging; otherwise it opens or
+ * closes the charge port. Which one it is follows the car's state, as before.
+ */
 @Composable
-private fun StepperButton(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, enabled: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick, enabled = enabled,
-        colors = ButtonDefaults.secondaryButtonColors(),
-        modifier = Modifier.size(38.dp),
-    ) { Icon(icon, contentDescription = desc, modifier = Modifier.size(18.dp)) }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text.uppercase(), style = MaterialTheme.typography.caption3,
-        color = MaterialTheme.colors.onSurfaceVariant.copy(alpha = 0.75f),
-        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
-    )
-}
-
-@Composable
-private fun ControlChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    enabled: Boolean,
-    primary: Boolean = false,
-    onClick: () -> Unit,
-) {
-    Chip(
-        onClick = onClick,
-        enabled = enabled,
-        label = { Text(label) },
-        icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(ChipDefaults.IconSize)) },
-        colors = if (primary) ChipDefaults.primaryChipColors() else ChipDefaults.secondaryChipColors(),
-        modifier = Modifier.fillMaxWidth(),
-    )
+private fun ChargeCard(snap: WearVehicleSnapshot?, enabled: Boolean, run: (WearControl, Int) -> Unit) {
+    val portOpen = snap?.portOpen == true
+    val plugged = snap?.pluggedIn == true
+    val charging = snap?.charging == true
+    OzCard {
+        OzCardTitle(
+            stringResource(R.string.wear_charging),
+            hint = if (charging) snap?.chargeKw?.takeIf { it > 0.0 }?.let { stringResource(R.string.wear_power_kw, "%.1f".format(it)) } else null,
+            state = stringResource(when {
+                charging -> R.string.wear_on
+                plugged -> R.string.wear_plugged
+                portOpen -> R.string.wear_port_open
+                else -> R.string.wear_unplugged
+            }),
+            stateColor = when { charging -> Oz.neon; plugged -> Oz.accent; portOpen -> Oz.energy; else -> Oz.muted },
+        )
+        when {
+            portOpen && plugged && charging ->
+                OzButton(stringResource(R.string.wear_stop_charging), Icons.Filled.PowerSettingsNew, OzButtonStyle.Danger, enabled = enabled) {
+                    run(WearControl.CHARGE_STOP, R.string.wear_stop_charging)
+                }
+            portOpen && plugged ->
+                OzButton(stringResource(R.string.wear_start_charging), Icons.Filled.Bolt, OzButtonStyle.Primary, enabled = enabled) {
+                    run(WearControl.CHARGE_START, R.string.wear_start_charging)
+                }
+            portOpen ->
+                OzButton(stringResource(R.string.wear_close_port), Icons.Filled.EvStation, OzButtonStyle.Tonal, enabled = enabled) {
+                    run(WearControl.CHARGE_PORT_CLOSE, R.string.wear_close_port)
+                }
+            else ->
+                OzButton(stringResource(R.string.wear_open_port), Icons.Filled.EvStation, OzButtonStyle.Primary, enabled = enabled) {
+                    run(WearControl.CHARGE_PORT_OPEN, R.string.wear_open_port)
+                }
+        }
+    }
 }
 
 private const val TEMP_MIN = 16
 private const val TEMP_MAX = 30
 
-/** Optional car cutout the user drops at wear `assets/cars/car.webp` (transparent PNG/WebP). */
+/** Optional car cutout dropped at wear `assets/cars/car.webp`; used only when the phone sent no picture. */
 @Composable
-private fun rememberWearCar(): ImageBitmap? {
+private fun rememberBundledCar(): ImageBitmap? {
     val ctx = LocalContext.current
     return remember {
         runCatching { ctx.assets.open("cars/car.webp").use { BitmapFactory.decodeStream(it) }.asImageBitmap() }.getOrNull()
@@ -565,19 +578,21 @@ private suspend fun connectAndRun(ble: DkBleManager, lock: DkLockController, loc
 }
 
 /** One-line summary of what the phone reported — also confirms the Data Layer round-trip. */
-private fun phoneStatusLine(s: PhoneLink.Status?): String = when {
-    s == null -> "Checking phone…"
-    !s.present -> "Standalone · phone not reachable"
-    s.proximityEnabled && s.connected -> "Phone proximity active · car connected"
-    s.connected -> "Phone holding car link"
-    s.proximityEnabled -> "Phone proximity armed · car not connected"
-    else -> "Ready"
-}
+@Composable
+private fun phoneStatusLine(s: PhoneLink.Status?): String = stringResource(when {
+    s == null -> R.string.wear_checking_phone
+    !s.present -> R.string.wear_phone_standalone
+    s.proximityEnabled && s.connected -> R.string.wear_phone_prox_connected
+    s.connected -> R.string.wear_phone_holding
+    s.proximityEnabled -> R.string.wear_phone_prox_armed
+    else -> R.string.wear_phone_ready
+})
 
-private fun statusLabel(state: DkBleManager.State): String = when (state) {
-    DkBleManager.State.SESSION_READY -> "Connected"
-    DkBleManager.State.CONNECTED, DkBleManager.State.CONNECTING -> "Connecting…"
-    DkBleManager.State.SCANNING -> "Finding car…"
-    DkBleManager.State.ERROR -> "Not connected"
-    else -> "Tap to unlock at the car"
-}
+@Composable
+private fun statusLabel(state: DkBleManager.State): String = stringResource(when (state) {
+    DkBleManager.State.SESSION_READY -> R.string.wear_ble_connected
+    DkBleManager.State.CONNECTED, DkBleManager.State.CONNECTING -> R.string.wear_ble_connecting
+    DkBleManager.State.SCANNING -> R.string.wear_ble_finding
+    DkBleManager.State.ERROR -> R.string.wear_ble_not_connected
+    else -> R.string.wear_ble_idle
+})

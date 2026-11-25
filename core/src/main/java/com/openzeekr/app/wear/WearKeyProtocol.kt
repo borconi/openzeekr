@@ -49,4 +49,13 @@ object WearKeyProtocol {
 
     /** Phone → watch: a [WearVehicleSnapshot] as JSON. */
     const val PATH_SNAPSHOT = "/openzeekr/snapshot"
+
+    // ---- the car's picture ----
+
+    /** Watch → phone: "send me the picture of my car". Payload = the id of the picture the watch already
+     *  holds (UTF-8, may be empty), so an unchanged picture is not sent again. */
+    const val PATH_CAR_QUERY = "/openzeekr/car-query"
+
+    /** Phone → watch: a [WearCarImage]. Not sent at all when the phone has no picture for this car. */
+    const val PATH_CAR = "/openzeekr/car"
 }

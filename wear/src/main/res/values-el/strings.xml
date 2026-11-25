@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Λήψη κλειδιού από το τηλέφωνο…</string>
+    <string name="wear_open_on_phone">Ανοίξτε το OpenZeekr στο τηλέφωνό σας</string>
+    <string name="wear_retry">Επανάληψη</string>
+    <string name="wear_key_phone_not_connected">Το τηλέφωνο δεν είναι συνδεδεμένο. Ανοίξτε την εφαρμογή του ρολογιού στο τηλέφωνο</string>
+    <string name="wear_key_asking">Αίτηση κλειδιού από το τηλέφωνο…</string>
+    <string name="wear_key_unreachable_app">Αδύνατη η σύνδεση με την εφαρμογή τηλεφώνου</string>
+    <string name="wear_key_unreachable">Αδύνατη η σύνδεση με το τηλέφωνο</string>
+    <string name="wear_key_removed">Το κλειδί αφαιρέθηκε στο τηλέφωνο</string>
+    <string name="wear_key_none_yet">Το τηλέφωνο δεν έχει κλειδί ακόμη. Ρυθμίστε το πρώτα εκεί</string>
+
+    <string name="wear_car_cd">Το όχημά σας</string>
+    <string name="wear_charge_cd">Μπαταρία %1$d τοις εκατό</string>
+    <string name="wear_live_unavailable">Μη διαθέσιμα ζωντανά δεδομένα</string>
+    <string name="wear_plugged">Συνδεδεμένο</string>
+    <string name="wear_charging">Φόρτιση</string>
+    <string name="wear_time_left">Απομένουν %1$s</string>
+    <string name="wear_limit">Όριο %1$d%%</string>
+
+    <string name="wear_locked">Κλειδωμένο</string>
+    <string name="wear_unlocked">Ξεκλείδωτο</string>
+    <string name="wear_tap_to_unlock">Πατήστε για ξεκλείδωμα</string>
+    <string name="wear_tap_to_lock">Πατήστε για κλείδωμα</string>
+    <string name="wear_lock_on_approach">Ξεκλείδωμα κατά την προσέγγιση ενεργό</string>
+    <string name="wear_use_phone">Το ξεκλείδωμα κατά την προσέγγιση είναι ενεργό στο τηλέφωνό σας. Χρησιμοποιήστε το τηλέφωνο.</string>
+    <string name="wear_checking_phone">Έλεγχος τηλεφώνου…</string>
+    <string name="wear_locking">Κλείδωμα…</string>
+    <string name="wear_unlocking">Ξεκλείδωμα…</string>
+    <string name="wear_freeing">Αποδέσμευση οχήματος…</string>
+    <string name="wear_no_handover">Το τηλέφωνο δεν παρέδωσε τη σύνδεση. Δοκιμάστε ξανά</string>
+    <string name="wear_failed">Απέτυχε. Δοκιμάστε ξανά</string>
+
+    <string name="wear_ble_connected">Συνδεδεμένο</string>
+    <string name="wear_ble_connecting">Σύνδεση…</string>
+    <string name="wear_ble_finding">Αναζήτηση οχήματος…</string>
+    <string name="wear_ble_not_connected">Μη συνδεδεμένο</string>
+    <string name="wear_ble_idle">Πατήστε για ξεκλείδωμα κοντά στο όχημα</string>
+
+    <string name="wear_climate">Κλιματισμός</string>
+    <string name="wear_cabin">Καμπίνα %1$s</string>
+    <string name="wear_on">Ενεργό</string>
+    <string name="wear_off">Ανενεργό</string>
+    <string name="wear_start">Έναρξη</string>
+    <string name="wear_stop">Διακοπή</string>
+    <string name="wear_cooler_cd">Πιο δροσερά</string>
+    <string name="wear_warmer_cd">Πιο ζεστά</string>
+    <string name="wear_cmd_climate">Κλιματισμός %1$d°</string>
+    <string name="wear_cmd_climate_off">Κλιματισμός ανενεργός</string>
+
+    <string name="wear_start_charging">Έναρξη φόρτισης</string>
+    <string name="wear_stop_charging">Διακοπή φόρτισης</string>
+    <string name="wear_open_port">Άνοιγμα θύρας</string>
+    <string name="wear_close_port">Κλείσιμο θύρας</string>
+    <string name="wear_port_open">Θύρα ανοιχτή</string>
+    <string name="wear_unplugged">Αποσυνδεδεμένο</string>
+
+    <string name="wear_flash_horn">Φλας + κόρνα</string>
+    <string name="wear_cmd_locate">Εντοπισμός</string>
+
+    <string name="wear_needs_phone">Η φόρτιση και ο κλιματισμός χρειάζονται το τηλέφωνό σας</string>
+    <string name="wear_phone_standalone">Αυτόνομα · τηλέφωνο μη προσβάσιμο</string>
+    <string name="wear_phone_prox_connected">Εγγύτητα τηλεφώνου ενεργή · όχημα συνδεδεμένο</string>
+    <string name="wear_phone_holding">Το τηλέφωνο κρατά τη σύνδεση με το όχημα</string>
+    <string name="wear_phone_prox_armed">Εγγύτητα τηλεφώνου σε ετοιμότητα · όχημα μη συνδεδεμένο</string>
+    <string name="wear_phone_ready">Έτοιμο</string>
+    <string name="wear_err_no_phone">χωρίς τηλέφωνο</string>
+    <string name="wear_err_no_response">καμία απάντηση</string>
+    <string name="wear_err_failed">απέτυχε</string>
+</resources>

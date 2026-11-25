@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">A obter a chave do telemóvel…</string>
+    <string name="wear_open_on_phone">Abra o OpenZeekr no telemóvel</string>
+    <string name="wear_retry">Repetir</string>
+    <string name="wear_key_phone_not_connected">Telemóvel não ligado. Abra a app do relógio no telemóvel</string>
+    <string name="wear_key_asking">A pedir a chave ao telemóvel…</string>
+    <string name="wear_key_unreachable_app">Não foi possível contactar a app do telemóvel</string>
+    <string name="wear_key_unreachable">Não é possível contactar o telemóvel</string>
+    <string name="wear_key_removed">Chave removida no telemóvel</string>
+    <string name="wear_key_none_yet">O telemóvel ainda não tem chave. Configure-a lá primeiro</string>
+
+    <string name="wear_car_cd">O seu carro</string>
+    <string name="wear_charge_cd">Bateria a %1$d por cento</string>
+    <string name="wear_live_unavailable">Dados em tempo real indisponíveis</string>
+    <string name="wear_plugged">Ligado à tomada</string>
+    <string name="wear_charging">A carregar</string>
+    <string name="wear_time_left">Faltam %1$s</string>
+    <string name="wear_limit">Limite %1$d%%</string>
+
+    <string name="wear_locked">Trancado</string>
+    <string name="wear_unlocked">Destrancado</string>
+    <string name="wear_tap_to_unlock">Toque para destrancar</string>
+    <string name="wear_tap_to_lock">Toque para trancar</string>
+    <string name="wear_lock_on_approach">Desbloqueio por aproximação ativo</string>
+    <string name="wear_use_phone">O desbloqueio por aproximação está ativo no telemóvel. Use o telemóvel.</string>
+    <string name="wear_checking_phone">A verificar o telemóvel…</string>
+    <string name="wear_locking">A trancar…</string>
+    <string name="wear_unlocking">A destrancar…</string>
+    <string name="wear_freeing">A libertar o carro…</string>
+    <string name="wear_no_handover">O telemóvel não libertou o carro. Tente novamente</string>
+    <string name="wear_failed">Falhou. Tente novamente</string>
+
+    <string name="wear_ble_connected">Ligado</string>
+    <string name="wear_ble_connecting">A ligar…</string>
+    <string name="wear_ble_finding">A procurar o carro…</string>
+    <string name="wear_ble_not_connected">Não ligado</string>
+    <string name="wear_ble_idle">Toque para destrancar junto ao carro</string>
+
+    <string name="wear_climate">Climatização</string>
+    <string name="wear_cabin">Habitáculo %1$s</string>
+    <string name="wear_on">Ligado</string>
+    <string name="wear_off">Desligado</string>
+    <string name="wear_start">Iniciar</string>
+    <string name="wear_stop">Parar</string>
+    <string name="wear_cooler_cd">Mais frio</string>
+    <string name="wear_warmer_cd">Mais quente</string>
+    <string name="wear_cmd_climate">Climatização %1$d°</string>
+    <string name="wear_cmd_climate_off">Climatização desligada</string>
+
+    <string name="wear_start_charging">Iniciar carregamento</string>
+    <string name="wear_stop_charging">Parar carregamento</string>
+    <string name="wear_open_port">Abrir porta de carga</string>
+    <string name="wear_close_port">Fechar porta de carga</string>
+    <string name="wear_port_open">Porta aberta</string>
+    <string name="wear_unplugged">Desligado da tomada</string>
+
+    <string name="wear_flash_horn">Piscar + buzina</string>
+    <string name="wear_cmd_locate">Localizar</string>
+
+    <string name="wear_needs_phone">Carregamento e climatização requerem o telemóvel</string>
+    <string name="wear_phone_standalone">Autónomo · telemóvel fora de alcance</string>
+    <string name="wear_phone_prox_connected">Proximidade do telemóvel ativa · carro ligado</string>
+    <string name="wear_phone_holding">Telemóvel mantém a ligação ao carro</string>
+    <string name="wear_phone_prox_armed">Proximidade do telemóvel armada · carro não ligado</string>
+    <string name="wear_phone_ready">Pronto</string>
+    <string name="wear_err_no_phone">sem telemóvel</string>
+    <string name="wear_err_no_response">sem resposta</string>
+    <string name="wear_err_failed">falhou</string>
+</resources>

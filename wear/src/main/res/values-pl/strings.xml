@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Pobieranie klucza z telefonu…</string>
+    <string name="wear_open_on_phone">Otwórz OpenZeekr na telefonie</string>
+    <string name="wear_retry">Ponów</string>
+    <string name="wear_key_phone_not_connected">Telefon niepołączony. Otwórz na nim aplikację zegarka</string>
+    <string name="wear_key_asking">Żądanie klucza z telefonu…</string>
+    <string name="wear_key_unreachable_app">Brak połączenia z aplikacją w telefonie</string>
+    <string name="wear_key_unreachable">Brak połączenia z telefonem</string>
+    <string name="wear_key_removed">Klucz usunięty w telefonie</string>
+    <string name="wear_key_none_yet">Telefon nie ma jeszcze klucza. Najpierw skonfiguruj go tam</string>
+
+    <string name="wear_car_cd">Twoje auto</string>
+    <string name="wear_charge_cd">Bateria %1$d procent</string>
+    <string name="wear_live_unavailable">Dane na żywo niedostępne</string>
+    <string name="wear_plugged">Podłączone</string>
+    <string name="wear_charging">Ładowanie</string>
+    <string name="wear_time_left">Pozostało %1$s</string>
+    <string name="wear_limit">Limit %1$d%%</string>
+
+    <string name="wear_locked">Zamknięte</string>
+    <string name="wear_unlocked">Otwarte</string>
+    <string name="wear_tap_to_unlock">Dotknij, aby otworzyć</string>
+    <string name="wear_tap_to_lock">Dotknij, aby zamknąć</string>
+    <string name="wear_lock_on_approach">Otwieranie zbliżeniowe aktywne</string>
+    <string name="wear_use_phone">Otwieranie zbliżeniowe jest włączone w telefonie. Użyj telefonu.</string>
+    <string name="wear_checking_phone">Sprawdzanie telefonu…</string>
+    <string name="wear_locking">Zamykanie…</string>
+    <string name="wear_unlocking">Otwieranie…</string>
+    <string name="wear_freeing">Zwalnianie auta…</string>
+    <string name="wear_no_handover">Telefon nie zwolnił auta. Spróbuj ponownie</string>
+    <string name="wear_failed">Nie udało się. Spróbuj ponownie</string>
+
+    <string name="wear_ble_connected">Połączono</string>
+    <string name="wear_ble_connecting">Łączenie…</string>
+    <string name="wear_ble_finding">Szukanie auta…</string>
+    <string name="wear_ble_not_connected">Niepołączono</string>
+    <string name="wear_ble_idle">Dotknij, aby otworzyć przy aucie</string>
+
+    <string name="wear_climate">Klimatyzacja</string>
+    <string name="wear_cabin">Kabina %1$s</string>
+    <string name="wear_on">Wł.</string>
+    <string name="wear_off">Wył.</string>
+    <string name="wear_start">Start</string>
+    <string name="wear_stop">Stop</string>
+    <string name="wear_cooler_cd">Chłodniej</string>
+    <string name="wear_warmer_cd">Cieplej</string>
+    <string name="wear_cmd_climate">Klimatyzacja %1$d°</string>
+    <string name="wear_cmd_climate_off">Klimatyzacja wył.</string>
+
+    <string name="wear_start_charging">Start ładowania</string>
+    <string name="wear_stop_charging">Stop ładowania</string>
+    <string name="wear_open_port">Otwórz gniazdo</string>
+    <string name="wear_close_port">Zamknij gniazdo</string>
+    <string name="wear_port_open">Gniazdo otwarte</string>
+    <string name="wear_unplugged">Odłączone</string>
+
+    <string name="wear_flash_horn">Mignij + klakson</string>
+    <string name="wear_cmd_locate">Zlokalizuj</string>
+
+    <string name="wear_needs_phone">Ładowanie i klimatyzacja wymagają telefonu</string>
+    <string name="wear_phone_standalone">Samodzielnie · telefon niedostępny</string>
+    <string name="wear_phone_prox_connected">Telefon: zbliżeniowe aktywne · auto połączone</string>
+    <string name="wear_phone_holding">Telefon utrzymuje połączenie z autem</string>
+    <string name="wear_phone_prox_armed">Telefon: zbliżeniowe gotowe · auto niepołączone</string>
+    <string name="wear_phone_ready">Gotowe</string>
+    <string name="wear_err_no_phone">brak telefonu</string>
+    <string name="wear_err_no_response">brak odpowiedzi</string>
+    <string name="wear_err_failed">nie udało się</string>
+</resources>

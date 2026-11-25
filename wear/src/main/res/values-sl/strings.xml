@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Pridobivanje ključa iz telefona…</string>
+    <string name="wear_open_on_phone">Odprite OpenZeekr v telefonu</string>
+    <string name="wear_retry">Poskusi znova</string>
+    <string name="wear_key_phone_not_connected">Telefon ni povezan. V telefonu odprite aplikacijo za uro</string>
+    <string name="wear_key_asking">Zahtevanje ključa od telefona…</string>
+    <string name="wear_key_unreachable_app">Aplikacije v telefonu ni bilo mogoče doseči</string>
+    <string name="wear_key_unreachable">Telefona ni mogoče doseči</string>
+    <string name="wear_key_removed">Ključ odstranjen v telefonu</string>
+    <string name="wear_key_none_yet">Telefon še nima ključa. Najprej ga nastavite tam</string>
+
+    <string name="wear_car_cd">Vaš avto</string>
+    <string name="wear_charge_cd">Baterija %1$d odstotkov</string>
+    <string name="wear_live_unavailable">Podatki v živo niso na voljo</string>
+    <string name="wear_plugged">Priklopljeno</string>
+    <string name="wear_charging">Polnjenje</string>
+    <string name="wear_time_left">Še %1$s</string>
+    <string name="wear_limit">Meja %1$d%%</string>
+
+    <string name="wear_locked">Zaklenjeno</string>
+    <string name="wear_unlocked">Odklenjeno</string>
+    <string name="wear_tap_to_unlock">Tapnite za odklep</string>
+    <string name="wear_tap_to_lock">Tapnite za zaklep</string>
+    <string name="wear_lock_on_approach">Odklepanje ob bližini aktivno</string>
+    <string name="wear_use_phone">Odklepanje ob bližini je vklopljeno v telefonu. Uporabite telefon.</string>
+    <string name="wear_checking_phone">Preverjanje telefona…</string>
+    <string name="wear_locking">Zaklepanje…</string>
+    <string name="wear_unlocking">Odklepanje…</string>
+    <string name="wear_freeing">Sproščanje avta…</string>
+    <string name="wear_no_handover">Telefon ni sprostil avta. Poskusite znova</string>
+    <string name="wear_failed">Ni uspelo. Poskusite znova</string>
+
+    <string name="wear_ble_connected">Povezano</string>
+    <string name="wear_ble_connecting">Povezovanje…</string>
+    <string name="wear_ble_finding">Iskanje avta…</string>
+    <string name="wear_ble_not_connected">Ni povezano</string>
+    <string name="wear_ble_idle">Tapnite za odklep pri avtu</string>
+
+    <string name="wear_climate">Klima</string>
+    <string name="wear_cabin">Kabina %1$s</string>
+    <string name="wear_on">Vklop</string>
+    <string name="wear_off">Izklop</string>
+    <string name="wear_start">Zaženi</string>
+    <string name="wear_stop">Ustavi</string>
+    <string name="wear_cooler_cd">Hladneje</string>
+    <string name="wear_warmer_cd">Topleje</string>
+    <string name="wear_cmd_climate">Klima %1$d°</string>
+    <string name="wear_cmd_climate_off">Klima izklop</string>
+
+    <string name="wear_start_charging">Začni polnjenje</string>
+    <string name="wear_stop_charging">Ustavi polnjenje</string>
+    <string name="wear_open_port">Odpri priključek</string>
+    <string name="wear_close_port">Zapri priključek</string>
+    <string name="wear_port_open">Priključek odprt</string>
+    <string name="wear_unplugged">Odklopljeno</string>
+
+    <string name="wear_flash_horn">Posveti + hupaj</string>
+    <string name="wear_cmd_locate">Najdi</string>
+
+    <string name="wear_needs_phone">Polnjenje in klima potrebujeta telefon</string>
+    <string name="wear_phone_standalone">Samostojno · telefon ni dosegljiv</string>
+    <string name="wear_phone_prox_connected">Bližina telefona aktivna · avto povezan</string>
+    <string name="wear_phone_holding">Telefon drži povezavo z avtom</string>
+    <string name="wear_phone_prox_armed">Bližina telefona pripravljena · avto ni povezan</string>
+    <string name="wear_phone_ready">Pripravljeno</string>
+    <string name="wear_err_no_phone">ni telefona</string>
+    <string name="wear_err_no_response">brez odgovora</string>
+    <string name="wear_err_failed">ni uspelo</string>
+</resources>

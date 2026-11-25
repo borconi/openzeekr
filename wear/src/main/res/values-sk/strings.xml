@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Načítava sa kľúč z telefónu…</string>
+    <string name="wear_open_on_phone">Otvorte OpenZeekr v telefóne</string>
+    <string name="wear_retry">Skúsiť znova</string>
+    <string name="wear_key_phone_not_connected">Telefón nie je pripojený. Otvorte v ňom aplikáciu hodiniek</string>
+    <string name="wear_key_asking">Žiadosť o kľúč z telefónu…</string>
+    <string name="wear_key_unreachable_app">Nepodarilo sa spojiť s aplikáciou v telefóne</string>
+    <string name="wear_key_unreachable">Nedá sa spojiť s telefónom</string>
+    <string name="wear_key_removed">Kľúč bol v telefóne odstránený</string>
+    <string name="wear_key_none_yet">Telefón zatiaľ nemá kľúč. Najprv ho nastavte tam</string>
+
+    <string name="wear_car_cd">Vaše auto</string>
+    <string name="wear_charge_cd">Batéria %1$d percent</string>
+    <string name="wear_live_unavailable">Živé údaje nedostupné</string>
+    <string name="wear_plugged">Zapojené</string>
+    <string name="wear_charging">Nabíjanie</string>
+    <string name="wear_time_left">Zostáva %1$s</string>
+    <string name="wear_limit">Limit %1$d%%</string>
+
+    <string name="wear_locked">Zamknuté</string>
+    <string name="wear_unlocked">Odomknuté</string>
+    <string name="wear_tap_to_unlock">Klepnutím odomknete</string>
+    <string name="wear_tap_to_lock">Klepnutím zamknete</string>
+    <string name="wear_lock_on_approach">Odomknutie priblížením aktívne</string>
+    <string name="wear_use_phone">Odomknutie priblížením je zapnuté v telefóne. Použite telefón.</string>
+    <string name="wear_checking_phone">Kontroluje sa telefón…</string>
+    <string name="wear_locking">Zamykanie…</string>
+    <string name="wear_unlocking">Odomykanie…</string>
+    <string name="wear_freeing">Uvoľňovanie auta…</string>
+    <string name="wear_no_handover">Telefón auto neuvoľnil. Skúste znova</string>
+    <string name="wear_failed">Zlyhalo. Skúste znova</string>
+
+    <string name="wear_ble_connected">Pripojené</string>
+    <string name="wear_ble_connecting">Pripájanie…</string>
+    <string name="wear_ble_finding">Hľadá sa auto…</string>
+    <string name="wear_ble_not_connected">Nepripojené</string>
+    <string name="wear_ble_idle">Klepnutím odomknete pri aute</string>
+
+    <string name="wear_climate">Klimatizácia</string>
+    <string name="wear_cabin">Kabína %1$s</string>
+    <string name="wear_on">Zap.</string>
+    <string name="wear_off">Vyp.</string>
+    <string name="wear_start">Spustiť</string>
+    <string name="wear_stop">Zastaviť</string>
+    <string name="wear_cooler_cd">Chladnejšie</string>
+    <string name="wear_warmer_cd">Teplejšie</string>
+    <string name="wear_cmd_climate">Klimatizácia %1$d°</string>
+    <string name="wear_cmd_climate_off">Klimatizácia vyp.</string>
+
+    <string name="wear_start_charging">Spustiť nabíjanie</string>
+    <string name="wear_stop_charging">Zastaviť nabíjanie</string>
+    <string name="wear_open_port">Otvoriť port</string>
+    <string name="wear_close_port">Zatvoriť port</string>
+    <string name="wear_port_open">Port otvorený</string>
+    <string name="wear_unplugged">Odpojené</string>
+
+    <string name="wear_flash_horn">Bliknúť + trúbiť</string>
+    <string name="wear_cmd_locate">Nájsť</string>
+
+    <string name="wear_needs_phone">Nabíjanie a klimatizácia vyžadujú telefón</string>
+    <string name="wear_phone_standalone">Samostatne · telefón nedostupný</string>
+    <string name="wear_phone_prox_connected">Priblíženie cez telefón aktívne · auto pripojené</string>
+    <string name="wear_phone_holding">Telefón drží spojenie s autom</string>
+    <string name="wear_phone_prox_armed">Priblíženie cez telefón pripravené · auto nepripojené</string>
+    <string name="wear_phone_ready">Pripravené</string>
+    <string name="wear_err_no_phone">bez telefónu</string>
+    <string name="wear_err_no_response">bez odpovede</string>
+    <string name="wear_err_failed">zlyhalo</string>
+</resources>

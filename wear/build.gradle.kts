@@ -27,8 +27,8 @@ android {
         targetSdk = 34
         // The phone + watch AABs go into ONE Play release (shared applicationId), so each artifact
         // needs a DISTINCT versionCode. Convention here: watch = phone + 1 (bump both each release).
-        versionCode = 20
-        versionName = "0.2.7"
+        versionCode = 23
+        versionName = "0.3.0"
     }
 
     signingConfigs {

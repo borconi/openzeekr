@@ -26,7 +26,7 @@ class KeySyncService : WearableListenerService() {
                 DkIdentity.get(this).wipeAll()
                 runCatching { com.openzeekr.app.ble.DkBleManager.get(this).disconnect() }
                 runCatching { com.openzeekr.app.ble.DkBleManager.get(this).clearCertPins() }
-                WearKeyState.status.value = "Key removed on phone"
+                WearKeyState.status.value = getString(R.string.wear_key_removed)
                 WearKeyState.refresh(this)
             }
             WearKeyProtocol.PATH_STATUS -> {
@@ -36,6 +36,7 @@ class KeySyncService : WearableListenerService() {
             WearKeyProtocol.PATH_PAUSED -> PhoneLink.onPaused()
             WearKeyProtocol.PATH_SNAPSHOT -> PhoneLink.onSnapshot(String(event.data, Charsets.UTF_8))
             WearKeyProtocol.PATH_CONTROL_ACK -> PhoneLink.onControlAck(String(event.data, Charsets.UTF_8))
+            WearKeyProtocol.PATH_CAR -> WearCarStore.onImage(applicationContext, event.data)
         }
     }
 
@@ -47,7 +48,7 @@ class KeySyncService : WearableListenerService() {
         }.getOrNull()
         if (blob.isNullOrEmpty()) {
             Log.w(TAG, "reply had no key — phone is not provisioned")
-            WearKeyState.status.value = "Phone has no key yet — provision it first"
+            WearKeyState.status.value = getString(R.string.wear_key_none_yet)
             return
         }
         DkIdentity.get(this).importCredentialBlob(blob)
@@ -65,23 +66,23 @@ object KeySyncClient {
             .addOnSuccessListener { nodes ->
                 Log.i(TAG, "connectedNodes=${nodes.size} ${nodes.joinToString { it.displayName }}")
                 if (nodes.isEmpty()) {
-                    WearKeyState.status.value = "Phone not connected — open Galaxy Wearable"
+                    WearKeyState.status.value = ctx.getString(R.string.wear_key_phone_not_connected)
                     return@addOnSuccessListener
                 }
-                WearKeyState.status.value = "Asking phone for the key…"
+                WearKeyState.status.value = ctx.getString(R.string.wear_key_asking)
                 val mc = Wearable.getMessageClient(ctx)
                 nodes.forEach { node ->
                     mc.sendMessage(node.id, WearKeyProtocol.PATH_REQUEST, ByteArray(0))
                         .addOnSuccessListener { Log.i(TAG, "request sent to ${node.displayName}") }
                         .addOnFailureListener { e ->
                             Log.w(TAG, "send to ${node.displayName} failed", e)
-                            WearKeyState.status.value = "Couldn't reach phone app"
+                            WearKeyState.status.value = ctx.getString(R.string.wear_key_unreachable_app)
                         }
                 }
             }
             .addOnFailureListener { e ->
                 Log.w(TAG, "connectedNodes failed", e)
-                WearKeyState.status.value = "Can't reach phone (Play Services?)"
+                WearKeyState.status.value = ctx.getString(R.string.wear_key_unreachable)
             }
     }
 }

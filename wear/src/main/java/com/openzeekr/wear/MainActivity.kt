@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         // Extension of the phone app — pull the key automatically, never ask the user to sign in.
         if (!WearKeyState.provisioned.value) KeySyncClient.requestKey(this)
         ensureBlePermissions()
-        setContent { WearApp() }
+        setContent { OzWearTheme { WearApp() } }
     }
 
     override fun onResume() {

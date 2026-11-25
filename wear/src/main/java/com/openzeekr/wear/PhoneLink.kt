@@ -69,16 +69,23 @@ object PhoneLink {
      *  temperature). Returns null on success, or a short error string (incl. "no phone" when
      *  nothing is paired — cloud controls need the phone). */
     suspend fun control(ctx: Context, c: WearControl, arg: String? = null): String? {
-        val node = phoneNodeId(ctx) ?: return "no phone"
+        val node = phoneNodeId(ctx) ?: return ctx.getString(R.string.wear_err_no_phone)
         val d = CompletableDeferred<String>()
         controlWaiter = d
         val payload = if (arg != null) "${c.name}|$arg" else c.name
         sendTo(ctx, node, WearKeyProtocol.PATH_CONTROL, payload.toByteArray(Charsets.UTF_8))
         val ack = withTimeoutOrNull(CONTROL_TIMEOUT_MS) { d.await() }.also { controlWaiter = null }
-            ?: return "no response"
+            ?: return ctx.getString(R.string.wear_err_no_response)
         // ack = "<CONTROL>|ok" or "<CONTROL>|err|<reason>"
         val parts = ack.split("|")
-        return if (parts.getOrNull(1) == "ok") null else (parts.getOrNull(2) ?: "failed")
+        return if (parts.getOrNull(1) == "ok") null else (parts.getOrNull(2) ?: ctx.getString(R.string.wear_err_failed))
+    }
+
+    /** Ask the phone for the picture of the car (fire-and-forget; the answer lands in [WearCarStore]).
+     *  [knownId] is the picture already held, so an unchanged one is not sent again. */
+    suspend fun requestCar(ctx: Context, knownId: String) {
+        val node = phoneNodeId(ctx) ?: return
+        sendTo(ctx, node, WearKeyProtocol.PATH_CAR_QUERY, knownId.toByteArray(Charsets.UTF_8))
     }
 
     /** Ask the phone for its link status. [Status.ABSENT] if there's no phone node or it doesn't reply. */

@@ -44,6 +44,7 @@ class PhoneKeySyncService : WearableListenerService() {
                 WearLinkArbiter.resume()
             }
             WearKeyProtocol.PATH_SNAPSHOT_QUERY -> sendSnapshot(event.sourceNodeId)
+            WearKeyProtocol.PATH_CAR_QUERY -> sendCarPicture(event.sourceNodeId, String(event.data, Charsets.UTF_8))
             WearKeyProtocol.PATH_CONTROL -> runControl(event.sourceNodeId, String(event.data, Charsets.UTF_8))
         }
     }
@@ -103,9 +104,20 @@ class PhoneKeySyncService : WearableListenerService() {
         }
     }
 
+    /** Send the picture of the user's car (see [WearCarPicture]). Stays silent when there is none to send:
+     *  the watch then keeps the picture it has, or shows the page without one. */
+    private fun sendCarPicture(nodeId: String, knownId: String) {
+        val deps = (application as? DepsHolder)?.deps ?: return
+        deps.appScope.launch {
+            val bytes = runCatching { WearCarPicture.reply(applicationContext, deps, knownId.trim()) }.getOrNull() ?: return@launch
+            send(nodeId, WearKeyProtocol.PATH_CAR, bytes)
+        }
+    }
+
     private fun buildSnapshot(deps: com.openzeekr.app.Deps): WearVehicleSnapshot {
         val bean = deps.vehicleState.state.value
         val ev = bean?.additionalVehicleStatus?.electricVehicleStatus
+        val cfg = deps.config.current()
         // Match the phone VehicleScreen exactly: SOC is stateOfCharge (chargeLevel is blank on this
         // car); range is EV-only distance, falling back to the basic range.
         val socStr = ev?.stateOfCharge?.takeIf { it.isNotBlank() } ?: ev?.chargeLevel
@@ -123,6 +135,10 @@ class PhoneKeySyncService : WearableListenerService() {
             acOn = bean?.additionalVehicleStatus?.climateStatus?.acOn ?: false,
             insideTempC = bean?.additionalVehicleStatus?.climateStatus?.interiorTemp?.toDoubleOrNull(),
             updatedAt = System.currentTimeMillis(),
+            chargeLimit = cfg.chargeLimitPct,
+            minutesToFull = ev?.timeToFullyCharged?.takeIf { it > 0 && ev.chargingActive },
+            distanceUnit = cfg.distanceUnit,
+            carName = cfg.carNickname.takeIf { it.isNotBlank() },
         )
     }
 

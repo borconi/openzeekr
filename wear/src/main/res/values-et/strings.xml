@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Hangin telefonist võtit…</string>
+    <string name="wear_open_on_phone">Ava telefonis OpenZeekr</string>
+    <string name="wear_retry">Proovi uuesti</string>
+    <string name="wear_key_phone_not_connected">Telefon pole ühendatud. Ava telefonis kellarakendus</string>
+    <string name="wear_key_asking">Küsin telefonilt võtit…</string>
+    <string name="wear_key_unreachable_app">Telefonirakendusega ei saanud ühendust</string>
+    <string name="wear_key_unreachable">Telefoniga ei saa ühendust</string>
+    <string name="wear_key_removed">Võti telefonis eemaldatud</string>
+    <string name="wear_key_none_yet">Telefonis pole veel võtit. Seadista see esmalt seal</string>
+
+    <string name="wear_car_cd">Sinu auto</string>
+    <string name="wear_charge_cd">Aku %1$d protsenti</string>
+    <string name="wear_live_unavailable">Reaalajas andmed pole saadaval</string>
+    <string name="wear_plugged">Ühendatud</string>
+    <string name="wear_charging">Laadimine</string>
+    <string name="wear_time_left">%1$s jäänud</string>
+    <string name="wear_limit">Piir %1$d%%</string>
+
+    <string name="wear_locked">Lukus</string>
+    <string name="wear_unlocked">Avatud</string>
+    <string name="wear_tap_to_unlock">Puuduta avamiseks</string>
+    <string name="wear_tap_to_lock">Puuduta lukustamiseks</string>
+    <string name="wear_lock_on_approach">Lähenemisel avamine aktiivne</string>
+    <string name="wear_use_phone">Lähenemisel avamine on sinu telefonis sees. Kasuta telefoni.</string>
+    <string name="wear_checking_phone">Kontrollin telefoni…</string>
+    <string name="wear_locking">Lukustan…</string>
+    <string name="wear_unlocking">Avan lukku…</string>
+    <string name="wear_freeing">Vabastan autot…</string>
+    <string name="wear_no_handover">Telefon ei andnud ühendust üle. Proovi uuesti</string>
+    <string name="wear_failed">Ebaõnnestus. Proovi uuesti</string>
+
+    <string name="wear_ble_connected">Ühendatud</string>
+    <string name="wear_ble_connecting">Ühendan…</string>
+    <string name="wear_ble_finding">Otsin autot…</string>
+    <string name="wear_ble_not_connected">Pole ühendatud</string>
+    <string name="wear_ble_idle">Puuduta auto juures avamiseks</string>
+
+    <string name="wear_climate">Kliima</string>
+    <string name="wear_cabin">Salong %1$s</string>
+    <string name="wear_on">Sees</string>
+    <string name="wear_off">Väljas</string>
+    <string name="wear_start">Käivita</string>
+    <string name="wear_stop">Peata</string>
+    <string name="wear_cooler_cd">Jahedamaks</string>
+    <string name="wear_warmer_cd">Soojemaks</string>
+    <string name="wear_cmd_climate">Kliima %1$d°</string>
+    <string name="wear_cmd_climate_off">Kliima välja</string>
+
+    <string name="wear_start_charging">Alusta laadimist</string>
+    <string name="wear_stop_charging">Lõpeta laadimine</string>
+    <string name="wear_open_port">Ava laadimispesa</string>
+    <string name="wear_close_port">Sulge laadimispesa</string>
+    <string name="wear_port_open">Pesa lahti</string>
+    <string name="wear_unplugged">Lahti ühendatud</string>
+
+    <string name="wear_flash_horn">Vilguta + signaal</string>
+    <string name="wear_cmd_locate">Leia üles</string>
+
+    <string name="wear_needs_phone">Laadimine ja kliima vajavad telefoni</string>
+    <string name="wear_phone_standalone">Iseseisev · telefon pole kättesaadav</string>
+    <string name="wear_phone_prox_connected">Telefoni lähedus aktiivne · auto ühendatud</string>
+    <string name="wear_phone_holding">Telefon hoiab autoga ühendust</string>
+    <string name="wear_phone_prox_armed">Telefoni lähedus valmis · auto pole ühendatud</string>
+    <string name="wear_phone_ready">Valmis</string>
+    <string name="wear_err_no_phone">telefoni pole</string>
+    <string name="wear_err_no_response">vastust pole</string>
+    <string name="wear_err_failed">ebaõnnestus</string>
+</resources>

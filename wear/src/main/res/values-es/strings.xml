@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Obteniendo llave del teléfono…</string>
+    <string name="wear_open_on_phone">Abre OpenZeekr en tu teléfono</string>
+    <string name="wear_retry">Reintentar</string>
+    <string name="wear_key_phone_not_connected">Teléfono no conectado. Abre la app del reloj en el teléfono</string>
+    <string name="wear_key_asking">Pidiendo la llave al teléfono…</string>
+    <string name="wear_key_unreachable_app">No se pudo contactar con la app del teléfono</string>
+    <string name="wear_key_unreachable">No se puede contactar con el teléfono</string>
+    <string name="wear_key_removed">Llave eliminada en el teléfono</string>
+    <string name="wear_key_none_yet">El teléfono aún no tiene llave. Configúrala allí primero</string>
+
+    <string name="wear_car_cd">Tu coche</string>
+    <string name="wear_charge_cd">Batería al %1$d por ciento</string>
+    <string name="wear_live_unavailable">Datos en directo no disponibles</string>
+    <string name="wear_plugged">Enchufado</string>
+    <string name="wear_charging">Carga</string>
+    <string name="wear_time_left">Quedan %1$s</string>
+    <string name="wear_limit">Límite %1$d%%</string>
+
+    <string name="wear_locked">Bloqueado</string>
+    <string name="wear_unlocked">Desbloqueado</string>
+    <string name="wear_tap_to_unlock">Toca para desbloquear</string>
+    <string name="wear_tap_to_lock">Toca para bloquear</string>
+    <string name="wear_lock_on_approach">Desbloqueo al acercarse activo</string>
+    <string name="wear_use_phone">El desbloqueo al acercarse está activo en tu teléfono. Usa el teléfono.</string>
+    <string name="wear_checking_phone">Comprobando teléfono…</string>
+    <string name="wear_locking">Bloqueando…</string>
+    <string name="wear_unlocking">Desbloqueando…</string>
+    <string name="wear_freeing">Liberando el coche…</string>
+    <string name="wear_no_handover">El teléfono no cedió la conexión. Reinténtalo</string>
+    <string name="wear_failed">Ha fallado. Reinténtalo</string>
+
+    <string name="wear_ble_connected">Conectado</string>
+    <string name="wear_ble_connecting">Conectando…</string>
+    <string name="wear_ble_finding">Buscando coche…</string>
+    <string name="wear_ble_not_connected">No conectado</string>
+    <string name="wear_ble_idle">Toca para desbloquear junto al coche</string>
+
+    <string name="wear_climate">Climatización</string>
+    <string name="wear_cabin">Habitáculo %1$s</string>
+    <string name="wear_on">Activa</string>
+    <string name="wear_off">Inactiva</string>
+    <string name="wear_start">Iniciar</string>
+    <string name="wear_stop">Detener</string>
+    <string name="wear_cooler_cd">Más frío</string>
+    <string name="wear_warmer_cd">Más calor</string>
+    <string name="wear_cmd_climate">Climatización %1$d°</string>
+    <string name="wear_cmd_climate_off">Climatización apagada</string>
+
+    <string name="wear_start_charging">Iniciar carga</string>
+    <string name="wear_stop_charging">Detener carga</string>
+    <string name="wear_open_port">Abrir puerto</string>
+    <string name="wear_close_port">Cerrar puerto</string>
+    <string name="wear_port_open">Puerto abierto</string>
+    <string name="wear_unplugged">Desenchufado</string>
+
+    <string name="wear_flash_horn">Luces + bocina</string>
+    <string name="wear_cmd_locate">Localizar</string>
+
+    <string name="wear_needs_phone">La carga y la climatización requieren tu teléfono</string>
+    <string name="wear_phone_standalone">Autónomo · teléfono no disponible</string>
+    <string name="wear_phone_prox_connected">Proximidad del teléfono activa · coche conectado</string>
+    <string name="wear_phone_holding">El teléfono mantiene la conexión con el coche</string>
+    <string name="wear_phone_prox_armed">Proximidad del teléfono lista · coche no conectado</string>
+    <string name="wear_phone_ready">Listo</string>
+    <string name="wear_err_no_phone">sin teléfono</string>
+    <string name="wear_err_no_response">sin respuesta</string>
+    <string name="wear_err_failed">falló</string>
+</resources>

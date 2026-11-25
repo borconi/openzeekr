@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Se obține cheia de la telefon…</string>
+    <string name="wear_open_on_phone">Deschide OpenZeekr pe telefon</string>
+    <string name="wear_retry">Reîncearcă</string>
+    <string name="wear_key_phone_not_connected">Telefon neconectat. Deschide aplicația ceasului pe telefon</string>
+    <string name="wear_key_asking">Se cere cheia de la telefon…</string>
+    <string name="wear_key_unreachable_app">Aplicația de pe telefon nu a putut fi contactată</string>
+    <string name="wear_key_unreachable">Telefonul nu poate fi contactat</string>
+    <string name="wear_key_removed">Cheie eliminată pe telefon</string>
+    <string name="wear_key_none_yet">Telefonul nu are încă o cheie. Configureaz-o mai întâi acolo</string>
+
+    <string name="wear_car_cd">Mașina ta</string>
+    <string name="wear_charge_cd">Baterie %1$d la sută</string>
+    <string name="wear_live_unavailable">Date în timp real indisponibile</string>
+    <string name="wear_plugged">Conectat</string>
+    <string name="wear_charging">Se încarcă</string>
+    <string name="wear_time_left">Încă %1$s</string>
+    <string name="wear_limit">Limită %1$d%%</string>
+
+    <string name="wear_locked">Blocat</string>
+    <string name="wear_unlocked">Deblocat</string>
+    <string name="wear_tap_to_unlock">Atinge pentru a debloca</string>
+    <string name="wear_tap_to_lock">Atinge pentru a bloca</string>
+    <string name="wear_lock_on_approach">Deblocare la apropiere activă</string>
+    <string name="wear_use_phone">Deblocarea la apropiere e activă pe telefon. Folosește telefonul.</string>
+    <string name="wear_checking_phone">Se verifică telefonul…</string>
+    <string name="wear_locking">Se blochează…</string>
+    <string name="wear_unlocking">Se deblochează…</string>
+    <string name="wear_freeing">Se eliberează mașina…</string>
+    <string name="wear_no_handover">Telefonul nu a eliberat mașina. Încearcă din nou</string>
+    <string name="wear_failed">Eșuat. Încearcă din nou</string>
+
+    <string name="wear_ble_connected">Conectat</string>
+    <string name="wear_ble_connecting">Se conectează…</string>
+    <string name="wear_ble_finding">Se caută mașina…</string>
+    <string name="wear_ble_not_connected">Neconectat</string>
+    <string name="wear_ble_idle">Atinge pentru a debloca la mașină</string>
+
+    <string name="wear_climate">Climatizare</string>
+    <string name="wear_cabin">Habitaclu %1$s</string>
+    <string name="wear_on">Pornit</string>
+    <string name="wear_off">Oprit</string>
+    <string name="wear_start">Pornește</string>
+    <string name="wear_stop">Oprește</string>
+    <string name="wear_cooler_cd">Mai rece</string>
+    <string name="wear_warmer_cd">Mai cald</string>
+    <string name="wear_cmd_climate">Climatizare %1$d°</string>
+    <string name="wear_cmd_climate_off">Climatizare oprită</string>
+
+    <string name="wear_start_charging">Pornește încărcarea</string>
+    <string name="wear_stop_charging">Oprește încărcarea</string>
+    <string name="wear_open_port">Deschide portul</string>
+    <string name="wear_close_port">Închide portul</string>
+    <string name="wear_port_open">Port deschis</string>
+    <string name="wear_unplugged">Deconectat</string>
+
+    <string name="wear_flash_horn">Semnalizare + claxon</string>
+    <string name="wear_cmd_locate">Localizează</string>
+
+    <string name="wear_needs_phone">Încărcarea și climatizarea necesită telefonul</string>
+    <string name="wear_phone_standalone">Autonom · telefon inaccesibil</string>
+    <string name="wear_phone_prox_connected">Proximitate telefon activă · mașină conectată</string>
+    <string name="wear_phone_holding">Telefonul menține legătura cu mașina</string>
+    <string name="wear_phone_prox_armed">Proximitate telefon armată · mașină neconectată</string>
+    <string name="wear_phone_ready">Gata</string>
+    <string name="wear_err_no_phone">fără telefon</string>
+    <string name="wear_err_no_response">niciun răspuns</string>
+    <string name="wear_err_failed">eșuat</string>
+</resources>

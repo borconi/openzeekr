@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_getting_key">Kulcs lekérése a telefonról…</string>
+    <string name="wear_open_on_phone">Nyisd meg az OpenZeekr appot a telefonon</string>
+    <string name="wear_retry">Újra</string>
+    <string name="wear_key_phone_not_connected">A telefon nincs csatlakozva. Nyisd meg az óra appját a telefonon</string>
+    <string name="wear_key_asking">Kulcs kérése a telefontól…</string>
+    <string name="wear_key_unreachable_app">A telefonos app nem érhető el</string>
+    <string name="wear_key_unreachable">A telefon nem érhető el</string>
+    <string name="wear_key_removed">Kulcs eltávolítva a telefonon</string>
+    <string name="wear_key_none_yet">A telefonon még nincs kulcs. Előbb ott állítsd be</string>
+
+    <string name="wear_car_cd">Az autód</string>
+    <string name="wear_charge_cd">Akkumulátor %1$d százalék</string>
+    <string name="wear_live_unavailable">Nincs élő adat</string>
+    <string name="wear_plugged">Csatlakoztatva</string>
+    <string name="wear_charging">Töltés</string>
+    <string name="wear_time_left">Még %1$s</string>
+    <string name="wear_limit">Határ %1$d%%</string>
+
+    <string name="wear_locked">Zárva</string>
+    <string name="wear_unlocked">Nyitva</string>
+    <string name="wear_tap_to_unlock">Koppints a nyitáshoz</string>
+    <string name="wear_tap_to_lock">Koppints a záráshoz</string>
+    <string name="wear_lock_on_approach">Közelségi zárás aktív</string>
+    <string name="wear_use_phone">A közelségi zárás be van kapcsolva a telefonodon. Használd a telefont.</string>
+    <string name="wear_checking_phone">Telefon ellenőrzése…</string>
+    <string name="wear_locking">Zárás…</string>
+    <string name="wear_unlocking">Nyitás…</string>
+    <string name="wear_freeing">Autó felszabadítása…</string>
+    <string name="wear_no_handover">A telefon nem adta át. Próbáld újra</string>
+    <string name="wear_failed">Sikertelen. Próbáld újra</string>
+
+    <string name="wear_ble_connected">Csatlakozva</string>
+    <string name="wear_ble_connecting">Csatlakozás…</string>
+    <string name="wear_ble_finding">Autó keresése…</string>
+    <string name="wear_ble_not_connected">Nincs csatlakozva</string>
+    <string name="wear_ble_idle">Koppints a nyitáshoz az autónál</string>
+
+    <string name="wear_climate">Klíma</string>
+    <string name="wear_cabin">Utastér %1$s</string>
+    <string name="wear_on">Be</string>
+    <string name="wear_off">Ki</string>
+    <string name="wear_start">Indítás</string>
+    <string name="wear_stop">Leállítás</string>
+    <string name="wear_cooler_cd">Hűvösebb</string>
+    <string name="wear_warmer_cd">Melegebb</string>
+    <string name="wear_cmd_climate">Klíma %1$d°</string>
+    <string name="wear_cmd_climate_off">Klíma ki</string>
+
+    <string name="wear_start_charging">Töltés indítása</string>
+    <string name="wear_stop_charging">Töltés leállítása</string>
+    <string name="wear_open_port">Töltőcsatlakozó nyitása</string>
+    <string name="wear_close_port">Töltőcsatlakozó zárása</string>
+    <string name="wear_port_open">Csatlakozó nyitva</string>
+    <string name="wear_unplugged">Lecsatlakoztatva</string>
+
+    <string name="wear_flash_horn">Villogtatás + Duda</string>
+    <string name="wear_cmd_locate">Megkeresés</string>
+
+    <string name="wear_needs_phone">A töltéshez és a klímához telefon kell</string>
+    <string name="wear_phone_standalone">Önálló · a telefon nem érhető el</string>
+    <string name="wear_phone_prox_connected">Telefonos közelség aktív · autó csatlakozva</string>
+    <string name="wear_phone_holding">A telefon tartja az autókapcsolatot</string>
+    <string name="wear_phone_prox_armed">Telefonos közelség élesítve · autó nincs csatlakozva</string>
+    <string name="wear_phone_ready">Kész</string>
+    <string name="wear_err_no_phone">nincs telefon</string>
+    <string name="wear_err_no_response">nincs válasz</string>
+    <string name="wear_err_failed">sikertelen</string>
+</resources>

@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/borconi/openzeekr?label=version&sort=semver)](https://github.com/borconi/openzeekr/releases/latest) · [⬇ Download the latest signed APK](https://github.com/borconi/openzeekr/releases/latest) · [Changelog & releases](https://github.com/borconi/openzeekr/releases)
 
-Please vote on desgin improvement suggestions: [Poll](https://github.com/borconi/openzeekr/discussions/74)
+> 📛 **Help choose the name - vote!** The project stays **OpenZeekr**, but a possible **Google Play** release needs a different public name (Play won't list an app under a brand it isn't affiliated with). Pick **Valet for Zeekr** or **Sidekick for Zeekr**: 👉 **[cast your vote](https://github.com/borconi/openzeekr/discussions/86)**
 
 > 🧪 **Beta — testing in progress.** This is an experimental research project
 > under active development. It's usable and being tested by early users, but expect

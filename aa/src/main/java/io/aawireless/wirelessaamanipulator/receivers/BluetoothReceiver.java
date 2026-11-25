@@ -16,10 +16,12 @@ import io.aawireless.wirelessaamanipulator.services.MainTaskService;
 import io.aawireless.wirelessaamanipulator.storage.SelectionStore;
 
 /**
- * Starts MainTaskService ONLY for BT devices that advertise the Android Auto BT SDP UUID.
- *
- * ACTION_ACL_CONNECTED fires for any BT connection (headset, watch, etc.).
- * We filter based on UUIDs (SDP) so only AA-capable devices trigger the service.
+ * The ONLY entry point that starts the Android Auto projection: a real classic-Bluetooth ACL
+ * connect/disconnect. Nothing else starts it - no A2DP signal, no cached-UUID broadcast without a
+ * live connection, no manual start. On ACL_CONNECTED we start ONLY if the device is the car we want
+ * AND it advertises the Android Auto BT profile UUID; a live ACL means we are genuinely at the car.
+ * ACTION_UUID only COMPLETES that UUID check for a device whose ACL is still up - it is not an
+ * independent trigger, so a stale cached-UUID broadcast out of range can never start us.
  */
 public class BluetoothReceiver extends BroadcastReceiver {
     public static final String EXTRA_DEVICE_ADDRESS = "extra_device_address";
@@ -31,10 +33,6 @@ public class BluetoothReceiver extends BroadcastReceiver {
     private static final ParcelUuid AA_BT_UUID =
             ParcelUuid.fromString("4de17a00-52cb-11e6-bdf4-0800200c9a66");
     public static BluetoothDevice ourDevice = null;
-
-    /** BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED (hard-coded so no extra import is needed). */
-    public static final String A2DP_CONNECTION_STATE_CHANGED =
-            "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED";
 
     /**
      * Addresses whose classic Bluetooth ACL is currently up. Set on ACTION_ACL_CONNECTED,
@@ -80,123 +78,62 @@ public class BluetoothReceiver extends BroadcastReceiver {
         if (device == null) return;
 
         if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-            Log.d(TAG, "ACL_CONNECTED: " + device.getName() + " / " + device.getAddress());
-            // Track the ACL so the projection re-start can tell "still on the car's BT" from a
-            // genuine BT drop.
+            // THE ONLY start path. A live classic ACL means we are physically at the car.
             ACL_CONNECTED_ADDRS.add(device.getAddress());
-            handleDeviceConnected(context, device);
-            return;
-        }
-
-        // A2DP (audio) re-connecting is, per the owner, how the car signals a fresh Android Auto
-        // session when the classic ACL stayed up through a projection drop (so no ACL_CONNECTED
-        // fires). Treat an A2DP STATE_CONNECTED for our device exactly like a fresh connect: the
-        // same start path a cold start uses (-> startOrSwitch). NOTE: this profile broadcast is not
-        // manifest-exempt from the implicit-broadcast ban on API 26+, so MainTaskService also
-        // registers this receiver dynamically while alive to catch it reliably.
-        if (A2DP_CONNECTION_STATE_CHANGED.equals(action)) {
-            int state = intent.getIntExtra(android.bluetooth.BluetoothProfile.EXTRA_STATE,
-                    android.bluetooth.BluetoothProfile.STATE_DISCONNECTED);
-            Log.d(TAG, "A2DP state change: " + device.getName() + " / " + device.getAddress()
-                    + " state=" + state);
-            if (state == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
-                ACL_CONNECTED_ADDRS.add(device.getAddress());
-                Log.d(TAG, "A2DP connected -> treating as a fresh session signal");
-                handleDeviceConnected(context, device);
-            }
+            Log.d(TAG, "ACL_CONNECTED: " + device.getName() + " / " + device.getAddress());
+            maybeStart(context, device);
             return;
         }
 
         if (BluetoothDevice.ACTION_UUID.equals(action)) {
-            // In specific mode the ACL branch already decided; only relevant in ANY mode.
-            if (!SelectionStore.isAnyMode(context)) {
-                if (SelectionStore.matches(context, device.getAddress())) {
-                    startMainService(context, device);
-                    ourDevice = device;
-                }
+            // NOT an independent trigger: this only completes the UUID check for a device whose ACL
+            // is STILL up (we fetched its SDP from the ACL path). If the ACL is not up, this is a
+            // stale/cached UUID broadcast (e.g. another app woke the adapter while the car is out of
+            // range) and must never start us.
+            if (!isAclConnected(device.getAddress())) {
+                Log.d(TAG, "ACTION_UUID ignored - no live ACL (not at the car): " + device.getAddress());
                 return;
             }
-            if (hasAndroidAutoProfile(device)) {
-                Log.d(TAG, "ACTION_UUID matched AA device: " + device.getName() + " / " + device.getAddress());
-                startMainService(context, device);
-                ourDevice=device;
-            } else {
-                Log.d(TAG, "ACTION_UUID ignored (no AA UUID): " + device.getName() + " / " + device.getAddress());
-            }
+            maybeStart(context, device);
             return;
         }
 
         if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-            Log.d(TAG, "ACL_DISCONNECTED: " + device.getName() + " / " + device.getAddress() );
-            // The car's BT is really gone now: drop it from the ACL set so the projection
-            // auto-reconnect refuses (and the full teardown below runs).
+            Log.d(TAG, "ACL_DISCONNECTED: " + device.getName() + " / " + device.getAddress());
             ACL_CONNECTED_ADDRS.remove(device.getAddress());
-
-            if (ourDevice != null && device.getAddress().equals(ourDevice.getAddress()))
-            {
-                Log.d(TAG,"It was our devices, stopping service");
+            if (ourDevice != null && device.getAddress().equals(ourDevice.getAddress())) {
+                Log.d(TAG, "It was our device, stopping service");
                 Intent stop = new Intent(context, MainTaskService.class);
                 stop.setAction("io.aawireless.ACTION_STOP");
                 context.stopService(stop);
             }
-            else
-            {
-                if (ourDevice == null)
-                    Log.d(TAG,"ourDevice is null, not stopping service");
-                else
-                    Log.d(TAG,"address didn't match");
-            }
-
         }
     }
 
     /**
-     * Decide whether to (re)start MainTaskService for a device that just connected (classic ACL or
-     * A2DP). Shared by the ACL_CONNECTED and A2DP-connected paths. startMainService() funnels into
-     * onStartCommand -> CarHandshakeClientManager.startOrSwitch, which reuses a live handshake
-     * client for the same device or spins up a fresh one - so a car-driven re-start lands here the
-     * same way a cold start does.
+     * Start MainTaskService only if this just-connected device is the car we want AND it advertises
+     * the Android Auto BT profile UUID. Called only from the live-ACL paths, so "we are at the car"
+     * is already guaranteed. If the AA UUID is not cached yet, fetch it via SDP; the ACTION_UUID
+     * result re-enters here (still ACL-gated), so we never start without a confirmed AA profile.
      */
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    private void handleDeviceConnected(Context context, BluetoothDevice device) {
-        // SPECIFIC mode: a device is pinned in the UI. Fire ONLY for that exact device, and don't
-        // bother with UUID/SDP checks - the user chose it.
-        if (!SelectionStore.isAnyMode(context)) {
-            if (SelectionStore.matches(context, device.getAddress())) {
-                Log.d(TAG, "Selected device connected -> starting: " + device.getAddress());
-                startMainService(context, device);
-                ourDevice = device;
-            } else {
-                Log.d(TAG, "Ignoring " + device.getAddress()
-                        + " (specific mode, selected=" + SelectionStore.getSelectedAddress(context) + ")");
-            }
+    private void maybeStart(Context context, BluetoothDevice device) {
+        // Identity: in SPECIFIC mode fire ONLY for the pinned device; ANY mode accepts any AA device.
+        if (!SelectionStore.isAnyMode(context) && !SelectionStore.matches(context, device.getAddress())) {
+            Log.d(TAG, "Ignoring " + device.getAddress()
+                    + " (specific mode, selected=" + SelectionStore.getSelectedAddress(context) + ")");
             return;
         }
-
-        // ANY mode (default): fire for any device that advertises the Android Auto BT profile.
-        // We do NOT gate on the digital key being nearby: by the time AA's Bluetooth connects you
-        // are already seated in the car, PAST the approach window, so the key is no longer in its
-        // "near" proximity state and that check wrongly skipped the real car (log: "our DK BLE is
-        // not nearby -> skipping"). The AA manipulator is self-limiting anyway - it only bootstraps
-        // against a Zeekr head unit (cert + head-unit-server), so a stray AA device just no-ops.
-        //Previously used device, use it even if no UUID as UUID might become available later.
-        if (io.aawireless.wirelessaamanipulator.storage.KnowDevicesStore.contains(context, device.getAddress())) {
-            Log.d(TAG, "Known device -> skipping UUID check: " + device.getAddress());
-            startMainService(context, device);
-            ourDevice = device; // so disconnect logic works consistently
-            return;
-        }
-
-        // If UUIDs already known, filter immediately
+        // Must advertise the Android Auto BT profile UUID.
         if (hasAndroidAutoProfile(device)) {
+            Log.d(TAG, "AA device at the car -> starting: " + device.getName() + " / " + device.getAddress());
             startMainService(context, device);
             ourDevice = device;
             return;
         }
-
-        // Otherwise fetch SDP UUIDs asynchronously; ACTION_UUID will arrive
+        // UUID not cached yet: fetch it. ACTION_UUID re-enters maybeStart (still ACL-gated).
         boolean requested = device.fetchUuidsWithSdp();
-        Log.d(TAG, "No AA UUID yet. fetchUuidsWithSdp requested=" + requested);
+        Log.d(TAG, "No AA UUID yet for " + device.getAddress() + " - fetchUuidsWithSdp=" + requested);
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)

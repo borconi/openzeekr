@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Muuta vetämällä palkin kahvaa</string>
+    <string name="vehicle_amps_lower_cd">Pienennä latausvirtaa</string>
+    <string name="vehicle_amps_raise_cd">Suurenna latausvirtaa</string>
+    <string name="vehicle_charge_stat_power">Teho</string>
+    <string name="vehicle_charge_stat_current">Virta</string>
+    <string name="vehicle_charge_stat_full_in">Täyteen</string>
+    <string name="vehicle_charge_phases">%1$d-vaiheinen</string>
+
+    <string name="location_updated_fmt">Päivitetty %1$s</string>
+    <string name="location_rpa_hint">Aktivoi etäpysäköinti ensin auton keskinäytöltä.</string>
+
+    <string name="sec_studio_subtitle">Vartioi autoa sen ollessa pysäköitynä</string>
+    <string name="sec_studio_arm">Aktivoi</string>
+    <string name="sec_studio_disarm">Sammuta</string>
+    <string name="sec_studio_access_title">Pääsy</string>
+    <string name="sec_studio_access_hint">Jokainen muutos vaatii PIN-koodin</string>
+
+    <string name="sched_studio_subtitle">Ajastettu lataus ja lähdöt, tallennettu autoon</string>
+    <string name="sched_studio_charge_switch">Lataa tämän aikataulun mukaan</string>
+
+    <string name="journey_studio_subtitle">Auton tallentamat ajot</string>
+    <string name="journey_studio_trips_shown">Näytettävät matkat</string>
+
+    <string name="setup_studio_subtitle">Puhelimesi auton avaimena Bluetoothin kautta</string>
+    <string name="setup_studio_pill_active">Aktiivinen</string>
+    <string name="setup_studio_pill_not_set_up">Ei määritetty</string>
+    <string name="setup_studio_pill_connected">Yhdistetty</string>
+    <string name="setup_studio_calibration">Kalibrointi</string>
+    <string name="setup_studio_calibrated">Kalibroitu</string>
+    <string name="setup_studio_calib_door">Ovella</string>
+    <string name="setup_studio_calib_far">6 m:n päässä</string>
+
+    <string name="ota_studio_checked_at">Tarkistettu klo %1$s</string>
+
+    <string name="aa_studio_state_on">Päällä</string>
+    <string name="aa_studio_state_off">Pois</string>
+    <string name="aa_studio_state_unsupported">Ei tuettu</string>
+
+    <string name="settings_studio_diagnostics">Lokit ja diagnostiikka</string>
+    <string name="settings_studio_dev_tools">Kehittäjätyökalut</string>
+    <string name="settings_studio_dev_hint">Testiominaisuuksia täällä ja muilla välilehdillä.</string>
+    <string name="settings_studio_version_line">Versio %1$s</string>
+    <string name="settings_studio_region_hint">Zeekr-palvelimet, joilla tilisi on.</string>
+    <string name="settings_studio_region_verified">Vahvistettu</string>
+    <string name="settings_studio_region_experimental">Kokeellinen</string>
+
+    <string name="inbox_studio_has_unread">Sinulla on lukemattomia viestejä</string>
+    <string name="inbox_studio_all_read">Kaikki on luettu</string>
+    <string name="inbox_studio_unread_cd">Lukematon</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Jaettu %1$d henkilölle</item>
+        <item quantity="other">Jaettu %1$d henkilölle</item>
+    </plurals>
+    <string name="carshare_studio_people">Henkilöt, joilla on käyttöoikeus</string>
+    <string name="carshare_studio_empty_body">Kaikki, joiden kanssa jaat, näkyvät täällä, ja voit peruuttaa heidän käyttöoikeutensa milloin tahansa.</string>
+
+    <string name="onb_studio_region_lead">Valitse markkina, johon autosi ja tilisi kuuluvat. Tämä valitsee oikeat Zeekr-palvelimet.</string>
+    <string name="onb_studio_region_keys_note">Jokainen alue tarvitsee omat poimitut avaimensa (zeekr_key_extractor --region %1$s). Lisäät ne seuraavaksi.</string>
+    <string name="onb_studio_region_verified">Vahvistettu</string>
+    <string name="onb_studio_region_experimental">Kokeellinen</string>
+    <string name="onb_studio_key_not_set">Ei vielä määritetty</string>
+
+</resources>

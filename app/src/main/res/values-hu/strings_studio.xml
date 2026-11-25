@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Húzd a sávon lévő fogantyút a módosításhoz</string>
+    <string name="vehicle_amps_lower_cd">Töltőáram csökkentése</string>
+    <string name="vehicle_amps_raise_cd">Töltőáram növelése</string>
+    <string name="vehicle_charge_stat_power">Teljesítmény</string>
+    <string name="vehicle_charge_stat_current">Áram</string>
+    <string name="vehicle_charge_stat_full_in">Feltöltésig</string>
+    <string name="vehicle_charge_phases">%1$d fázisú</string>
+
+    <string name="location_updated_fmt">Frissítve: %1$s</string>
+    <string name="location_rpa_hint">Előbb élesítsd a Távparkolást az autó középső kijelzőjén.</string>
+
+    <string name="sec_studio_subtitle">Őrzi az autót, amíg parkol</string>
+    <string name="sec_studio_arm">Élesítés</string>
+    <string name="sec_studio_disarm">Leállítás</string>
+    <string name="sec_studio_access_title">Hozzáférés</string>
+    <string name="sec_studio_access_hint">Minden módosítás PIN-t kér</string>
+
+    <string name="sched_studio_subtitle">Időzített töltés és indulások, az autón mentve</string>
+    <string name="sched_studio_charge_switch">Töltés ezen ütemezés szerint</string>
+
+    <string name="journey_studio_subtitle">Az autó által rögzített utak</string>
+    <string name="journey_studio_trips_shown">Megjelenített utak</string>
+
+    <string name="setup_studio_subtitle">A telefonod mint autókulcs, Bluetoothon át</string>
+    <string name="setup_studio_pill_active">Aktív</string>
+    <string name="setup_studio_pill_not_set_up">Nincs beállítva</string>
+    <string name="setup_studio_pill_connected">Csatlakozva</string>
+    <string name="setup_studio_calibration">Kalibrálás</string>
+    <string name="setup_studio_calibrated">Kalibrálva</string>
+    <string name="setup_studio_calib_door">Az ajtónál</string>
+    <string name="setup_studio_calib_far">6 m-nél</string>
+
+    <string name="ota_studio_checked_at">Ellenőrizve: %1$s</string>
+
+    <string name="aa_studio_state_on">Be</string>
+    <string name="aa_studio_state_off">Ki</string>
+    <string name="aa_studio_state_unsupported">Nem támogatott</string>
+
+    <string name="settings_studio_diagnostics">Naplók és diagnosztika</string>
+    <string name="settings_studio_dev_tools">Fejlesztői eszközök</string>
+    <string name="settings_studio_dev_hint">Tesztfunkciók itt és más lapokon.</string>
+    <string name="settings_studio_version_line">Verzió: %1$s</string>
+    <string name="settings_studio_region_hint">A Zeekr-szerverek, amelyeken a fiókod van.</string>
+    <string name="settings_studio_region_verified">Ellenőrzött</string>
+    <string name="settings_studio_region_experimental">Kísérleti</string>
+
+    <string name="inbox_studio_has_unread">Olvasatlan üzeneteid vannak</string>
+    <string name="inbox_studio_all_read">Mindent elolvastál</string>
+    <string name="inbox_studio_unread_cd">Olvasatlan</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">%1$d személlyel megosztva</item>
+        <item quantity="other">%1$d személlyel megosztva</item>
+    </plurals>
+    <string name="carshare_studio_people">Hozzáféréssel rendelkezők</string>
+    <string name="carshare_studio_empty_body">Mindenki, akivel megosztod, itt jelenik meg, és bármikor visszavonhatod a hozzáférésüket.</string>
+
+    <string name="onb_studio_region_lead">Válaszd ki a piacot, ahová az autód és a fiókod tartozik. Ez választja ki a megfelelő Zeekr-szervereket.</string>
+    <string name="onb_studio_region_keys_note">Minden régióhoz saját kinyert kulcsok kellenek (zeekr_key_extractor --region %1$s). Ezeket a következő lépésben adod hozzá.</string>
+    <string name="onb_studio_region_verified">Ellenőrzött</string>
+    <string name="onb_studio_region_experimental">Kísérleti</string>
+    <string name="onb_studio_key_not_set">Még nincs beállítva</string>
+
+</resources>

@@ -43,13 +43,11 @@
             android:name="io.aawireless.wirelessaamanipulator.receivers.BluetoothReceiver"
             android:exported="true">
             <intent-filter>
+                <!-- A real classic-BT ACL connect is the ONLY thing that starts AA. UUID is used
+                     only to complete the AA-profile check for an already-connected device. -->
                 <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
                 <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
                 <action android:name="android.bluetooth.device.action.UUID" />
-                <!-- Best-effort: the car may re-connect A2DP to signal a fresh AA session. This
-                     profile broadcast is not manifest-exempt from the implicit-broadcast ban on
-                     API 26+, so MainTaskService also registers this receiver dynamically. -->
-                <action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 

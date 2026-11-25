@@ -61,9 +61,9 @@ public class CarSimulator extends AASimulator{
 
     /**
      * AA &gt; 17.3 killed the 6288 START broadcast, so instead of binding+accepting on 6288
-     * we connect OUT to gearhead's DHU head-unit server on 127.0.0.1:5277 (the user starts
-     * it from Android Auto's Developer settings). Protocol + TLS role are identical; only
-     * the TCP direction is reversed.
+     * we connect OUT to gearhead's DHU head-unit server on 127.0.0.1:5277 (the user starts it from
+     * Android Auto's Developer settings). Protocol + TLS role are identical; only the TCP direction
+     * is reversed. We keep the loopback link self-clearing via a proactive close on drop/silence.
      */
     private final boolean useHeadUnitServer;
     /** How long to keep trying to reach 5277 (the user may start the server after us). */
@@ -107,42 +107,47 @@ public class CarSimulator extends AASimulator{
 
 
     /**
-     * Connect to gearhead's DHU head-unit server on 127.0.0.1:5277, retrying while the
-     * user starts it from Android Auto's Developer settings. Returns the connected socket,
-     * or null if we time out / are asked to stop.
+     * Connect to gearhead's DHU head-unit server on 127.0.0.1:5277, but only once the car Wi-Fi is
+     * joined, retrying while the user starts the server from Android Auto's Developer settings.
+     * Returns the connected socket, or null if we time out / are asked to stop. The loopback link is
+     * made self-clearing by a proactive close on car drop / projection silence (closeGearheadLink()).
      */
     private java.net.Socket connectHeadUnitServer() {
         long deadline = System.currentTimeMillis() + HUS_CONNECT_TIMEOUT_MS;
         boolean advised = false;
+        boolean advisedNoWifi = false;
         int attempt = 0;
         while (MainTaskService.running && !isInterrupted() && System.currentTimeMillis() < deadline) {
+            // GATE: do NOT connect to gearhead's DHU (5277) - which kicks a projection - until the car
+            // Wi-Fi is actually joined. getCarNetwork() is non-null only after a real join, so a
+            // spurious / out-of-range start never reaches 5277 (no car, no gearhead kick, and so no
+            // OOM on a dead bridge). Give up cleanly at the timeout.
+            if (other.getCarNetwork() == null) {
+                if (!advisedNoWifi) {
+                    advisedNoWifi = true;
+                    Log.d(TAG, "car Wi-Fi not joined yet - NOT connecting to 5277 (waiting for the join)");
+                }
+                try { Thread.sleep(HUS_RETRY_INTERVAL_MS); }
+                catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
+                continue;
+            }
             attempt++;
 
-            // EXPERIMENTAL: unify the 5277 network context with the projection socket. Try our OWN
-            // address on the car Wi-Fi (e.g. 192.168.x.y):5277 OVER the car network FIRST. gearhead's
-            // DHU may only listen on 127.0.0.1 though, so if that fails fall back to the plain
-            // loopback 127.0.0.1:5277 that has always worked.
-            android.net.Network carNet = other.getCarNetwork();
-            String ourIp = other.getOwnCarNetworkIp();
-            if (carNet != null && ourIp != null) {
-                java.net.Socket s = connectOverCarNetwork(carNet, ourIp, 5277);
-                if (s != null) {
-                    Log.d(TAG, "Connected to head unit server " + ourIp + ":5277 over the car network "
-                            + "(attempt " + attempt + ")");
-                    io.aawireless.wirelessaamanipulator.status.AppStatus.clearAdvice();
-                    return s;
-                }
-                Log.d(TAG, "5277 over car network (" + ourIp + ") failed -> trying loopback");
-            }
-
-            // Plain (unbound) loopback socket to gearhead. It MUST NOT be bound to the car
-            // network: that network is local-only (no loopback route), so a marked socket's
-            // data send finds no route to 127.0.0.1 and the gearhead handshake stalls even
-            // though connect() slips through the kernel's local table.
+            // Connect to gearhead's DHU on LOOPBACK (127.0.0.1:5277). The server binds 0.0.0.0, but we
+            // deliberately stay on loopback and do NOT route this over the car Wi-Fi: that AP is an
+            // app-private WifiNetworkSpecifier network (uid-scoped), and gearhead (a different uid)
+            // accepting a client whose local address lives on our private network is the likely cause
+            // of the "broke startup" failures. Instead we keep the loopback link but make it
+            // SELF-CLEARING: on a car drop (onCarWifiLost) or projection silence (the idle watchdog)
+            // we proactively full-close it (closeGearheadLink()), which sends FIN/RST and cascades
+            // through gearhead's shared socketpair fd to free its stuck accept-loop - no dependence on
+            // the network's own teardown, and no app-private-routing risk.
             java.net.Socket s = new java.net.Socket();
             try {
                 s.connect(new InetSocketAddress("127.0.0.1", 5277), 2000);
-                Log.d(TAG, "Connected to head unit server 127.0.0.1:5277 over loopback (attempt " + attempt + ")");
+                s.setTcpNoDelay(true);
+                Log.d(TAG, "Connected to head unit server 127.0.0.1:5277 (attempt " + attempt + ")");
+                io.aawireless.wirelessaamanipulator.status.AppStatus.clearAdvice();
                 return s;
             } catch (Exception e) {
                 try { s.close(); } catch (Exception ignored) {}
@@ -160,42 +165,31 @@ public class CarSimulator extends AASimulator{
         return null;
     }
 
-    /**
-     * Connect to {@code ip}:{@code port} routed over the car Wi-Fi network, using the same transient
-     * bindProcessToNetwork() workaround as CarHandshakeClient.openTcpOverWifi (Network.getSocket
-     * Factory().createSocket() has been returning EPERM on some devices). A socket connected while
-     * the process is bound stays pinned to that network for its whole life, so the 5277 link then
-     * rides the car adapter like the projection socket. Returns the connected socket, or null on
-     * failure (caller falls back to plain loopback).
-     */
-    private java.net.Socket connectOverCarNetwork(android.net.Network net, String ip, int port) {
-        android.net.ConnectivityManager cm = (android.net.ConnectivityManager)
-                other.getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-        android.net.Network prevBound = (cm != null) ? cm.getBoundNetworkForProcess() : null;
-        java.net.Socket s = null;
-        try {
-            if (cm != null) cm.bindProcessToNetwork(net);
-            s = new java.net.Socket();
-            s.connect(new InetSocketAddress(ip, port), 2000);
-            s.setTcpNoDelay(true);
-            return s;
-        } catch (Exception e) {
-            try { if (s != null) s.close(); } catch (Exception ignored) {}
-            Log.w(TAG, "5277 connect over car network " + ip + " failed: " + e);
-            return null;
-        } finally {
-            // Restore the process network binding so other traffic routes normally again.
-            if (cm != null) { try { cm.bindProcessToNetwork(prevBound); } catch (Exception ignored) {} }
-        }
-    }
-
     @Override
     public void stopself() {
-        // accept() does not respond to interrupt(), so a thread parked waiting for gearhead to
-        // connect on 6288 (Stop pressed before a session starts) only unblocks when the listening
-        // socket is closed. Close it here; run()'s finally double-closes harmlessly.
+        // Neither accept() (6288) nor a blocking DHU read (5277) responds to interrupt(), so a parked
+        // thread only unblocks when its socket is closed. Close BOTH here so run() returns at once and
+        // its finally tears down - and, critically, so the 5277 link to gearhead is FULLY closed the
+        // instant we stop (both directions), never left half-open to wedge gearhead's accept-loop.
+        // inoutstream.close() does socket.close(); run()'s finally double-closes harmlessly.
         try { if (serverSocket != null) serverSocket.close(); } catch (Exception ignored) {}
+        try { if (inoutstream != null) inoutstream.close(); } catch (Exception ignored) {}
         super.stopself();
+    }
+
+    /**
+     * Proactively FULL-close our link to gearhead's DHU (the 5277 socket) from ANOTHER thread - called
+     * when the car Wi-Fi drops (onCarWifiLost), ahead of the read-side socket timeout. Closing our end
+     * sends FIN/RST to gearhead, so its read pump hits EOF and closes the shared socketpair fd, which
+     * cascades to free its other pump and unblocks its single-connection accept-loop - no Stop/Start
+     * needed. inoutstream.close() does socket.close() (both directions); it is idempotent and run()'s
+     * own finally also closes, harmlessly. A no-op if the link was never wrapped (still connecting).
+     */
+    public void closeGearheadLink() {
+        if (inoutstream != null) {
+            Log.d(TAG, "closeGearheadLink: proactively closing the 5277 link to free gearhead");
+            try { inoutstream.close(); } catch (Exception ignored) {}
+        }
     }
 
     @Override
@@ -203,8 +197,11 @@ public class CarSimulator extends AASimulator{
         super.run();
 
         serverSocket = null;
+        // Declared OUTSIDE the try so the finally can GUARANTEE this socket is fully closed on every
+        // exit path - even if an exception hits after we connect but before it is wrapped in
+        // inoutstream (otherwise the open 5277 socket leaks and wedges gearhead's DHU accept-loop).
+        java.net.Socket socket = null;
         try {
-            java.net.Socket socket;
             if (useHeadUnitServer) {
                 // AA > 17.3: connect OUT to gearhead's DHU head-unit server on 5277.
                 socket = connectHeadUnitServer();
@@ -331,6 +328,13 @@ public class CarSimulator extends AASimulator{
             // Close our end properly too (no-op if a ByeBye already closed it), and let the
             // service ByeBye the car side so neither peer is left attached to nothing.
             try { if (inoutstream != null) inoutstream.close(); } catch (Exception ignored) {}
+            // GUARANTEE the 5277 (or 6288-accepted) socket is FULLY closed on EVERY exit path, even if
+            // it was opened but never wrapped in inoutstream. gearhead's DHU is single-connection: its
+            // accept-loop blocks in a() until BOTH its pumps hit EOF, so a half-open or leaked socket
+            // leaves it wedged and every future 5277 connect hangs in the backlog until a Stop/Start.
+            // socket.close() is idempotent and closes BOTH directions (not shutdownOutput-only), so
+            // both DHU pumps see EOF and the loop frees. If we EVER opened 5277, we close it here.
+            try { if (socket != null && !socket.isClosed()) socket.close(); } catch (Exception ignored) {}
             other.onSimulatorEnded(this);
             Log.d(TAG, "CarSimulator thread exiting");
         }

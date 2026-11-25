@@ -9,7 +9,7 @@
     <string name="nav_tab_schedule">Schedule</string>
     <string name="nav_tab_key">Key</string>
     <string name="nav_tab_updates">Updates</string>
-    <string name="nav_tab_android_auto">Android Auto</string>
+    <string name="nav_tab_android_auto" translatable="false">Android Auto</string>
     <string name="nav_tab_settings">Settings</string>
     <string name="nav_scroll_left_cd">Scroll tabs left</string>
     <string name="nav_scroll_right_cd">Scroll tabs right</string>
@@ -129,6 +129,12 @@
     <string name="settings_no_invites">No pending car-share invitations.</string>
     <string name="settings_check_for_shared_cars">Check for shared cars</string>
     <string name="settings_sign_out">Sign out</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_hint">Choose how the app looks. Auto follows the light or dark setting of your phone.</string>
+    <string name="settings_theme_auto">Auto</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_classic">Classic</string>
     <string name="settings_units">Units</string>
     <string name="settings_unit_distance">Distance</string>
     <string name="settings_unit_km">km</string>
@@ -241,6 +247,39 @@
     <string name="settings_secret_vin">VIN</string>
 
     <!-- VehicleScreen -->
+    <!-- Studio look: Vehicle home -->
+    <string name="vehicle_join_dot" translatable="false">" · "</string>
+    <string name="vehicle_percent_sign" translatable="false" formatted="false">%</string>
+    <string name="aa_bullet" translatable="false">•</string>
+    <string name="settings_dev_badge" translatable="false">DEV</string>
+    <string name="vehicle_deg" translatable="false">%1$s°</string>
+    <string name="vehicle_state_parked">Parked</string>
+    <string name="vehicle_state_on">On</string>
+    <string name="vehicle_climate_sub">Cabin %1$s · outside %2$s</string>
+    <string name="vehicle_charge_limit_short">Limit %1$d%%</string>
+    <string name="vehicle_charge_sub_port_open">Limit %1$d%% · port open</string>
+    <string name="vehicle_charge_sub_port_closed">Limit %1$d%% · port closed</string>
+    <string name="vehicle_avg_consumption_fmt">Ø %1$s kWh/100km</string>
+    <string name="vehicle_slide_to_unlock">Slide to unlock</string>
+    <string name="vehicle_slide_to_lock">Slide to lock</string>
+    <string name="vehicle_lock_slider_cd_locked">The car is locked. Slide to unlock.</string>
+    <string name="vehicle_lock_slider_cd_unlocked">The car is unlocked. Slide to lock.</string>
+    <string name="vehicle_trunk_hint_open">Tap to open</string>
+    <string name="vehicle_trunk_hint_close">Tap to close</string>
+    <string name="vehicle_trunk_hint_unlock">Tap to unlock</string>
+    <string name="vehicle_data_usage">%1$s used · %2$s left of %3$s GB</string>
+    <!-- Studio look: climate page -->
+    <string name="vehicle_climate_runs">Runs 15 min per start</string>
+    <string name="vehicle_climate_start">Start</string>
+    <string name="vehicle_climate_stop">Stop</string>
+    <string name="vehicle_outside_fmt">Outside %1$s</string>
+    <string name="vehicle_temp_lower_cd">Lower the temperature</string>
+    <string name="vehicle_temp_raise_cd">Raise the temperature</string>
+    <string name="vehicle_wheel_heat">Wheel heat</string>
+    <string name="vehicle_seats">Seats</string>
+    <string name="vehicle_seats_hint">Tap to step 1 · 2 · 3 · off</string>
+    <string name="vehicle_seat_heat">Heat</string>
+    <string name="vehicle_seat_level">Level %1$d</string>
     <string name="vehicle_dash">-</string>
     <string name="vehicle_pct">%1$s%%</string>
     <string name="vehicle_celsius">%1$s°C</string>
@@ -903,4 +942,22 @@
     <string name="aa_camera_sources_reset">Reset to defaults</string>
     <string name="aa_add">Add</string>
     <string name="aa_remove">Remove</string>
+
+    <!-- ===== Lock-screen force-unlock overlay (force_) ===== -->
+    <string name="force_intro">Control your car without unlocking</string>
+    <string name="force_volume_up_twice">Volume Up ×2</string>
+    <string name="force_unlocks_car">unlock the car</string>
+    <string name="force_volume_down_twice">Volume Down ×2</string>
+    <string name="force_locks_car">lock the car</string>
+    <string name="force_unlock_phone">Unlock phone</string>
+    <string name="force_unlocking">Unlocking the car…</string>
+    <string name="force_locking">Locking the car…</string>
+
+    <!-- ===== Small formats that used to be written in code ===== -->
+    <string name="aa_status_line">%1$s: %2$s</string>
+    <string name="journey_duration_hm">%1$dh %2$dm</string>
+    <string name="journey_duration_m">%1$dm</string>
+    <string name="sched_join_dot" translatable="false">"  ·  "</string>
+    <string name="settings_clip_ccc">CCC pairing</string>
+    <string name="settings_clip_config">OpenZeekr config</string>
 </resources>

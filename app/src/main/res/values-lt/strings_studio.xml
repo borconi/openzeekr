@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Vilkite juostos rankenėlę, kad pakeistumėte</string>
+    <string name="vehicle_amps_lower_cd">Sumažinti įkrovimo srovę</string>
+    <string name="vehicle_amps_raise_cd">Padidinti įkrovimo srovę</string>
+    <string name="vehicle_charge_stat_power">Galia</string>
+    <string name="vehicle_charge_stat_current">Srovė</string>
+    <string name="vehicle_charge_stat_full_in">Pilna po</string>
+    <string name="vehicle_charge_phases">%1$d-fazis</string>
+
+    <string name="location_updated_fmt">Atnaujinta %1$s</string>
+    <string name="location_rpa_hint">Pirmiausia įjunkite nuotolinį parkavimą automobilio centriniame ekrane.</string>
+
+    <string name="sec_studio_subtitle">Stebi automobilį, kol jis pastatytas</string>
+    <string name="sec_studio_arm">Aktyvuoti</string>
+    <string name="sec_studio_disarm">Išjungti</string>
+    <string name="sec_studio_access_title">Prieiga</string>
+    <string name="sec_studio_access_hint">Kiekvienam pakeitimui reikia PIN</string>
+
+    <string name="sched_studio_subtitle">Įkrovimas ir išvykimai pagal laiką, išsaugoti automobilyje</string>
+    <string name="sched_studio_charge_switch">Krauti pagal šį tvarkaraštį</string>
+
+    <string name="journey_studio_subtitle">Automobilio užregistruotos kelionės</string>
+    <string name="journey_studio_trips_shown">Rodomos kelionės</string>
+
+    <string name="setup_studio_subtitle">Jūsų telefonas – automobilio raktas per Bluetooth</string>
+    <string name="setup_studio_pill_active">Aktyvu</string>
+    <string name="setup_studio_pill_not_set_up">Nenustatyta</string>
+    <string name="setup_studio_pill_connected">Prisijungta</string>
+    <string name="setup_studio_calibration">Kalibravimas</string>
+    <string name="setup_studio_calibrated">Sukalibruota</string>
+    <string name="setup_studio_calib_door">Prie durų</string>
+    <string name="setup_studio_calib_far">Už 6 m</string>
+
+    <string name="ota_studio_checked_at">Patikrinta %1$s</string>
+
+    <string name="aa_studio_state_on">Įjungta</string>
+    <string name="aa_studio_state_off">Išjungta</string>
+    <string name="aa_studio_state_unsupported">Nepalaikoma</string>
+
+    <string name="settings_studio_diagnostics">Žurnalai ir diagnostika</string>
+    <string name="settings_studio_dev_tools">Kūrėjo įrankiai</string>
+    <string name="settings_studio_dev_hint">Bandomosios funkcijos čia ir kituose skirtukuose.</string>
+    <string name="settings_studio_version_line">Versija %1$s</string>
+    <string name="settings_studio_region_hint">Zeekr serveriai, kuriuose yra jūsų paskyra.</string>
+    <string name="settings_studio_region_verified">Patvirtinta</string>
+    <string name="settings_studio_region_experimental">Eksperimentinė</string>
+
+    <string name="inbox_studio_has_unread">Turite neskaitytų žinučių</string>
+    <string name="inbox_studio_all_read">Viskas perskaityta</string>
+    <string name="inbox_studio_unread_cd">Neskaityta</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Bendrinama su %1$d asmeniu</item>
+        <item quantity="few">Bendrinama su %1$d asmenimis</item>
+        <item quantity="many">Bendrinama su %1$d asmens</item>
+        <item quantity="other">Bendrinama su %1$d asmenų</item>
+    </plurals>
+    <string name="carshare_studio_people">Asmenys, turintys prieigą</string>
+    <string name="carshare_studio_empty_body">Visi, su kuriais bendrinate, rodomi čia, ir bet kada galite panaikinti jų prieigą.</string>
+
+    <string name="onb_studio_region_lead">Pasirinkite rinką, kuriai priklauso jūsų automobilis ir paskyra. Tai parenka tinkamus Zeekr serverius.</string>
+    <string name="onb_studio_region_keys_note">Kiekvienam regionui reikia savų išgautų raktų (zeekr_key_extractor --region %1$s). Juos pridėsite kitame žingsnyje.</string>
+    <string name="onb_studio_region_verified">Patvirtinta</string>
+    <string name="onb_studio_region_experimental">Eksperimentinė</string>
+    <string name="onb_studio_key_not_set">Dar nenustatyta</string>
+
+</resources>

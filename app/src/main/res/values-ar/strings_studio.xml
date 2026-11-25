@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">اسحب المقبض على الشريط لتغييره</string>
+    <string name="vehicle_amps_lower_cd">خفض تيار الشحن</string>
+    <string name="vehicle_amps_raise_cd">رفع تيار الشحن</string>
+    <string name="vehicle_charge_stat_power">القدرة</string>
+    <string name="vehicle_charge_stat_current">التيار</string>
+    <string name="vehicle_charge_stat_full_in">يكتمل خلال</string>
+    <string name="vehicle_charge_phases">%1$d أطوار</string>
+
+    <string name="location_updated_fmt">حُدِّث %1$s</string>
+    <string name="location_rpa_hint">فعّل الركن عن بُعد من الشاشة الوسطى للسيارة أولًا.</string>
+
+    <string name="sec_studio_subtitle">راقب السيارة أثناء توقفها</string>
+    <string name="sec_studio_arm">تفعيل</string>
+    <string name="sec_studio_disarm">إيقاف</string>
+    <string name="sec_studio_access_title">الوصول</string>
+    <string name="sec_studio_access_hint">كل تغيير يتطلب رمز PIN</string>
+
+    <string name="sched_studio_subtitle">الشحن المجدول وأوقات المغادرة، محفوظة على السيارة</string>
+    <string name="sched_studio_charge_switch">الشحن وفق هذا الجدول</string>
+
+    <string name="journey_studio_subtitle">رحلات سجّلتها السيارة</string>
+    <string name="journey_studio_trips_shown">الرحلات المعروضة</string>
+
+    <string name="setup_studio_subtitle">هاتفك مفتاحًا للسيارة عبر Bluetooth</string>
+    <string name="setup_studio_pill_active">نشط</string>
+    <string name="setup_studio_pill_not_set_up">غير مُعدّ</string>
+    <string name="setup_studio_pill_connected">متصل</string>
+    <string name="setup_studio_calibration">المعايرة</string>
+    <string name="setup_studio_calibrated">تمت المعايرة</string>
+    <string name="setup_studio_calib_door">عند الباب</string>
+    <string name="setup_studio_calib_far">على بُعد 6 م</string>
+
+    <string name="ota_studio_checked_at">تم التحقق في %1$s</string>
+
+    <string name="aa_studio_state_on">مُفعّل</string>
+    <string name="aa_studio_state_off">متوقف</string>
+    <string name="aa_studio_state_unsupported">غير مدعوم</string>
+
+    <string name="settings_studio_diagnostics">السجلات والتشخيص</string>
+    <string name="settings_studio_dev_tools">أدوات المطوّر</string>
+    <string name="settings_studio_dev_hint">ميزات اختبارية، هنا وفي تبويبات أخرى.</string>
+    <string name="settings_studio_version_line">الإصدار %1$s</string>
+    <string name="settings_studio_region_hint">خوادم Zeekr التي يوجد عليها حسابك.</string>
+    <string name="settings_studio_region_verified">مُتحقَّق منها</string>
+    <string name="settings_studio_region_experimental">تجريبية</string>
+
+    <string name="inbox_studio_has_unread">لديك رسائل غير مقروءة</string>
+    <string name="inbox_studio_all_read">تمت قراءة كل شيء</string>
+    <string name="inbox_studio_unread_cd">غير مقروءة</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="zero">مشتركة مع %1$d أشخاص</item>
+        <item quantity="one">مشتركة مع %1$d شخص</item>
+        <item quantity="two">مشتركة مع %1$d شخصين</item>
+        <item quantity="few">مشتركة مع %1$d أشخاص</item>
+        <item quantity="many">مشتركة مع %1$d شخصًا</item>
+        <item quantity="other">مشتركة مع %1$d شخص</item>
+    </plurals>
+    <string name="carshare_studio_people">الأشخاص الذين لديهم وصول</string>
+    <string name="carshare_studio_empty_body">يظهر هنا كل من تشاركها معه، ويمكنك إلغاء وصوله في أي وقت.</string>
+
+    <string name="onb_studio_region_lead">اختر السوق الذي تنتمي إليه سيارتك وحسابك. هذا يحدد خوادم Zeekr الصحيحة.</string>
+    <string name="onb_studio_region_keys_note">تتطلب كل منطقة مفاتيحها المستخرجة الخاصة (zeekr_key_extractor --region %1$s). ستضيفها في الخطوة التالية.</string>
+    <string name="onb_studio_region_verified">مُتحقَّق منها</string>
+    <string name="onb_studio_region_experimental">تجريبية</string>
+    <string name="onb_studio_key_not_set">لم يُعدّ بعد</string>
+
+</resources>

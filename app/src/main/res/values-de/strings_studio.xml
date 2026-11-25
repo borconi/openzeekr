@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Ziehe den Griff am Balken, um es zu ändern</string>
+    <string name="vehicle_amps_lower_cd">Ladestrom verringern</string>
+    <string name="vehicle_amps_raise_cd">Ladestrom erhöhen</string>
+    <string name="vehicle_charge_stat_power">Leistung</string>
+    <string name="vehicle_charge_stat_current">Strom</string>
+    <string name="vehicle_charge_stat_full_in">Voll in</string>
+    <string name="vehicle_charge_phases">%1$d-phasig</string>
+
+    <string name="location_updated_fmt">Aktualisiert %1$s</string>
+    <string name="location_rpa_hint">Aktiviere zuerst Remote-Parken auf dem Zentralbildschirm des Autos.</string>
+
+    <string name="sec_studio_subtitle">Behalte das Auto im Blick, während es parkt</string>
+    <string name="sec_studio_arm">Schärfen</string>
+    <string name="sec_studio_disarm">Entschärfen</string>
+    <string name="sec_studio_access_title">Zugriff</string>
+    <string name="sec_studio_access_hint">Jede Änderung erfordert eine PIN</string>
+
+    <string name="sched_studio_subtitle">Zeitgesteuertes Laden und Abfahrten, im Auto gespeichert</string>
+    <string name="sched_studio_charge_switch">Nach diesem Zeitplan laden</string>
+
+    <string name="journey_studio_subtitle">Vom Auto aufgezeichnete Fahrten</string>
+    <string name="journey_studio_trips_shown">Angezeigte Fahrten</string>
+
+    <string name="setup_studio_subtitle">Dein Telefon als Autoschlüssel, per Bluetooth</string>
+    <string name="setup_studio_pill_active">Aktiv</string>
+    <string name="setup_studio_pill_not_set_up">Nicht eingerichtet</string>
+    <string name="setup_studio_pill_connected">Verbunden</string>
+    <string name="setup_studio_calibration">Kalibrierung</string>
+    <string name="setup_studio_calibrated">Kalibriert</string>
+    <string name="setup_studio_calib_door">An der Tür</string>
+    <string name="setup_studio_calib_far">In 6 m</string>
+
+    <string name="ota_studio_checked_at">Geprüft um %1$s</string>
+
+    <string name="aa_studio_state_on">Ein</string>
+    <string name="aa_studio_state_off">Aus</string>
+    <string name="aa_studio_state_unsupported">Nicht unterstützt</string>
+
+    <string name="settings_studio_diagnostics">Protokolle und Diagnose</string>
+    <string name="settings_studio_dev_tools">Entwicklerwerkzeuge</string>
+    <string name="settings_studio_dev_hint">Testfunktionen, hier und auf anderen Tabs.</string>
+    <string name="settings_studio_version_line">Version %1$s</string>
+    <string name="settings_studio_region_hint">Die Zeekr-Server, auf denen dein Konto liegt.</string>
+    <string name="settings_studio_region_verified">Verifiziert</string>
+    <string name="settings_studio_region_experimental">Experimentell</string>
+
+    <string name="inbox_studio_has_unread">Du hast ungelesene Nachrichten</string>
+    <string name="inbox_studio_all_read">Alles gelesen</string>
+    <string name="inbox_studio_unread_cd">Ungelesen</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Mit %1$d Person geteilt</item>
+        <item quantity="other">Mit %1$d Personen geteilt</item>
+    </plurals>
+    <string name="carshare_studio_people">Personen mit Zugriff</string>
+    <string name="carshare_studio_empty_body">Jeder, mit dem du teilst, erscheint hier, und du kannst den Zugriff jederzeit widerrufen.</string>
+
+    <string name="onb_studio_region_lead">Wähle den Markt, zu dem dein Auto und Konto gehören. Dies wählt die richtigen Zeekr-Server.</string>
+    <string name="onb_studio_region_keys_note">Jede Region benötigt eigene extrahierte Schlüssel (zeekr_key_extractor --region %1$s). Du fügst sie als Nächstes hinzu.</string>
+    <string name="onb_studio_region_verified">Verifiziert</string>
+    <string name="onb_studio_region_experimental">Experimentell</string>
+    <string name="onb_studio_key_not_set">Noch nicht eingerichtet</string>
+
+</resources>

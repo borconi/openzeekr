@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Faites glisser la poignée sur la barre pour la modifier</string>
+    <string name="vehicle_amps_lower_cd">Réduire le courant de charge</string>
+    <string name="vehicle_amps_raise_cd">Augmenter le courant de charge</string>
+    <string name="vehicle_charge_stat_power">Puissance</string>
+    <string name="vehicle_charge_stat_current">Courant</string>
+    <string name="vehicle_charge_stat_full_in">Pleine dans</string>
+    <string name="vehicle_charge_phases">%1$d phases</string>
+
+    <string name="location_updated_fmt">Mise à jour : %1$s</string>
+    <string name="location_rpa_hint">Activez d\'abord le Stationnement à distance sur l\'écran central de la voiture.</string>
+
+    <string name="sec_studio_subtitle">Surveille la voiture lorsqu\'elle est stationnée</string>
+    <string name="sec_studio_arm">Armer</string>
+    <string name="sec_studio_disarm">Désarmer</string>
+    <string name="sec_studio_access_title">Accès</string>
+    <string name="sec_studio_access_hint">Chaque modification demande un PIN</string>
+
+    <string name="sched_studio_subtitle">Charge programmée et départs, enregistrés sur la voiture</string>
+    <string name="sched_studio_charge_switch">Charger selon cette planification</string>
+
+    <string name="journey_studio_subtitle">Trajets enregistrés par la voiture</string>
+    <string name="journey_studio_trips_shown">Trajets affichés</string>
+
+    <string name="setup_studio_subtitle">Votre téléphone comme clé de la voiture, via Bluetooth</string>
+    <string name="setup_studio_pill_active">Active</string>
+    <string name="setup_studio_pill_not_set_up">Non configurée</string>
+    <string name="setup_studio_pill_connected">Connecté</string>
+    <string name="setup_studio_calibration">Calibration</string>
+    <string name="setup_studio_calibrated">Calibré</string>
+    <string name="setup_studio_calib_door">À la porte</string>
+    <string name="setup_studio_calib_far">À 6 m</string>
+
+    <string name="ota_studio_checked_at">Vérifié à %1$s</string>
+
+    <string name="aa_studio_state_on">Activé</string>
+    <string name="aa_studio_state_off">Désactivé</string>
+    <string name="aa_studio_state_unsupported">Non pris en charge</string>
+
+    <string name="settings_studio_diagnostics">Journaux et diagnostics</string>
+    <string name="settings_studio_dev_tools">Outils de développement</string>
+    <string name="settings_studio_dev_hint">Fonctions de test, ici et dans d\'autres onglets.</string>
+    <string name="settings_studio_version_line">Version %1$s</string>
+    <string name="settings_studio_region_hint">Les serveurs Zeekr où se trouve votre compte.</string>
+    <string name="settings_studio_region_verified">Vérifiée</string>
+    <string name="settings_studio_region_experimental">Expérimentale</string>
+
+    <string name="inbox_studio_has_unread">Vous avez des messages non lus</string>
+    <string name="inbox_studio_all_read">Tout est lu</string>
+    <string name="inbox_studio_unread_cd">Non lu</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Partagée avec %1$d personne</item>
+        <item quantity="many">Partagée avec %1$d personnes</item>
+        <item quantity="other">Partagée avec %1$d personnes</item>
+    </plurals>
+    <string name="carshare_studio_people">Personnes ayant accès</string>
+    <string name="carshare_studio_empty_body">Toute personne avec qui vous partagez apparaît ici, et vous pouvez révoquer son accès à tout moment.</string>
+
+    <string name="onb_studio_region_lead">Choisissez le marché auquel appartiennent votre voiture et votre compte. Cela sélectionne les bons serveurs Zeekr.</string>
+    <string name="onb_studio_region_keys_note">Chaque région a besoin de ses propres clés extraites (zeekr_key_extractor --region %1$s). Vous les ajouterez ensuite.</string>
+    <string name="onb_studio_region_verified">Vérifiée</string>
+    <string name="onb_studio_region_experimental">Expérimentale</string>
+    <string name="onb_studio_key_not_set">Pas encore configurée</string>
+
+</resources>

@@ -39,7 +39,8 @@ import androidx.compose.ui.unit.sp
 import com.openzeekr.app.DepsHolder
 import com.openzeekr.app.ble.DkBleManager
 import com.openzeekr.app.config.ConfigStore
-import com.openzeekr.app.ui.theme.Brand
+import androidx.compose.ui.res.stringResource
+import com.openzeekr.app.R
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -169,7 +170,7 @@ class ForceUnlockActivity : ComponentActivity() {
         // Hard safety: never actuate if the phone is not locked right now.
         if (!isStillLocked()) { Logx.d("forceunlock", "gesture but phone is unlocked - ignoring"); finishAndClear(); return }
         fired = true
-        status.value = if (unlock) "Unlocking the car..." else "Locking the car..."
+        status.value = getString(if (unlock) R.string.force_unlocking else R.string.force_locking)
         Logx.d("forceunlock", "double-volume-${if (unlock) "UP" else "DOWN"} - ${if (unlock) "unlock" else "lock"} car over BLE")
         runCar(unlock)
         handler.removeCallbacks(timeout)
@@ -231,32 +232,39 @@ class ForceUnlockActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    // Fixed colours: this overlay stays dark in every theme.
+    private val OverlayBg = Color(0xFF0B0E14)
+    private val OverlaySurface = Color(0xFF1C2227)
+    private val OverlayAccent = Color(0xFF5AA9FF)
+    private val OverlayGood = Color(0xFF46D8A0)
+    private val OverlayMuted = Color(0xFF9AA6AD)
+
     @androidx.compose.runtime.Composable
     private fun Ui(statusText: String?, onUnlockPhone: () -> Unit) {
         Column(
-            Modifier.fillMaxSize().background(Color(0xFF0B0E14)).padding(28.dp),
+            Modifier.fillMaxSize().background(OverlayBg).padding(28.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("OpenZeekr", color = Brand.accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.app_name), color = OverlayAccent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(18.dp))
             if (statusText != null) {
-                Text(statusText, color = Brand.good, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                Text(statusText, color = OverlayGood, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
             } else {
-                Text("Control your car without unlocking", color = Brand.muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+                Text(stringResource(R.string.force_intro), color = OverlayMuted, fontSize = 13.sp, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
-                Text("Volume Up x2", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Text("unlock the car", color = Brand.good, fontSize = 13.sp)
+                Text(stringResource(R.string.force_volume_up_twice), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.force_unlocks_car), color = OverlayGood, fontSize = 13.sp)
                 Spacer(Modifier.height(10.dp))
-                Text("Volume Down x2", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Text("lock the car", color = Brand.good, fontSize = 13.sp)
+                Text(stringResource(R.string.force_volume_down_twice), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.force_locks_car), color = OverlayGood, fontSize = 13.sp)
             }
             Spacer(Modifier.height(28.dp))
             Button(
                 onClick = onUnlockPhone,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Brand.surface2, contentColor = Color.White),
-            ) { Text("Unlock phone") }
+                colors = ButtonDefaults.buttonColors(containerColor = OverlaySurface, contentColor = Color.White),
+            ) { Text(stringResource(R.string.force_unlock_phone)) }
         }
     }
 

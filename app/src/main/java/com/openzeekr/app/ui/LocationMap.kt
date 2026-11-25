@@ -2,7 +2,9 @@ package com.openzeekr.app.ui
 
 import android.content.Context
 import android.content.Intent
+import android.location.Geocoder
 import android.net.Uri
+import android.text.format.DateUtils
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +34,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.openzeekr.app.Deps
 import com.openzeekr.app.R
 import com.openzeekr.app.ui.theme.Brand
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -152,17 +158,72 @@ fun navigateToCar(context: Context, lat: Double, lng: Double, label: String = co
         .recoverCatching { context.startActivity(geo) }
 }
 
-/** "Where's my car" - the map centred on the car, auto-updating from the live status poll. */
+/** Where the car last reported itself: [pos] is latitude to longitude, [updatedAt] the snapshot's epoch ms. */
+internal class CarLocation(val pos: Pair<Double, Double>?, val updatedAt: Long?)
+
+/**
+ * The car's position from the live status poll, for both looks. It follows the car as it moves (no tab switch
+ * needed) and asks for a fresh status once when the screen opens.
+ */
 @Composable
-fun CarLocationSection(deps: Deps, modifier: Modifier = Modifier) {
-    val ctx = LocalContext.current
+internal fun rememberCarLocation(deps: Deps): CarLocation {
     // Observe the live status so the map follows the car as it moves (no tab switch needed).
     val status by deps.vehicleState.state.collectAsState()
     LaunchedEffect(Unit) { runCatching { deps.vehicleState.refresh() } }   // seed promptly on open
     val p = status?.basicVehicleStatus?.position
     val la = p?.latitude
     val lo = p?.longitude
-    val pos = if (la != null && lo != null) la to lo else null
+    return CarLocation(if (la != null && lo != null) la to lo else null, status?.updateTime)
+}
+
+/** Reverse-geocode cache (rounded lat,lon -> address line), kept for the life of the process. */
+private val carAddressCache = ConcurrentHashMap<String, String>()
+
+/**
+ * The street address of [pos] from the phone's own geocoder, or null while it resolves, when the phone has no
+ * geocoder, or when it finds nothing. Used by the Studio Location page, which falls back to the coordinates.
+ */
+@Composable
+internal fun rememberCarAddress(pos: Pair<Double, Double>?): String? {
+    if (pos == null) return null
+    val ctx = LocalContext.current
+    val key = "%.4f,%.4f".format(Locale.US, pos.first, pos.second)
+    var label by remember(key) { mutableStateOf(carAddressCache[key]) }
+    LaunchedEffect(key) {
+        if (label != null || !Geocoder.isPresent()) return@LaunchedEffect
+        val resolved = withContext(Dispatchers.IO) {
+            runCatching {
+                @Suppress("DEPRECATION")
+                Geocoder(ctx, Locale.getDefault()).getFromLocation(pos.first, pos.second, 1)?.firstOrNull()?.let { a ->
+                    // The first address line is already written the local way (street and number order, city).
+                    // Drop a trailing country: the owner knows which country the car is in.
+                    val line = a.getAddressLine(0)?.trim()
+                    val country = a.countryName
+                    val short = if (line != null && country != null) line.removeSuffix(country).trimEnd(' ', ',') else line
+                    short?.takeIf { it.isNotBlank() } ?: a.thoroughfare ?: a.locality
+                }
+            }.getOrNull()
+        }
+        if (resolved != null) {
+            carAddressCache[key] = resolved
+            label = resolved
+        }
+    }
+    return label
+}
+
+/** When the car's status was taken, the way the phone writes times: the time alone today, date and time otherwise. */
+internal fun formatLocationTime(context: Context, epochMs: Long): String {
+    val flags = if (DateUtils.isToday(epochMs)) DateUtils.FORMAT_SHOW_TIME
+    else DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH
+    return DateUtils.formatDateTime(context, epochMs, flags)
+}
+
+/** "Where's my car" - the map centred on the car, auto-updating from the live status poll. */
+@Composable
+fun CarLocationSection(deps: Deps, modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val pos = rememberCarLocation(deps).pos
     CockpitCard(modifier) {
         SectionHeader(stringResource(R.string.map_wheres_my_car))
         Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(14.dp))) {

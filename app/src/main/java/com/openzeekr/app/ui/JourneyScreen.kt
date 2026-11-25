@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -167,7 +169,49 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
         }
     }
 
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    // Trip-recording switch, shared by both looks: what it says under its title and what flipping it does.
+    val recordHint = when {
+        settingLog -> stringResource(R.string.journey_updating)
+        logging == null -> stringResource(R.string.journey_record_hint_unknown)
+        logging == true -> stringResource(R.string.journey_record_on)
+        else -> stringResource(R.string.journey_record_off)
+    }
+    fun switchLogging(on: Boolean) {
+        settingLog = true
+        logging = on // optimistic
+        scope.launch {
+            when (val r = deps.journey.setLogging(on)) {
+                is CallResult.Ok -> snackbar(if (on) ctx.getString(R.string.journey_recording_on) else ctx.getString(R.string.journey_recording_off))
+                is CallResult.Err -> { snackbar(ctx.getString(R.string.journey_recording_failed, r.message)); logging = !on }
+            }
+            // Re-read to reflect the car's real state (the command is vehicle-relayed).
+            (deps.journey.loggingEnabled() as? CallResult.Ok)?.value?.let { logging = it }
+            settingLog = false
+        }
+    }
+
+    if (Brand.isStudio) {
+        // The Studio look: same state, same commands, same export dialog; only the layout is different.
+        StudioJourney(
+            StudioJourneyState(
+                trips = trips, distanceUnit = cfg.distanceUnit,
+                loading = loading, loadingMore = loadingMore, hasMore = hasMore, error = error, exporting = exporting,
+                recordingOn = logging == true, recordingBusy = settingLog, recordHint = recordHint,
+                // Totals of the trips on screen; they grow as more pages are loaded.
+                totalDistanceLabel = stringResource(R.string.journey_csv_distance, Units.distanceSuffix(cfg.distanceUnit)),
+                totalDistance = distanceValue(trips.sumOf { it.distanceKm ?: 0 }, cfg.distanceUnit),
+                totalDuration = fmtDuration(ctx, trips.sumOf { it.durationMs ?: 0L }),
+            ),
+            StudioJourneyActions(
+                onBack = onBack,
+                onRecording = { on -> switchLogging(on) },
+                onExport = { showExportRange = true },
+                onReload = { scope.launch { load(reset = true) } },
+                onLoadMore = { scope.launch { load(reset = false) } },
+            ),
+            modifier,
+        )
+    } else Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Header (back + title), mirroring InboxScreen.
         Row(
             Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
@@ -192,32 +236,12 @@ fun JourneyScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, mo
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.journey_record_trips), fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    when {
-                        settingLog -> stringResource(R.string.journey_updating)
-                        logging == null -> stringResource(R.string.journey_record_hint_unknown)
-                        logging == true -> stringResource(R.string.journey_record_on)
-                        else -> stringResource(R.string.journey_record_off)
-                    },
-                    color = Brand.muted, fontSize = 12.sp,
-                )
+                Text(recordHint, color = Brand.muted, fontSize = 12.sp)
             }
             androidx.compose.material3.Switch(
                 checked = logging == true,
                 enabled = !settingLog,
-                onCheckedChange = { on ->
-                    settingLog = true
-                    logging = on // optimistic
-                    scope.launch {
-                        when (val r = deps.journey.setLogging(on)) {
-                            is CallResult.Ok -> snackbar(if (on) ctx.getString(R.string.journey_recording_on) else ctx.getString(R.string.journey_recording_off))
-                            is CallResult.Err -> { snackbar(ctx.getString(R.string.journey_recording_failed, r.message)); logging = !on }
-                        }
-                        // Re-read to reflect the car's real state (the command is vehicle-relayed).
-                        (deps.journey.loggingEnabled() as? CallResult.Ok)?.value?.let { logging = it }
-                        settingLog = false
-                    }
-                },
+                onCheckedChange = { on -> switchLogging(on) },
             )
         }
 
@@ -306,22 +330,30 @@ private fun ExportRangeDialog(onDismiss: () -> Unit, onPick: (startMs: Long, end
         }
         return
     }
+    // What picking a row does, shared by both looks.
+    val choose: (ExportRange) -> Unit = { r ->
+        if (r.days == null) {
+            custom = true
+        } else {
+            val now = System.currentTimeMillis()
+            onPick(now - r.days * 86_400_000L, now)
+        }
+    }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.journey_export_range_title)) },
+        title = {
+            if (Brand.isStudio) Text(stringResource(R.string.journey_export_range_title), fontFamily = Brand.display, fontWeight = FontWeight.SemiBold)
+            else Text(stringResource(R.string.journey_export_range_title))
+        },
         text = {
-            Column {
+            if (Brand.isStudio) Column(Modifier.verticalScroll(rememberScrollState())) {
+                ExportRange.entries.forEach { r -> StudioRow(stringResource(r.labelRes), onClick = { choose(r) }) }
+            } else Column {
                 ExportRange.entries.forEach { r ->
                     Text(
                         stringResource(r.labelRes),
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable {
-                            if (r.days == null) {
-                                custom = true
-                            } else {
-                                val now = System.currentTimeMillis()
-                                onPick(now - r.days * 86_400_000L, now)
-                            }
-                        }.padding(vertical = 12.dp, horizontal = 4.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { choose(r) }
+                            .padding(vertical = 12.dp, horizontal = 4.dp),
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -333,13 +365,54 @@ private fun ExportRangeDialog(onDismiss: () -> Unit, onPick: (startMs: Long, end
     )
 }
 
+/** What a trip card shows and does, worked out once for both looks. */
+internal class TripView(
+    val date: String,
+    /** "08:10 – 08:42". */
+    val timeRange: String,
+    /** Distance in the user's unit, with the unit. */
+    val distance: String,
+    /** The trip has at least one GPS end, so the place line is shown. */
+    val hasLocation: Boolean,
+    /** Place names; null while they resolve or when that end has no GPS point. */
+    val startLabel: String?,
+    val endLabel: String?,
+    val duration: String,
+    val avgSpeed: String,
+    val odometer: String,
+    val consumption: String,
+    val regen: String,
+    /** Opens the start-to-end route in a maps app; null when an end is missing. */
+    val onOpenRoute: (() -> Unit)?,
+)
+
 @Composable
-private fun TripCard(t: JourneyTrip, distanceUnit: String) {
+internal fun tripView(t: JourneyTrip, distanceUnit: String): TripView {
     val ctx = LocalContext.current
     val route = routeUrl(t)
-    val cardMod = if (route != null) Modifier.clickable {
-        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(route))) }
-    } else Modifier
+    val none = stringResource(R.string.vehicle_dash)
+    return TripView(
+        date = fmtDate(t.startTime),
+        timeRange = stringResource(R.string.journey_time_range, fmtClock(t.startTime), fmtClock(t.endTime)),
+        distance = distanceLabel(t.distanceKm, distanceUnit),
+        hasLocation = t.startLat != null || t.endLat != null,
+        // Reverse-geocoded from the trip's first/last GPS point.
+        startLabel = rememberAddress(t.startLat, t.startLon),
+        endLabel = rememberAddress(t.endLat, t.endLon),
+        duration = fmtDuration(ctx, t.durationMs),
+        avgSpeed = t.avgSpeedKmh?.let { stringResource(R.string.journey_speed_kmh, it.toString()) } ?: none,
+        odometer = t.endOdometer?.let { stringResource(R.string.journey_dist_km, it.toString()) } ?: none,
+        consumption = t.electricConsumption?.let { trimNum(it) } ?: none,
+        regen = t.electricRegeneration?.let { trimNum(it) } ?: none,
+        onOpenRoute = route?.let { url -> fun() { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } } },
+    )
+}
+
+@Composable
+private fun TripCard(t: JourneyTrip, distanceUnit: String) {
+    val v = tripView(t, distanceUnit)
+    val openRoute = v.onOpenRoute
+    val cardMod = if (openRoute != null) Modifier.clickable { openRoute() } else Modifier
     CockpitCard(modifier = cardMod) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -348,34 +421,32 @@ private fun TripCard(t: JourneyTrip, distanceUnit: String) {
             ) { Icon(Icons.Filled.Route, null, tint = Brand.accent, modifier = Modifier.size(20.dp)) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(fmtDate(t.startTime), fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                Text(v.date, fontWeight = FontWeight.Bold, fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface)
-                Text(stringResource(R.string.journey_time_range, fmtClock(t.startTime), fmtClock(t.endTime)), color = Brand.muted, fontSize = 12.5.sp)
+                Text(v.timeRange, color = Brand.muted, fontSize = 12.5.sp)
             }
-            Text(distanceLabel(t.distanceKm, distanceUnit), fontWeight = FontWeight.Bold,
+            Text(v.distance, fontWeight = FontWeight.Bold,
                 fontSize = 16.sp, color = Brand.accent)
         }
-        // Start → end location, reverse-geocoded from the trip's first/last GPS point. Tapping the
-        // card opens Google Maps with this route (directions icon signals it's tappable).
-        if (t.startLat != null || t.endLat != null) {
-            val startLabel = rememberAddress(t.startLat, t.startLon)
-            val endLabel = rememberAddress(t.endLat, t.endLon)
+        // Start → end location. Tapping the card opens Google Maps with this route (directions icon
+        // signals it's tappable).
+        if (v.hasLocation) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (route != null) Icon(Icons.Filled.Directions, stringResource(R.string.journey_cd_open_route), tint = Brand.accent, modifier = Modifier.size(15.dp))
+                if (openRoute != null) Icon(Icons.Filled.Directions, stringResource(R.string.journey_cd_open_route), tint = Brand.accent, modifier = Modifier.size(15.dp))
                 Text(
-                    stringResource(R.string.journey_route_fromto, startLabel ?: "…", endLabel ?: "…"),
+                    stringResource(R.string.journey_route_fromto, v.startLabel ?: "…", v.endLabel ?: "…"),
                     color = Brand.muted, fontSize = 12.sp, maxLines = 2, modifier = Modifier.weight(1f),
                 )
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            Stat(stringResource(R.string.journey_stat_duration), fmtDuration(t.durationMs))
-            Stat(stringResource(R.string.journey_stat_avg_speed), t.avgSpeedKmh?.let { stringResource(R.string.journey_speed_kmh, it.toString()) } ?: "-")
-            Stat(stringResource(R.string.journey_stat_odometer), t.endOdometer?.let { stringResource(R.string.journey_dist_km, it.toString()) } ?: "-")
+            Stat(stringResource(R.string.journey_stat_duration), v.duration)
+            Stat(stringResource(R.string.journey_stat_avg_speed), v.avgSpeed)
+            Stat(stringResource(R.string.journey_stat_odometer), v.odometer)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            Stat(stringResource(R.string.journey_stat_consumption), t.electricConsumption?.let { trimNum(it) } ?: "-")
-            Stat(stringResource(R.string.journey_stat_regen), t.electricRegeneration?.let { trimNum(it) } ?: "-")
+            Stat(stringResource(R.string.journey_stat_consumption), v.consumption)
+            Stat(stringResource(R.string.journey_stat_regen), v.regen)
         }
     }
 }
@@ -458,12 +529,21 @@ private fun fmtDate(ms: Long?): String =
 private fun fmtClock(ms: Long?): String =
     ms?.let { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(it)) } ?: "-"
 
-private fun fmtDuration(ms: Long?): String {
+/** Duration for the exported file: the same fixed form in every language, so exports stay comparable. */
+private fun csvDuration(ms: Long?): String {
     if (ms == null) return "-"
     val totalMin = ms / 60_000
     val h = totalMin / 60
     val m = totalMin % 60
     return if (h > 0) "${h}h ${m}m" else "${m}m"
+}
+
+private fun fmtDuration(ctx: android.content.Context, ms: Long?): String {
+    if (ms == null) return ctx.getString(R.string.vehicle_dash)
+    val totalMin = ms / 60_000
+    val h = (totalMin / 60).toInt()
+    val m = (totalMin % 60).toInt()
+    return if (h > 0) ctx.getString(R.string.journey_duration_hm, h, m) else ctx.getString(R.string.journey_duration_m, m)
 }
 
 /**
@@ -486,7 +566,7 @@ private fun buildCsv(ctx: Context, trips: List<JourneyTrip>, distanceUnit: Strin
                 distanceValue(t.distanceKm, distanceUnit),
                 t.electricConsumption?.let { trimNum(it) } ?: "",
                 t.electricRegeneration?.let { trimNum(it) } ?: "",
-                fmtDuration(t.durationMs),
+                csvDuration(t.durationMs),
                 t.endOdometer?.toString() ?: "",
                 routeUrl(t) ?: "",
             ),

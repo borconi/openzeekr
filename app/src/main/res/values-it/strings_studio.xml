@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Trascina la maniglia sulla barra per modificarlo</string>
+    <string name="vehicle_amps_lower_cd">Riduci la corrente di carica</string>
+    <string name="vehicle_amps_raise_cd">Aumenta la corrente di carica</string>
+    <string name="vehicle_charge_stat_power">Potenza</string>
+    <string name="vehicle_charge_stat_current">Corrente</string>
+    <string name="vehicle_charge_stat_full_in">Completa tra</string>
+    <string name="vehicle_charge_phases">%1$d fasi</string>
+
+    <string name="location_updated_fmt">Aggiornato %1$s</string>
+    <string name="location_rpa_hint">Attiva prima il Parcheggio remoto sullo schermo centrale dell\'auto.</string>
+
+    <string name="sec_studio_subtitle">Sorveglia l\'auto mentre è parcheggiata</string>
+    <string name="sec_studio_arm">Arma</string>
+    <string name="sec_studio_disarm">Disarma</string>
+    <string name="sec_studio_access_title">Accesso</string>
+    <string name="sec_studio_access_hint">Ogni modifica richiede un PIN</string>
+
+    <string name="sched_studio_subtitle">Carica programmata e partenze, salvate sull\'auto</string>
+    <string name="sched_studio_charge_switch">Carica secondo questa pianificazione</string>
+
+    <string name="journey_studio_subtitle">Viaggi registrati dall\'auto</string>
+    <string name="journey_studio_trips_shown">Viaggi mostrati</string>
+
+    <string name="setup_studio_subtitle">Il tuo telefono come chiave dell\'auto, via Bluetooth</string>
+    <string name="setup_studio_pill_active">Attiva</string>
+    <string name="setup_studio_pill_not_set_up">Non configurata</string>
+    <string name="setup_studio_pill_connected">Connesso</string>
+    <string name="setup_studio_calibration">Calibrazione</string>
+    <string name="setup_studio_calibrated">Calibrato</string>
+    <string name="setup_studio_calib_door">Alla porta</string>
+    <string name="setup_studio_calib_far">A 6 m</string>
+
+    <string name="ota_studio_checked_at">Controllato alle %1$s</string>
+
+    <string name="aa_studio_state_on">Attivo</string>
+    <string name="aa_studio_state_off">Disattivo</string>
+    <string name="aa_studio_state_unsupported">Non supportato</string>
+
+    <string name="settings_studio_diagnostics">Registri e diagnostica</string>
+    <string name="settings_studio_dev_tools">Strumenti per sviluppatori</string>
+    <string name="settings_studio_dev_hint">Funzioni di test, qui e in altre schede.</string>
+    <string name="settings_studio_version_line">Versione %1$s</string>
+    <string name="settings_studio_region_hint">I server Zeekr su cui si trova il tuo account.</string>
+    <string name="settings_studio_region_verified">Verificata</string>
+    <string name="settings_studio_region_experimental">Sperimentale</string>
+
+    <string name="inbox_studio_has_unread">Hai messaggi non letti</string>
+    <string name="inbox_studio_all_read">Tutto letto</string>
+    <string name="inbox_studio_unread_cd">Non letto</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Condivisa con %1$d persona</item>
+        <item quantity="many">Condivisa con %1$d persone</item>
+        <item quantity="other">Condivisa con %1$d persone</item>
+    </plurals>
+    <string name="carshare_studio_people">Persone con accesso</string>
+    <string name="carshare_studio_empty_body">Chiunque con cui condividi compare qui, e puoi revocarne l\'accesso in qualsiasi momento.</string>
+
+    <string name="onb_studio_region_lead">Scegli il mercato a cui appartengono la tua auto e il tuo account. Questo seleziona i server Zeekr corretti.</string>
+    <string name="onb_studio_region_keys_note">Ogni regione ha bisogno delle proprie chiavi estratte (zeekr_key_extractor --region %1$s). Le aggiungerai dopo.</string>
+    <string name="onb_studio_region_verified">Verificata</string>
+    <string name="onb_studio_region_experimental">Sperimentale</string>
+    <string name="onb_studio_key_not_set">Non ancora configurata</string>
+
+</resources>

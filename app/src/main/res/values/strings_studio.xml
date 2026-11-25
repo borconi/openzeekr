@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Text that exists only in the Studio look. One file, so every language has one file to match. -->
+
+    <!-- home and charging -->
+    <string name="vehicle_charge_limit_drag_hint">Drag the handle on the bar to change it</string>
+    <string name="vehicle_amps_lower_cd">Lower the charge current</string>
+    <string name="vehicle_amps_raise_cd">Raise the charge current</string>
+    <string name="vehicle_charge_stat_power">Power</string>
+    <string name="vehicle_charge_stat_current">Current</string>
+    <string name="vehicle_charge_stat_full_in">Full in</string>
+    <string name="vehicle_charge_phases">%1$d-phase</string>
+
+    <!-- location -->
+    <!-- Location tab, Studio look. -->
+    <!-- Under the page title. %1$s is a time ("14:32") or a date and time ("12 Nov, 14:32"). -->
+    <string name="location_updated_fmt">Updated %1$s</string>
+    <!-- Latitude, longitude. -->
+    <string name="location_coords_fmt" translatable="false">%1$s, %2$s</string>
+    <!-- Under the Remote Parking card title (developer mode). -->
+    <string name="location_rpa_hint">Arm Remote Parking on the car\'s centre screen first.</string>
+
+    <!-- security -->
+    <!-- Security tab, Studio look. -->
+    <!-- One line under the page title. -->
+    <string name="sec_studio_subtitle">Keep watch over the car while it is parked</string>
+    <!-- Labels inside the round Sentry button. Keep each to one short word: the button is small. -->
+    <string name="sec_studio_arm">Arm</string>
+    <string name="sec_studio_disarm">Disarm</string>
+    <!-- Card with the glovebox lock and visitor mode. -->
+    <string name="sec_studio_access_title">Access</string>
+    <string name="sec_studio_access_hint">Each change asks for a PIN</string>
+
+    <!-- schedule -->
+    <!-- Studio look: Schedule tab -->
+    <string name="sched_studio_subtitle">Timed charging and departures, saved on the car</string>
+    <string name="sched_studio_charge_switch">Charge on this schedule</string>
+
+    <!-- Studio look: Journey log -->
+    <string name="journey_studio_subtitle">Drives recorded by the car</string>
+    <string name="journey_studio_trips_shown">Trips shown</string>
+
+    <!-- key -->
+    <!-- Key tab, Studio look. Everything else on that page reuses the setup_* strings in strings.xml. -->
+    <string name="setup_studio_subtitle">Your phone as the car key, over Bluetooth</string>
+    <!-- Status pill next to the page title -->
+    <string name="setup_studio_pill_active">Active</string>
+    <string name="setup_studio_pill_not_set_up">Not set up</string>
+    <string name="setup_studio_pill_connected">Connected</string>
+    <!-- Passive entry: the calibration block -->
+    <string name="setup_studio_calibration">Calibration</string>
+    <string name="setup_studio_calibrated">Calibrated</string>
+    <string name="setup_studio_calib_door">At the door</string>
+    <string name="setup_studio_calib_far">At 6 m</string>
+    <string name="setup_studio_dbm" translatable="false">%1$d dBm</string>
+
+    <!-- updates / aa -->
+    <!-- ===== Studio look: Updates tab (ota_studio_) ===== -->
+    <!-- Under the page title, next to the status. %1$s is a clock time, e.g. 14:32 -->
+    <string name="ota_studio_checked_at">Checked at %1$s</string>
+
+    <!-- ===== Studio look: Android Auto tab (aa_studio_) ===== -->
+    <!-- Status word under the page title: the Android Auto Enhancement feature is switched on / off -->
+    <string name="aa_studio_state_on">On</string>
+    <string name="aa_studio_state_off">Off</string>
+    <!-- Status word under the page title when the phone's Android version is too old for the feature -->
+    <string name="aa_studio_state_unsupported">Not supported</string>
+
+    <!-- settings -->
+    <!-- Studio look: Settings tab -->
+    <!-- Card title over the logging switches, the log, the vehicle ping and the pairing-code tool. -->
+    <string name="settings_studio_diagnostics">Logs and diagnostics</string>
+    <!-- Card shown only in developer mode. -->
+    <string name="settings_studio_dev_tools">Developer tools</string>
+    <string name="settings_studio_dev_hint">Test features, here and on other tabs.</string>
+    <!-- The quiet line at the bottom of the page. %1$s is the version number, e.g. 0.2.9. -->
+    <string name="settings_studio_version_line">Version %1$s</string>
+    <string name="settings_studio_region_hint">The Zeekr servers your account is on.</string>
+    <!-- Status words next to the name of the chosen region. -->
+    <string name="settings_studio_region_verified">Verified</string>
+    <string name="settings_studio_region_experimental">Experimental</string>
+
+    <!-- pages -->
+    <!-- Inbox -->
+    <string name="inbox_studio_has_unread">You have unread messages</string>
+    <string name="inbox_studio_all_read">Everything is read</string>
+    <string name="inbox_studio_unread_cd">Unread</string>
+
+    <!-- Car sharing -->
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Shared with %1$d person</item>
+        <item quantity="other">Shared with %1$d people</item>
+    </plurals>
+    <string name="carshare_studio_people">People with access</string>
+    <string name="carshare_studio_empty_body">Anyone you share with shows up here, and you can revoke their access at any time.</string>
+
+    <!-- Onboarding -->
+    <string name="onb_studio_region_lead">Pick the market your car and account belong to. This selects the right Zeekr servers.</string>
+    <string name="onb_studio_region_keys_note">Each region needs its own extracted keys (zeekr_key_extractor --region %1$s). You add them next.</string>
+    <string name="onb_studio_region_verified">Verified</string>
+    <string name="onb_studio_region_experimental">Experimental</string>
+    <string name="onb_studio_key_not_set">Not set up yet</string>
+
+</resources>

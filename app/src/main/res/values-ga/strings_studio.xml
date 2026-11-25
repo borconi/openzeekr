@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Tarraing an hanla ar an mbarra chun í a athrú</string>
+    <string name="vehicle_amps_lower_cd">Laghdaigh an sruth luchtaithe</string>
+    <string name="vehicle_amps_raise_cd">Méadaigh an sruth luchtaithe</string>
+    <string name="vehicle_charge_stat_power">Cumhacht</string>
+    <string name="vehicle_charge_stat_current">Sruth</string>
+    <string name="vehicle_charge_stat_full_in">Lán i gceann</string>
+    <string name="vehicle_charge_phases">%1$d-chéim</string>
+
+    <string name="location_updated_fmt">Nuashonraithe %1$s</string>
+    <string name="location_rpa_hint">Armáil Cianpháirceáil ar scáileán láir an chairr ar dtús.</string>
+
+    <string name="sec_studio_subtitle">Coinnigh súil ar an gcarr agus é páirceáilte</string>
+    <string name="sec_studio_arm">Armáil</string>
+    <string name="sec_studio_disarm">Dí-armáil</string>
+    <string name="sec_studio_access_title">Rochtain</string>
+    <string name="sec_studio_access_hint">Iarrtar PIN le gach athrú</string>
+
+    <string name="sched_studio_subtitle">Luchtú agus imeachtaí sceidealta, sábháilte ar an gcarr</string>
+    <string name="sched_studio_charge_switch">Luchtaigh de réir an sceidil seo</string>
+
+    <string name="journey_studio_subtitle">Tiomáintí arna dtaifeadadh ag an gcarr</string>
+    <string name="journey_studio_trips_shown">Turais a thaispeántar</string>
+
+    <string name="setup_studio_subtitle">D\'fhón mar eochair an chairr, trí Bluetooth</string>
+    <string name="setup_studio_pill_active">Gníomhach</string>
+    <string name="setup_studio_pill_not_set_up">Gan chur ar bun</string>
+    <string name="setup_studio_pill_connected">Nasctha</string>
+    <string name="setup_studio_calibration">Calabrú</string>
+    <string name="setup_studio_calibrated">Calabraithe</string>
+    <string name="setup_studio_calib_door">Ag an doras</string>
+    <string name="setup_studio_calib_far">Ag 6 m</string>
+
+    <string name="ota_studio_checked_at">Seiceáilte ag %1$s</string>
+
+    <string name="aa_studio_state_on">Ar siúl</string>
+    <string name="aa_studio_state_off">As</string>
+    <string name="aa_studio_state_unsupported">Gan tacaíocht</string>
+
+    <string name="settings_studio_diagnostics">Logaí agus diagnóisic</string>
+    <string name="settings_studio_dev_tools">Uirlisí forbróra</string>
+    <string name="settings_studio_dev_hint">Gnéithe tástála, anseo agus ar chluaisíní eile.</string>
+    <string name="settings_studio_version_line">Leagan %1$s</string>
+    <string name="settings_studio_region_hint">Na freastalaithe Zeekr ar a bhfuil do chuntas.</string>
+    <string name="settings_studio_region_verified">Deimhnithe</string>
+    <string name="settings_studio_region_experimental">Turgnamhach</string>
+
+    <string name="inbox_studio_has_unread">Tá teachtaireachtaí gan léamh agat</string>
+    <string name="inbox_studio_all_read">Tá gach rud léite</string>
+    <string name="inbox_studio_unread_cd">Gan léamh</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Roinnte le %1$d duine</item>
+        <item quantity="two">Roinnte le %1$d dhuine</item>
+        <item quantity="few">Roinnte le %1$d dhuine</item>
+        <item quantity="many">Roinnte le %1$d nduine</item>
+        <item quantity="other">Roinnte le %1$d duine</item>
+    </plurals>
+    <string name="carshare_studio_people">Daoine a bhfuil rochtain acu</string>
+    <string name="carshare_studio_empty_body">Taispeántar anseo aon duine a roinneann tú leo, agus is féidir leat a rochtain a chúlghairm am ar bith.</string>
+
+    <string name="onb_studio_region_lead">Roghnaigh an margadh lena mbaineann do charr agus do chuntas. Roghnaíonn sé seo na freastalaithe Zeekr cearta.</string>
+    <string name="onb_studio_region_keys_note">Teastaíonn a eochracha féin a baineadh amach ó gach réigiún (zeekr_key_extractor --region %1$s). Cuirfidh tú leis iad sa chéad chéim eile.</string>
+    <string name="onb_studio_region_verified">Deimhnithe</string>
+    <string name="onb_studio_region_experimental">Turgnamhach</string>
+    <string name="onb_studio_key_not_set">Gan chur ar bun fós</string>
+
+</resources>

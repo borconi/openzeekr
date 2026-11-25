@@ -655,6 +655,10 @@ public class CarHandshakeClient extends Thread {
                 if (lost.equals(wifiNetwork)) {
                     Log.w(TAG, "Car WiFi lost -> clearing wifiNetwork (was " + lost + ")");
                     wifiNetwork = null;
+                    // Tell the service to PROACTIVELY full-close the gearhead (5277) link now, so its
+                    // stuck pump hits EOF and its accept-loop frees - instead of waiting out the
+                    // read-side socket timeout. See HandshakeCallbacks.onCarWifiLost.
+                    try { callbacks.onCarWifiLost(); } catch (Exception ignored) {}
                 }
             });
             wifiConnector = connector;

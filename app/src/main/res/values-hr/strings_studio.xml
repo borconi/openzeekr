@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Povucite ručicu na traci za promjenu</string>
+    <string name="vehicle_amps_lower_cd">Smanji struju punjenja</string>
+    <string name="vehicle_amps_raise_cd">Povećaj struju punjenja</string>
+    <string name="vehicle_charge_stat_power">Snaga</string>
+    <string name="vehicle_charge_stat_current">Struja</string>
+    <string name="vehicle_charge_stat_full_in">Puno za</string>
+    <string name="vehicle_charge_phases">%1$d-fazno</string>
+
+    <string name="location_updated_fmt">Ažurirano %1$s</string>
+    <string name="location_rpa_hint">Najprije aktivirajte Daljinsko parkiranje na središnjem zaslonu vozila.</string>
+
+    <string name="sec_studio_subtitle">Nadzor vozila dok je parkirano</string>
+    <string name="sec_studio_arm">Uključi</string>
+    <string name="sec_studio_disarm">Isključi</string>
+    <string name="sec_studio_access_title">Pristup</string>
+    <string name="sec_studio_access_hint">Svaka promjena traži PIN</string>
+
+    <string name="sched_studio_subtitle">Tempirano punjenje i polasci, spremljeni u vozilu</string>
+    <string name="sched_studio_charge_switch">Puni prema ovom rasporedu</string>
+
+    <string name="journey_studio_subtitle">Vožnje koje je zabilježilo vozilo</string>
+    <string name="journey_studio_trips_shown">Prikazana putovanja</string>
+
+    <string name="setup_studio_subtitle">Vaš telefon kao ključ vozila, putem Bluetootha</string>
+    <string name="setup_studio_pill_active">Aktivno</string>
+    <string name="setup_studio_pill_not_set_up">Nije postavljeno</string>
+    <string name="setup_studio_pill_connected">Povezano</string>
+    <string name="setup_studio_calibration">Kalibracija</string>
+    <string name="setup_studio_calibrated">Kalibrirano</string>
+    <string name="setup_studio_calib_door">Kod vrata</string>
+    <string name="setup_studio_calib_far">Na 6 m</string>
+
+    <string name="ota_studio_checked_at">Provjereno u %1$s</string>
+
+    <string name="aa_studio_state_on">Uključeno</string>
+    <string name="aa_studio_state_off">Isključeno</string>
+    <string name="aa_studio_state_unsupported">Nije podržano</string>
+
+    <string name="settings_studio_diagnostics">Zapisi i dijagnostika</string>
+    <string name="settings_studio_dev_tools">Razvojni alati</string>
+    <string name="settings_studio_dev_hint">Testne značajke, ovdje i na drugim karticama.</string>
+    <string name="settings_studio_version_line">Verzija %1$s</string>
+    <string name="settings_studio_region_hint">Zeekr poslužitelji na kojima je vaš račun.</string>
+    <string name="settings_studio_region_verified">Provjereno</string>
+    <string name="settings_studio_region_experimental">Eksperimentalno</string>
+
+    <string name="inbox_studio_has_unread">Imate nepročitane poruke</string>
+    <string name="inbox_studio_all_read">Sve je pročitano</string>
+    <string name="inbox_studio_unread_cd">Nepročitano</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Podijeljeno s %1$d osobom</item>
+        <item quantity="few">Podijeljeno s %1$d osobe</item>
+        <item quantity="other">Podijeljeno s %1$d osoba</item>
+    </plurals>
+    <string name="carshare_studio_people">Osobe s pristupom</string>
+    <string name="carshare_studio_empty_body">Svatko s kim podijelite prikazuje se ovdje, a pristup mu možete opozvati u bilo kojem trenutku.</string>
+
+    <string name="onb_studio_region_lead">Odaberite tržište kojem pripadaju vaše vozilo i račun. Ovo bira ispravne Zeekr poslužitelje.</string>
+    <string name="onb_studio_region_keys_note">Svaka regija treba vlastite izvučene ključeve (zeekr_key_extractor --region %1$s). Dodat ćete ih u sljedećem koraku.</string>
+    <string name="onb_studio_region_verified">Provjereno</string>
+    <string name="onb_studio_region_experimental">Eksperimentalno</string>
+    <string name="onb_studio_key_not_set">Još nije postavljeno</string>
+
+</resources>

@@ -2,6 +2,7 @@ package com.openzeekr.app.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +29,7 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
@@ -53,6 +55,7 @@ import com.openzeekr.app.MainActivity
 import com.openzeekr.app.R
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.remote.Command
+import com.openzeekr.app.ui.theme.ThemeKeys
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.withTimeout
 
@@ -63,9 +66,10 @@ import kotlinx.coroutines.withTimeout
  * no account/key state - it reaches the already-constructed [com.openzeekr.app.Deps] via the
  * [DepsHolder] Application, so it works whenever the app is installed and signed in.
  *
- * Visual layer: a dark "cockpit" card (matching the app's [com.openzeekr.app.ui.theme.Brand]
- * palette), a slim header (car nickname + a status dot), and a grid of round-badge action tiles
- * tinted by semantics (lock = secured green, unlock/open = energy amber, Sentry = accent blue).
+ * Visual layer: a card in the look the user picked in the app (see [widgetColors]): the classic dark
+ * "cockpit", or the Studio look in light, dark or following the system. A slim header (car nickname + a
+ * status dot) sits over a grid of action tiles; colour carries meaning only (lock = secured green,
+ * unlock/open = amber, Sentry = accent blue).
  * It is RESPONSIVE via [SizeMode.Exact] (the layout is chosen from the real cell size):
  *   - Small  (~2x1): Lock/Unlock toggle + Trunk.
  *   - Medium (~4x1): Lock/Unlock, Trunk, Charge port, Sentry.
@@ -92,6 +96,11 @@ class QuickActionWidget : GlanceAppWidget() {
     }
 
     companion object {
+        /** Redraw every placed widget, e.g. after the theme setting changed. */
+        suspend fun refreshAll(context: Context) {
+            runCatching { QuickActionWidget().updateAll(context) }
+        }
+
         // Layout thresholds against the ACTUAL widget size. A 4-wide cell is ~250dp (2-wide ~120dp),
         // so >=190dp counts as "wide"; a 2-row cell is ~110dp+ (1 row ~60-70dp), so >=90dp is "tall".
         // >=275dp is a ~5-wide cell: enough to lay ALL five actions in a single row (so a 5x1 never
@@ -117,36 +126,56 @@ internal val LockedKey = booleanPreferencesKey("oz_widget_locked")
  *  readback). Set only on a successful SENTINEL_ON/OFF from the widget. */
 internal val SentryKey = booleanPreferencesKey("oz_widget_sentry")
 
-// ---- Brand palette (mirrors ui/theme/Theme.kt). The app is dark-committed, so the widget pins its
-// own colours rather than inheriting the host's light/dark Material theme - it must read the same on
-// any wallpaper. ----
-private object W {
-    val card = ColorProvider(Color(0xFF14181C))   // surface - the card ground
-    val tile = ColorProvider(Color(0xFF1C2227))   // surface2 - an action tile
-    val tileDim = ColorProvider(Color(0xFF161B1F)) // dimmer tile for the signed-out state
-    val text = ColorProvider(Color(0xFFEAEEF1))
-    val label = ColorProvider(Color(0xFFB9C2C8))
-    val muted = ColorProvider(Color(0xFF8B979E))
-    val faint = ColorProvider(Color(0xFF5E696F))
-    val accent = ColorProvider(Color(0xFF5AA9FF)) // interactive blue
-    val energy = ColorProvider(Color(0xFFF5B740)) // amber - open/energy
-    val neon = ColorProvider(Color(0xFF31E08A))   // charge
-    val good = ColorProvider(Color(0xFF46D8A0))   // secured/ok
+/**
+ * The widget's colours and corner radii. They mirror ui/theme/Theme.kt (a widget cannot read the app's Compose
+ * theme), and are picked by the same setting: Classic pins the original dark card; the Studio look is light,
+ * dark, or - for "auto" - follows the phone's light/dark setting through Glance's day/night colours.
+ */
+private class WColors(
+    val card: ColorProvider,
+    val tile: ColorProvider,
+    /** Dimmer tile for the signed-out state. */
+    val tileDim: ColorProvider,
+    val text: ColorProvider,
+    val label: ColorProvider,
+    val muted: ColorProvider,
+    val faint: ColorProvider,
+    val accent: ColorProvider,
+    val energy: ColorProvider,
+    val charge: ColorProvider,
+    val good: ColorProvider,
+    val cardRadius: Int,
+    val tileRadius: Int,
+)
 
-    // Soft 16%-alpha badge fills behind each icon (same hue as the tint).
-    val badgeGood = ColorProvider(Color(0x2646D8A0))
-    val badgeEnergy = ColorProvider(Color(0x26F5B740))
-    val badgeAccent = ColorProvider(Color(0x265AA9FF))
-    val badgeNeon = ColorProvider(Color(0x2631E08A))
-    val badgeMuted = ColorProvider(Color(0x268B979E))
+private fun widgetColors(theme: String): WColors {
+    if (theme == ThemeKeys.CLASSIC) return WColors(
+        card = ColorProvider(Color(0xFF14181C)), tile = ColorProvider(Color(0xFF1C2227)), tileDim = ColorProvider(Color(0xFF161B1F)),
+        text = ColorProvider(Color(0xFFEAEEF1)), label = ColorProvider(Color(0xFFB9C2C8)), muted = ColorProvider(Color(0xFF8B979E)),
+        faint = ColorProvider(Color(0xFF5E696F)), accent = ColorProvider(Color(0xFF5AA9FF)), energy = ColorProvider(Color(0xFFF5B740)),
+        charge = ColorProvider(Color(0xFF31E08A)), good = ColorProvider(Color(0xFF46D8A0)),
+        cardRadius = 20, tileRadius = 16,
+    )
+    // Studio: one light and one dark value per role.
+    fun c(light: Long, dark: Long): ColorProvider = when (theme) {
+        ThemeKeys.LIGHT -> ColorProvider(Color(light))
+        ThemeKeys.DARK -> ColorProvider(Color(dark))
+        else -> androidx.glance.color.ColorProvider(day = Color(light), night = Color(dark))
+    }
+    return WColors(
+        card = c(0xFFFFFFFF, 0xFF14181C), tile = c(0xFFEEF0F2, 0xFF1C2227), tileDim = c(0xFFF5F6F7, 0xFF161B1F),
+        text = c(0xFF0F1419, 0xFFEAEEF1), label = c(0xFF0F1419, 0xFFEAEEF1), muted = c(0xFF5B6672, 0xFF9AA6AD),
+        faint = c(0xFF8E98A3, 0xFF5E696F), accent = c(0xFF1B5FD9, 0xFF5AA9FF), energy = c(0xFF9A5B00, 0xFFF5B740),
+        charge = c(0xFF0B7A4F, 0xFF31E08A), good = c(0xFF0B7A4F, 0xFF46D8A0),
+        cardRadius = 26, tileRadius = 18,
+    )
 }
 
-/** One action tile: which command fires, the icon + badge colours, and the label. */
+/** One action tile: which command fires, the icon and its colour, and the label. */
 private data class ActionSpec(
     val cmd: Command,
     val iconRes: Int,
     val tint: ColorProvider,
-    val badge: ColorProvider,
     val label: String,
 )
 
@@ -163,6 +192,7 @@ private fun WidgetBody() {
     val ready = cfg != null && cfg.accessToken.isNotBlank() && cfg.vin.isNotBlank()
     val nickname = cfg?.carNickname?.ifBlank { context.getString(R.string.app_name) }
         ?: context.getString(R.string.app_name)
+    val w = widgetColors(cfg?.theme ?: ThemeKeys.DEFAULT)
 
     // Status: last action result if present, else a sensible resting line.
     val status = prefs[StatusKey].orEmpty().ifBlank {
@@ -173,28 +203,28 @@ private fun WidgetBody() {
     // Single Lock/Unlock TOGGLE: when the car reports locked ("1") the tile offers Unlock, otherwise
     // Lock. centralLockingStatus lives on drivingSafetyStatus (the same field the app + proximity use);
     // a null (state not polled yet) falls through to Lock, the safe default.
-    val liveLocked = deps?.vehicleState?.state?.value
+    val liveLocked = deps?.vehicleState?.state?.collectAsState()?.value
         ?.additionalVehicleStatus?.drivingSafetyStatus?.centralLockingStatus == "1"
     // Prefer the last widget-driven lock state so the toggle flips the instant you tap it (the car's
     // own status poll lags a lock/unlock); fall back to the car's reported state when nothing cached.
     val locked = prefs[LockedKey] ?: liveLocked
     val lockToggle = if (locked)
-        ActionSpec(Command.UNLOCK, R.drawable.ic_widget_unlock, W.energy, W.badgeEnergy, context.getString(R.string.vehicle_unlock))
+        ActionSpec(Command.UNLOCK, R.drawable.ic_widget_unlock, w.energy, context.getString(R.string.vehicle_unlock))
     else
-        ActionSpec(Command.LOCK, R.drawable.ic_widget_lock, W.good, W.badgeGood, context.getString(R.string.vehicle_lock))
+        ActionSpec(Command.LOCK, R.drawable.ic_widget_lock, w.good, context.getString(R.string.vehicle_lock))
 
     // Command specs (resolved once; small/medium reuse a subset).
-    val trunk = ActionSpec(Command.TRUNK_UNLOCK, R.drawable.ic_widget_trunk, W.accent, W.badgeAccent, context.getString(R.string.widget_trunk_short))
-    val charge = ActionSpec(Command.CHARGE_LID_OPEN, R.drawable.ic_widget_charge, W.neon, W.badgeNeon, context.getString(R.string.widget_charge_short))
-    val flash = ActionSpec(Command.FLASH_HORN, R.drawable.ic_widget_flash, W.energy, W.badgeEnergy, context.getString(R.string.widget_flash_short))
+    val trunk = ActionSpec(Command.TRUNK_UNLOCK, R.drawable.ic_widget_trunk, w.accent, context.getString(R.string.widget_trunk_short))
+    val charge = ActionSpec(Command.CHARGE_LID_OPEN, R.drawable.ic_widget_charge, w.charge, context.getString(R.string.widget_charge_short))
+    val flash = ActionSpec(Command.FLASH_HORN, R.drawable.ic_widget_flash, w.energy, context.getString(R.string.widget_flash_short))
 
     // Single Sentry on/off TOGGLE (optimistic: Sentry has no reliable live readback, so the last
     // widget-driven state drives the tile; default off -> the tile offers "Sentry on").
     val sentryActive = prefs[SentryKey] ?: false
     val sentryToggle = if (sentryActive)
-        ActionSpec(Command.SENTINEL_OFF, R.drawable.ic_widget_sentry_off, W.muted, W.badgeMuted, context.getString(R.string.widget_sentry_off_short))
+        ActionSpec(Command.SENTINEL_OFF, R.drawable.ic_widget_sentry_off, w.muted, context.getString(R.string.widget_sentry_off_short))
     else
-        ActionSpec(Command.SENTINEL_ON, R.drawable.ic_widget_sentry, W.accent, W.badgeAccent, context.getString(R.string.widget_sentry_on_short))
+        ActionSpec(Command.SENTINEL_ON, R.drawable.ic_widget_sentry, w.accent, context.getString(R.string.widget_sentry_on_short))
 
     val wide = size.width >= QuickActionWidget.WIDE_MIN
     val tall = size.height >= QuickActionWidget.TALL_MIN
@@ -206,33 +236,33 @@ private fun WidgetBody() {
     Column(
         GlanceModifier
             .fillMaxSize()
-            .background(W.card)
-            .cornerRadius(20.dp)
+            .background(w.card)
+            .cornerRadius(w.cardRadius.dp)
             .padding(if (large) 12.dp else 10.dp),
     ) {
         // Header. Large/Medium show the car name; Small shows just the dot + status to save width.
-        Header(nickname = nickname, status = status, ready = ready, showName = wide)
+        Header(w, nickname = nickname, status = status, ready = ready, showName = wide)
         Spacer(GlanceModifier.height(if (large) 8.dp else 6.dp))
 
         // defaultWeight() must be resolved in THIS ColumnScope, so the row-weight modifier is built
         // here and passed down - it gives each tile row an equal share of the remaining height.
         when {
             // Wide enough for all five side by side: ONE row, even if the cell is also tall (5x1).
-            allInOneRow -> TileRow(GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk, charge, flash, sentryToggle)
+            allInOneRow -> TileRow(w, GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk, charge, flash, sentryToggle)
             // Not wide enough for five, but tall: stack into two rows (3 + 2).
             large -> {
-                TileRow(GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk, charge)
+                TileRow(w, GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk, charge)
                 Spacer(GlanceModifier.height(6.dp))
-                TileRow(GlanceModifier.fillMaxWidth().defaultWeight(), ready, flash, sentryToggle)
+                TileRow(w, GlanceModifier.fillMaxWidth().defaultWeight(), ready, flash, sentryToggle)
             }
-            wide -> TileRow(GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk, charge, sentryToggle)
-            else -> TileRow(GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk)
+            wide -> TileRow(w, GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk, charge, sentryToggle)
+            else -> TileRow(w, GlanceModifier.fillMaxWidth().defaultWeight(), ready, lockToggle, trunk)
         }
     }
 }
 
 @Composable
-private fun Header(nickname: String, status: String, ready: Boolean, showName: Boolean) {
+private fun Header(w: WColors, nickname: String, status: String, ready: Boolean, showName: Boolean) {
     Row(
         GlanceModifier.fillMaxWidth().clickable(actionStartActivity<MainActivity>()),
         verticalAlignment = Alignment.CenterVertically,
@@ -240,43 +270,43 @@ private fun Header(nickname: String, status: String, ready: Boolean, showName: B
         // Status dot: green when signed in + car selected, amber when the app still needs opening.
         Box(
             GlanceModifier.size(8.dp).cornerRadius(4.dp)
-                .background(if (ready) W.good else W.energy),
+                .background(if (ready) w.good else w.energy),
         ) {}
         Spacer(GlanceModifier.width(7.dp))
         if (showName) {
             Text(
                 nickname,
                 maxLines = 1,
-                style = TextStyle(color = W.text, fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                style = TextStyle(color = w.text, fontWeight = FontWeight.Bold, fontSize = 13.sp),
             )
         }
         Spacer(GlanceModifier.defaultWeight())
         Text(
             status,
             maxLines = 1,
-            style = TextStyle(color = W.muted, fontSize = 11.sp, textAlign = TextAlign.End),
+            style = TextStyle(color = w.muted, fontSize = 11.sp, textAlign = TextAlign.End),
         )
     }
 }
 
 @Composable
-private fun TileRow(modifier: GlanceModifier, ready: Boolean, vararg specs: ActionSpec) {
+private fun TileRow(w: WColors, modifier: GlanceModifier, ready: Boolean, vararg specs: ActionSpec) {
     Row(modifier) {
         specs.forEachIndexed { i, spec ->
             // defaultWeight() here resolves in the Row's content (RowScope) - equal tile widths.
-            ActionTile(spec, ready, GlanceModifier.defaultWeight())
+            ActionTile(w, spec, ready, GlanceModifier.defaultWeight())
             if (i < specs.lastIndex) Spacer(GlanceModifier.width(6.dp))
         }
     }
 }
 
 @Composable
-private fun ActionTile(spec: ActionSpec, ready: Boolean, modifier: GlanceModifier) {
-    // Signed-out tiles are intentionally dimmed (faint icon + darker ground) but still tappable -
+private fun ActionTile(w: WColors, spec: ActionSpec, ready: Boolean, modifier: GlanceModifier) {
+    // Signed-out tiles are intentionally dimmed (faint icon + quieter ground) but still tappable -
     // the tap routes to the callback, which surfaces "Open app to sign in".
-    val tileBg = if (ready) W.tile else W.tileDim
-    val iconTint = if (ready) spec.tint else W.faint
-    val labelColor = if (ready) W.label else W.faint
+    val tileBg = if (ready) w.tile else w.tileDim
+    val iconTint = if (ready) spec.tint else w.faint
+    val labelColor = if (ready) w.label else w.faint
 
     Column(
         // Width comes from the defaultWeight() passed in by the row (equal tile widths); only fill
@@ -284,7 +314,7 @@ private fun ActionTile(spec: ActionSpec, ready: Boolean, modifier: GlanceModifie
         // weight, so every row collapsed to just its first tile.
         modifier
             .fillMaxHeight()
-            .cornerRadius(16.dp)
+            .cornerRadius(w.tileRadius.dp)
             .background(tileBg)
             .clickable(
                 actionRunCallback<CommandActionCallback>(

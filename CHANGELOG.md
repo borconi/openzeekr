@@ -3,6 +3,27 @@
 All notable changes to OpenZeekr are recorded here. OpenZeekr is a free, non-commercial
 clean-room app and is not affiliated with Zeekr.
 
+## [0.3.0] - 2026-11-25
+
+### Added
+- **A completely new look.** The whole app has been redesigned with a cleaner, more modern interface,
+  and a theme setting to pick Light, Dark, or Auto (follow the system). The classic dark cockpit look
+  is still available if you prefer it.
+- **Speed-camera HUD now works without a Waze key.** The fixed speed-camera overlay (from the open
+  GATSO / OpenStreetMap feeds, including Brazil) runs on its own - you no longer need a Waze API key
+  for it. A Waze key still adds the live police layer on top. The cluster shows "Cameras: N" in
+  cameras-only mode.
+- **Windshield / auxiliary HUD support.** Cars that route their secondary navigation projection to a
+  windshield (auxiliary) display, rather than the instrument cluster, are now supported for the HUD.
+
+### Fixed
+- **Android Auto no longer starts when you are not at the car.** It now starts only when your car's
+  Bluetooth is actually connected (and advertises Android Auto), so opening another app (e.g. the
+  official Zeekr app) while away from the car can no longer wake the head-unit link.
+- **Android Auto projection is far more robust.** The link to Android Auto is made self-clearing: if
+  the car's Wi-Fi drops or the projection goes silent, the connection is closed cleanly so Android Auto
+  frees up instead of getting stuck, and it reconnects on the next approach without needing a restart.
+
 ## [0.2.9] - 2026-11-23
 
 ### Added

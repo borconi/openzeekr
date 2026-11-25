@@ -1,5 +1,13 @@
 package com.openzeekr.app.ui
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import kotlin.math.roundToInt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,7 +32,16 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -241,25 +258,33 @@ fun AppRoot(deps: Deps) {
         topBar = {
             val connText = when { bleReady && loggedIn -> stringResource(R.string.nav_conn_ble_cloud); bleReady -> stringResource(R.string.nav_conn_ble); loggedIn -> stringResource(R.string.nav_conn_cloud); else -> stringResource(R.string.nav_conn_offline) }
             val connColor = when { bleReady -> Brand.good; loggedIn -> Brand.accent; else -> Brand.faint }
+            val studio = Brand.isStudio
+            val barColor = if (studio) Brand.bg else MaterialTheme.colorScheme.surface
             Row(
-                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
-                    .statusBarsPadding().padding(start = 16.dp, end = 12.dp, top = 6.dp, bottom = 8.dp),
+                Modifier.fillMaxWidth().background(barColor)
+                    .statusBarsPadding().padding(start = if (studio) 20.dp else 16.dp, end = 12.dp, top = if (studio) 10.dp else 6.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                BrandBadge(size = 36)
-                Spacer(Modifier.width(11.dp))
+                if (!studio) {
+                    BrandBadge(size = 36)
+                    Spacer(Modifier.width(11.dp))
+                }
                 val multiCar = cfg.vehicles.size > 1
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         // Car name - a tappable dropdown when the account has more than one car.
-                        Box {
+                        // Studio: the name gives way (ellipsis) before the rename pencil is pushed off a narrow screen.
+                        Box(if (studio) Modifier.weight(1f, fill = false) else Modifier) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                                 modifier = if (multiCar) Modifier.clickable { showCarMenu = true } else Modifier,
                             ) {
-                                Text(carName, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (multiCar) Icon(Icons.Filled.ArrowDropDown, stringResource(R.string.nav_switch_car_cd), tint = Brand.accent, modifier = Modifier.size(22.dp))
+                                Text(carName, fontWeight = FontWeight.Bold, fontSize = if (studio) 21.sp else 18.sp, fontFamily = Brand.display,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = if (studio) Modifier.weight(1f, fill = false) else Modifier)
+                                if (multiCar) Icon(Icons.Filled.ArrowDropDown, stringResource(R.string.nav_switch_car_cd),
+                                    tint = if (studio) Brand.text else Brand.accent, modifier = Modifier.size(22.dp))
                             }
                             DropdownMenu(expanded = showCarMenu, onDismissRequest = { showCarMenu = false }) {
                                 cfg.vehicles.forEach { v ->
@@ -303,25 +328,26 @@ fun AppRoot(deps: Deps) {
                                 .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
                                 .clip(RoundedCornerShape(9.dp))
                                 .background(Brand.crit)
-                                .border(1.5.dp, MaterialTheme.colorScheme.surface, RoundedCornerShape(9.dp))
+                                .border(1.5.dp, barColor, RoundedCornerShape(9.dp))
                                 .padding(horizontal = 4.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 if (unread > 99) stringResource(R.string.nav_unread_cap) else "$unread",
-                                color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                                color = if (studio) Brand.onCrit else Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                             )
                         }
                     }
                 }
                 Spacer(Modifier.width(6.dp))
                 Row(
-                    Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).padding(horizontal = 11.dp, vertical = 7.dp),
+                    Modifier.clip(CircleShape).background(if (studio) Brand.surface else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(1.dp, if (studio) Brand.cardBorder else MaterialTheme.colorScheme.outline, CircleShape)
+                        .padding(horizontal = 11.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
                     Box(Modifier.size(7.dp).clip(CircleShape).background(connColor))
-                    Text(connText, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text(connText, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                 }
             }
         },
@@ -336,7 +362,10 @@ fun AppRoot(deps: Deps) {
             val navScope = rememberCoroutineScope()
             val density = LocalDensity.current
             val tabWidth = 78.dp
-            Column {
+            if (Brand.isStudio) {
+                // An app update is found under Settings: mark the arrow that leads to it.
+                StudioTabBar(tabs, selectedTab, attention = if (update != null) setOf(Tab.SETTINGS) else emptySet()) { selectedTab = it }
+            } else Column {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(Brand.line))
                 BoxWithConstraints(
                     Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding(),
@@ -556,6 +585,111 @@ private fun formatShareDate(epoch: Long): String {
 }
 
 /** Prompt shown once per new release when a newer GitHub build than [installed] is available. */
+/**
+ * The Studio bottom bar. With more than four tabs it is a strip that slides under the finger (and flings):
+ * four and a half tabs fit across, so the half tab at the edge shows there is more. A fade with a small arrow
+ * marks each side that has tabs off screen (tapping it slides that way), and a short track under the tabs
+ * shows where in the strip you are. The chosen tab is always brought into view. A dot marks a tab that wants
+ * attention; when that tab is off screen the dot moves to the arrow that leads to it.
+ */
+@Composable
+private fun StudioTabBar(tabs: List<Tab>, selected: Tab, attention: Set<Tab>, onSelect: (Tab) -> Unit) {
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Column(Modifier.fillMaxWidth().background(Brand.surface)) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Brand.line))
+        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            val fits = tabs.size <= 4
+            val tabWidth = if (fits) maxWidth / tabs.size.coerceAtLeast(1) else maxWidth / 4.5f
+            val tabPx = with(density) { tabWidth.toPx() }
+            val viewPx = with(density) { maxWidth.toPx() }
+            // Bring the chosen tab to the middle of the strip (as far as the ends allow).
+            LaunchedEffect(selected, tabPx, scroll.maxValue) {
+                val i = tabs.indexOf(selected)
+                if (i >= 0 && !fits) scroll.animateScrollTo((i * tabPx - (viewPx - tabPx) / 2f).roundToInt().coerceIn(0, scroll.maxValue))
+            }
+            Column {
+                Row(
+                    (if (fits) Modifier.fillMaxWidth() else Modifier.horizontalScroll(scroll)).padding(top = 6.dp, bottom = if (fits) 6.dp else 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    tabs.forEach { t ->
+                        val on = selected == t
+                        val tint = if (on) Brand.text else Brand.muted
+                        Column(
+                            Modifier.width(tabWidth).clip(RoundedCornerShape(16.dp))
+                                .selectable(selected = on, role = Role.Tab) { onSelect(t) }.padding(vertical = 4.dp, horizontal = 2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
+                            Box(
+                                Modifier.size(width = 56.dp, height = 30.dp).clip(RoundedCornerShape(15.dp))
+                                    .background(if (on) Brand.surface2 else Color.Transparent),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(t.icon, null, tint = tint, modifier = Modifier.size(23.dp))
+                                if (t in attention) Box(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 11.dp).size(8.dp).clip(CircleShape).background(Brand.accent))
+                            }
+                            Text(stringResource(t.labelRes), color = tint, fontSize = 11.5.sp, maxLines = 1, softWrap = false,
+                                overflow = TextOverflow.Ellipsis, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium)
+                        }
+                    }
+                }
+                if (!fits) {
+                    // Where the visible part sits in the whole strip.
+                    val trackColor = Brand.surface3
+                    val thumbColor = Brand.muted
+                    Canvas(Modifier.align(Alignment.CenterHorizontally).padding(bottom = 6.dp).size(width = 36.dp, height = 4.dp)) {
+                        val r = CornerRadius(size.height / 2f)
+                        drawRoundRect(trackColor, cornerRadius = r)
+                        val total = viewPx + scroll.maxValue
+                        val w = (size.width * viewPx / total).coerceAtLeast(size.height * 2)
+                        val f = if (scroll.maxValue > 0) scroll.value.toFloat() / scroll.maxValue else 0f
+                        val x = (size.width - w) * (if (rtl) 1f - f else f)
+                        drawRoundRect(thumbColor, topLeft = Offset(x, 0f), size = Size(w, size.height), cornerRadius = r)
+                    }
+                }
+            }
+            if (!fits) {
+                val step = tabPx * 3f
+                // A tab that wants attention but sits off screen is flagged on the arrow that leads to it.
+                fun hidden(before: Boolean) = attention.any { t ->
+                    val i = tabs.indexOf(t)
+                    if (i < 0) false else if (before) (i + 0.5f) * tabPx < scroll.value else (i + 0.5f) * tabPx > scroll.value + viewPx
+                }
+                if (scroll.canScrollBackward) StudioTabEdge(back = true, rtl = rtl, dot = hidden(before = true), Modifier.align(Alignment.CenterStart)) {
+                    scope.launch { scroll.animateScrollBy(-step) }
+                }
+                if (scroll.canScrollForward) StudioTabEdge(back = false, rtl = rtl, dot = hidden(before = false), Modifier.align(Alignment.CenterEnd)) {
+                    scope.launch { scroll.animateScrollBy(step) }
+                }
+            }
+        }
+    }
+}
+
+/** The fade and arrow over one end of the tab strip. */
+@Composable
+private fun BoxScope.StudioTabEdge(back: Boolean, rtl: Boolean, dot: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    // The solid end of the fade is at the screen edge: the left edge for "back" in a left-to-right layout.
+    val solidLeft = back != rtl
+    val colors = if (solidLeft) listOf(Brand.surface, Brand.surface.copy(alpha = 0f)) else listOf(Brand.surface.copy(alpha = 0f), Brand.surface)
+    Box(
+        modifier.matchParentSize().wrapContentWidth(if (back) Alignment.Start else Alignment.End).width(34.dp)
+            .background(Brush.horizontalGradient(colors))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        contentAlignment = if (back) Alignment.CenterStart else Alignment.CenterEnd,
+    ) {
+        Icon(
+            if (back) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            stringResource(if (back) R.string.nav_scroll_left_cd else R.string.nav_scroll_right_cd),
+            tint = Brand.text, modifier = Modifier.size(20.dp),
+        )
+        if (dot) Box(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 3.dp).size(8.dp).clip(CircleShape).background(Brand.accent))
+    }
+}
+
 @Composable
 private fun UpdateAvailableDialog(installed: String, rel: ReleaseInfo, onDownload: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

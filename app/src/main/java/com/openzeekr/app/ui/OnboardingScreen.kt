@@ -45,6 +45,7 @@ import com.openzeekr.app.R
 import com.openzeekr.app.ble.DkProvisioning
 import com.openzeekr.app.config.SecretsConfig
 import com.openzeekr.app.remote.CallResult
+import com.openzeekr.app.ui.theme.Brand
 import kotlinx.coroutines.launch
 
 /**
@@ -77,6 +78,20 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
 
     fun next() { if (safeIdx < steps.lastIndex) idx = safeIdx + 1 else onDone() }
     fun back() { if (safeIdx > 0) idx = safeIdx - 1 }
+
+    if (Brand.isStudio) {
+        // Studio: the step on screen draws its whole page (see OnboardingStudio.kt), so that its own main action
+        // can be the button at the bottom. The steps, their state and what they do are the same as below.
+        val nav = OnbStudioNav(index = safeIdx, count = steps.size, onBack = if (safeIdx > 0) ::back else null, onNext = ::next, onDone = onDone)
+        when (step) {
+            OnbStep.WELCOME -> WelcomeStep(nav)
+            OnbStep.REGION -> RegionStep(deps, nav)
+            OnbStep.SECRETS -> SecretsStep(deps, secretsValid, nav)
+            OnbStep.LOGIN -> LoginStep(deps, nav)
+            OnbStep.KEY -> KeyStep(deps, nav)
+        }
+        return
+    }
 
     Scaffold { pad ->
         Column(
@@ -128,8 +143,12 @@ fun OnboardingScreen(deps: Deps, onDone: () -> Unit) {
     }
 }
 
+// Every step takes [studio]: it is set in the Studio look, where the step draws its whole page with the
+// layout from OnboardingStudio.kt, and null in Classic, where the step is only the body of the wizard.
+
 @Composable
-private fun WelcomeStep() {
+private fun WelcomeStep(studio: OnbStudioNav? = null) {
+    if (studio != null) { StudioOnbWelcome(studio); return }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.onb_welcome_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
@@ -149,10 +168,20 @@ private fun WelcomeStep() {
 /** Region picker: seeds the correct gateway hosts + projectId for the user's market before they
  *  enter secrets/log in. Defaults to EU. Non-EU regions are experimental (host tables only). */
 @Composable
-private fun RegionStep(deps: Deps) {
+private fun RegionStep(deps: Deps, studio: OnbStudioNav? = null) {
     val store = deps.config
     val cfg by store.config.collectAsState()
     val current = com.openzeekr.app.net.Region.byCode(cfg.regionCode)
+    val select: (String) -> Unit = { code ->
+        if (current.code != code) { store.setRegion(code); deps.onEndpointChanged() }
+    }
+    if (studio != null) {
+        StudioOnbRegion(
+            studio, codes = com.openzeekr.app.net.Region.ALL.map { it.code }, currentCode = current.code,
+            currentName = current.displayName, verified = current.verified, extractorRegion = current.extractorRegion, onSelect = select,
+        )
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.onb_region_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
@@ -161,9 +190,7 @@ private fun RegionStep(deps: Deps) {
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             com.openzeekr.app.net.Region.ALL.forEach { r ->
-                SelectChip(r.code, selected = current.code == r.code) {
-                    if (current.code != r.code) { store.setRegion(r.code); deps.onEndpointChanged() }
-                }
+                SelectChip(r.code, selected = current.code == r.code) { select(r.code) }
             }
         }
         Text(
@@ -197,11 +224,20 @@ private fun Bullet(n: String, title: String, body: String) {
 
 /** Clean/unbaked build with no secrets yet: let the user paste a zeekr_secrets.json. */
 @Composable
-private fun SecretsStep(deps: Deps, secretsValid: Boolean) {
+private fun SecretsStep(deps: Deps, secretsValid: Boolean, studio: OnbStudioNav? = null) {
     val store = deps.config
     val context = LocalContext.current
     var importText by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("") }
+    val doImport: () -> Unit = {
+        status = store.importJson(importText).fold(
+            { deps.onEndpointChanged(); context.getString(R.string.onb_secrets_imported) },
+            { context.getString(R.string.onb_secrets_import_failed, it.message) })
+    }
+    if (studio != null) {
+        StudioOnbSecrets(studio, text = importText, onText = { importText = it }, status = status, valid = secretsValid, onImport = doImport)
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.onb_secrets_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
@@ -213,18 +249,14 @@ private fun SecretsStep(deps: Deps, secretsValid: Boolean) {
             label = { Text(stringResource(R.string.onb_secrets_hint)) }, minLines = 4,
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = {
-            status = store.importJson(importText).fold(
-                { deps.onEndpointChanged(); context.getString(R.string.onb_secrets_imported) },
-                { context.getString(R.string.onb_secrets_import_failed, it.message) })
-        }) { Text(stringResource(R.string.onb_secrets_import_btn)) }
+        Button(onClick = doImport) { Text(stringResource(R.string.onb_secrets_import_btn)) }
         if (secretsValid) Text(stringResource(R.string.onb_secrets_keys_valid), color = MaterialTheme.colorScheme.primary)
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
-private fun LoginStep(deps: Deps) {
+private fun LoginStep(deps: Deps, studio: OnbStudioNav? = null) {
     val store = deps.config
     val cfg by store.config.collectAsState()
     val scope = rememberCoroutineScope()
@@ -266,6 +298,27 @@ private fun LoginStep(deps: Deps) {
         onDispose { Logx.setHttp(prev) }
     }
 
+    // Who is signed in: "name@mail  ·  VIN ...".
+    val accountLine = buildString {
+        append(cfg.email.ifBlank { ctx.getString(R.string.onb_login_account_fallback) })
+        if (cfg.vin.isNotBlank()) append(ctx.getString(R.string.onb_login_vin_suffix, cfg.vin))
+    }
+    // On a login failure, let the tester send us the captured login HTTP log as a file so we
+    // can see the exact request/headers/response (e.g. which access key + host was used).
+    val shareLog: () -> Unit = { shareMsg = shareEncryptedLog(ctx) }
+
+    if (studio != null) {
+        StudioOnbLogin(
+            studio,
+            StudioOnbLoginState(
+                loggedIn = loggedIn, accountLine = accountLine, email = email, password = password, busy = busy,
+                status = status, failed = loginFailed, shareMsg = shareMsg,
+            ),
+            onEmail = { email = it }, onPassword = { password = it }, onSignIn = ::signIn, onShareLog = shareLog,
+        )
+        return
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.onb_login_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         if (loggedIn) {
@@ -274,10 +327,7 @@ private fun LoginStep(deps: Deps) {
                 Column(Modifier.padding(12.dp)) {
                     Text(stringResource(R.string.onb_login_logged_in), fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text(buildString {
-                        append(cfg.email.ifBlank { ctx.getString(R.string.onb_login_account_fallback) })
-                        if (cfg.vin.isNotBlank()) append(ctx.getString(R.string.onb_login_vin_suffix, cfg.vin))
-                    }, style = MaterialTheme.typography.bodySmall,
+                    Text(accountLine, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
@@ -299,10 +349,8 @@ private fun LoginStep(deps: Deps) {
                 } else Text(stringResource(R.string.onb_login_title))
             }
             if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
-            // On a login failure, let the tester send us the captured login HTTP log as a file so we
-            // can see the exact request/headers/response (e.g. which access key + host was used).
             if (loginFailed) {
-                OutlinedButton(onClick = { shareMsg = shareEncryptedLog(ctx) }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = shareLog, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.onb_login_share_log))
                 }
                 Text(
@@ -316,12 +364,20 @@ private fun LoginStep(deps: Deps) {
 }
 
 @Composable
-private fun KeyStep(deps: Deps) {
+private fun KeyStep(deps: Deps, studio: OnbStudioNav? = null) {
     val prov by deps.provisioning.state.collectAsState()
     val scope = rememberCoroutineScope()
     val provisioned = deps.dkIdentity.isProvisioned || prov.step == DkProvisioning.Step.DONE
     val busy = prov.step == DkProvisioning.Step.CERT || prov.step == DkProvisioning.Step.BIND ||
         prov.step == DkProvisioning.Step.KEY_LIST || prov.step == DkProvisioning.Step.KEY_INFO
+    val setUpKey: () -> Unit = {
+        // Owner vs shared comes from the vehicle-list captured at login.
+        scope.launch { deps.provisioning.provision(owner = deps.config.current().isOwner) }
+    }
+    if (studio != null) {
+        StudioOnbKey(studio, provisioned = provisioned, busy = busy, message = prov.message, onSetUp = setUpKey)
+        return
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.onb_key_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -335,13 +391,7 @@ private fun KeyStep(deps: Deps) {
                     Text(stringResource(R.string.onb_key_ready), fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary)
                 } else {
-                    Button(
-                        enabled = !busy,
-                        onClick = {
-                            // Owner vs shared comes from the vehicle-list captured at login.
-                            scope.launch { deps.provisioning.provision(owner = deps.config.current().isOwner) }
-                        },
-                    ) {
+                    Button(enabled = !busy, onClick = setUpKey) {
                         if (busy) Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -85,7 +86,28 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
     }
     LaunchedEffect(Unit) { load() }
 
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    // What the page can do, worked out once and used by both looks.
+    val reload: () -> Unit = { scope.launch { load() } }
+    val canSend = shareEmail.trim().let { it.contains('@') && it.length >= 3 } && !sharing
+    val sendShare: () -> Unit = {
+        sharing = true
+        val addr = shareEmail.trim()
+        scope.launch {
+            when (val r = deps.share.createShare(addr)) {
+                // The address is cleared for the next invite (Classic also clears it when its dialog opens).
+                is CallResult.Ok -> { snackbar(context.getString(R.string.carshare_shared_with, addr)); showShare = false; shareEmail = ""; load() }
+                is CallResult.Err -> snackbar(context.getString(R.string.carshare_share_failed, r.message))
+            }
+            sharing = false
+        }
+    }
+
+    if (Brand.isStudio) StudioCarShare(
+        StudioCarShareState(shares = shares, loading = loading, error = error, email = shareEmail, canSend = canSend, sharing = sharing),
+        StudioCarShareActions(onBack = onBack, onReload = reload, onEmail = { shareEmail = it }, onShare = sendShare, onRevoke = { confirm = it }),
+        modifier,
+    )
+    else Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(
             Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
                 .padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 8.dp),
@@ -110,13 +132,9 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
             loading && shares.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                 CircularProgressIndicator(color = Brand.accent)
             }
-            error != null && shares.isEmpty() -> ShareEmpty(stringResource(R.string.carshare_load_failed_title), error ?: stringResource(R.string.carshare_unknown_error)) {
-                scope.launch { load() }
-            }
+            error != null && shares.isEmpty() -> ShareEmpty(stringResource(R.string.carshare_load_failed_title), error ?: stringResource(R.string.carshare_unknown_error), reload)
             shares.isEmpty() -> ShareEmpty(stringResource(R.string.carshare_empty_title),
-                stringResource(R.string.carshare_empty_body)) {
-                scope.launch { load() }
-            }
+                stringResource(R.string.carshare_empty_body), reload)
             else -> LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -143,14 +161,18 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
                         revoking = false
                         confirm = null
                     }
-                }) { Text(if (revoking) stringResource(R.string.carshare_revoking) else stringResource(R.string.carshare_revoke)) }
+                }) {
+                    // Studio marks the destructive answer in the alert colour; Classic keeps the plain button text.
+                    Text(if (revoking) stringResource(R.string.carshare_revoking) else stringResource(R.string.carshare_revoke),
+                        color = if (Brand.isStudio && !revoking) Brand.crit else Color.Unspecified)
+                }
             },
             dismissButton = { TextButton(enabled = !revoking, onClick = { confirm = null }) { Text(stringResource(R.string.carshare_cancel)) } },
         )
     }
 
+    // Classic asks for the address in a dialog; Studio has the same form on the page (StudioCarShare).
     if (showShare) {
-        val canSend = shareEmail.trim().let { it.contains('@') && it.length >= 3 } && !sharing
         AlertDialog(
             onDismissRequest = { if (!sharing) showShare = false },
             title = { Text(stringResource(R.string.carshare_share_title)) },
@@ -171,17 +193,7 @@ fun CarShareScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, m
                 }
             },
             confirmButton = {
-                TextButton(enabled = canSend, onClick = {
-                    sharing = true
-                    val addr = shareEmail.trim()
-                    scope.launch {
-                        when (val r = deps.share.createShare(addr)) {
-                            is CallResult.Ok -> { snackbar(context.getString(R.string.carshare_shared_with, addr)); showShare = false; load() }
-                            is CallResult.Err -> snackbar(context.getString(R.string.carshare_share_failed, r.message))
-                        }
-                        sharing = false
-                    }
-                }) { Text(if (sharing) stringResource(R.string.carshare_sharing) else stringResource(R.string.carshare_share)) }
+                TextButton(enabled = canSend, onClick = sendShare) { Text(if (sharing) stringResource(R.string.carshare_sharing) else stringResource(R.string.carshare_share)) }
             },
             dismissButton = { TextButton(enabled = !sharing, onClick = { showShare = false }) { Text(stringResource(R.string.carshare_cancel)) } },
         )
@@ -202,7 +214,7 @@ private fun ShareCard(s: ShareGrant, onRevoke: () -> Unit) {
                 s.functionNames?.takeIf { it.isNotBlank() }?.let {
                     Text(it, color = Brand.muted, fontSize = 11.5.sp)
                 }
-                shareWindow(context, s)?.let { Text(it, color = Brand.faint, fontSize = 11.sp) }
+                carShareUntil(context, s)?.let { Text(it, color = Brand.faint, fontSize = 11.sp) }
             }
             TextButton(onClick = onRevoke) { Text(stringResource(R.string.carshare_revoke), color = Brand.crit) }
         }
@@ -227,7 +239,7 @@ private fun ShareEmpty(title: String, body: String, onReload: () -> Unit) {
 /** "Until 12 Mar 2027" from a genuine FUTURE end/expiry (epoch s-or-ms tolerant). Permanent digital-key
  *  shares (shareType 2) come back with a stale past `expireTime` that is not a real cutoff, so a past
  *  date is suppressed - showing "Until <past date>" on a still-active share reads as expired. */
-private fun shareWindow(context: Context, s: ShareGrant): String? {
+internal fun carShareUntil(context: Context, s: ShareGrant): String? {
     fun ms(t: Long?) = t?.let { if (it < 100_000_000_000L) it * 1000 else it }
     val end = ms(s.endTime) ?: ms(s.expireTime) ?: return null
     if (end <= System.currentTimeMillis()) return null

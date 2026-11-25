@@ -115,7 +115,79 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
 
     LaunchedEffect(Unit) { reloadCharge(); reloadDepartures() }
 
-    Column(
+    // ---- the commands, shared by both looks ----
+    fun saveCharge() {
+        chargeSaving = true
+        scope.launch {
+            val r = deps.schedule.setChargePlan(
+                enabled = chargeEnabled, startTime = chargeStart, endTime = chargeEnd,
+                keepCharging = keepCharging, timerId = chargeTimerId, scheduledTime = chargeScheduledTime,
+            )
+            chargeSaving = false
+            when (r) {
+                // Applied asynchronously; keep the just-saved state locally rather than
+                // re-GETting immediately (the car syncs a moment later).
+                is CallResult.Ok -> snackbar(ctx.getString(R.string.sched_charge_saved))
+                is CallResult.Err -> snackbar(ctx.getString(R.string.sched_save_failed, r.message))
+            }
+        }
+    }
+
+    fun toggleDeparture(d: BookingTravelSetting, on: Boolean) {
+        // Optimistic: the car applies this asynchronously (returns a sessionId) and may
+        // be asleep, so an immediate re-GET reads the OLD state and would revert the
+        // toggle. Reflect the intended state locally; the car syncs when it next wakes.
+        val updated = d.copy(sts = if (on) 1 else 0)
+        val idx = departures.indexOfFirst { it.btId == d.btId }
+        scope.launch {
+            val r = deps.schedule.updateDeparture(updated.sanitizedForWrite())
+            when (r) {
+                is CallResult.Ok -> {
+                    if (idx >= 0) departures[idx] = updated
+                    snackbar(if (on) ctx.getString(R.string.sched_departure_enabled) else ctx.getString(R.string.sched_departure_disabled))
+                }
+                is CallResult.Err -> snackbar(ctx.getString(R.string.sched_update_failed, r.message))
+            }
+        }
+    }
+
+    fun deleteDeparture(d: BookingTravelSetting) {
+        // Departures are fixed car-side slots; "delete" disables the slot (command stop).
+        // Optimistic local update for the same async/asleep reason as the toggle.
+        val idx = departures.indexOfFirst { it.btId == d.btId }
+        scope.launch {
+            val r = deps.schedule.deleteDeparture(d.sanitizedForWrite())
+            when (r) {
+                is CallResult.Ok -> {
+                    if (idx >= 0) departures[idx] = d.copy(sts = 0)
+                    snackbar(ctx.getString(R.string.sched_departure_deleted))
+                }
+                is CallResult.Err -> snackbar(ctx.getString(R.string.sched_delete_failed, r.message))
+            }
+        }
+    }
+
+    if (Brand.isStudio) {
+        // The Studio look: same state, same commands, same dialog; only the layout is different.
+        StudioSchedule(
+            StudioScheduleState(
+                chargeLoading = chargeLoading, chargeEnabled = chargeEnabled, chargeStart = chargeStart, chargeEnd = chargeEnd,
+                keepCharging = keepCharging, chargeSaving = chargeSaving,
+                departuresLoading = depLoading, departures = departures,
+            ),
+            StudioScheduleActions(
+                onPickStart = { pickTime(ctx, chargeStart, withSeconds = false) { chargeStart = it } },
+                onPickEnd = { pickTime(ctx, chargeEnd, withSeconds = false) { chargeEnd = it } },
+                onChargeEnabled = { chargeEnabled = it },
+                onKeepCharging = { keepCharging = it },
+                onSaveCharge = { saveCharge() },
+                onToggleDeparture = { d, on -> toggleDeparture(d, on) },
+                onDeleteDeparture = { d -> deleteDeparture(d) },
+                onAddDeparture = { showAddDeparture = true },
+            ),
+            modifier,
+        )
+    } else Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -150,20 +222,7 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                     Switch(checked = keepCharging, onCheckedChange = { keepCharging = it }, colors = brandSwitchColors())
                 }
                 PrimaryButton(if (chargeSaving) stringResource(R.string.sched_saving) else stringResource(R.string.sched_save), Modifier.fillMaxWidth(), enabled = !chargeSaving) {
-                    chargeSaving = true
-                    scope.launch {
-                        val r = deps.schedule.setChargePlan(
-                            enabled = chargeEnabled, startTime = chargeStart, endTime = chargeEnd,
-                            keepCharging = keepCharging, timerId = chargeTimerId, scheduledTime = chargeScheduledTime,
-                        )
-                        chargeSaving = false
-                        when (r) {
-                            // Applied asynchronously; keep the just-saved state locally rather than
-                            // re-GETting immediately (the car syncs a moment later).
-                            is CallResult.Ok -> snackbar(ctx.getString(R.string.sched_charge_saved))
-                            is CallResult.Err -> snackbar(ctx.getString(R.string.sched_save_failed, r.message))
-                        }
-                    }
+                    saveCharge()
                 }
             }
         }
@@ -183,38 +242,8 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                 departures.forEach { d ->
                     DepartureRow(
                         setting = d,
-                        onToggle = { on ->
-                            // Optimistic: the car applies this asynchronously (returns a sessionId) and may
-                            // be asleep, so an immediate re-GET reads the OLD state and would revert the
-                            // toggle. Reflect the intended state locally; the car syncs when it next wakes.
-                            val updated = d.copy(sts = if (on) 1 else 0)
-                            val idx = departures.indexOfFirst { it.btId == d.btId }
-                            scope.launch {
-                                val r = deps.schedule.updateDeparture(updated.sanitizedForWrite())
-                                when (r) {
-                                    is CallResult.Ok -> {
-                                        if (idx >= 0) departures[idx] = updated
-                                        snackbar(if (on) ctx.getString(R.string.sched_departure_enabled) else ctx.getString(R.string.sched_departure_disabled))
-                                    }
-                                    is CallResult.Err -> snackbar(ctx.getString(R.string.sched_update_failed, r.message))
-                                }
-                            }
-                        },
-                        onDelete = {
-                            // Departures are fixed car-side slots; "delete" disables the slot (command stop).
-                            // Optimistic local update for the same async/asleep reason as the toggle.
-                            val idx = departures.indexOfFirst { it.btId == d.btId }
-                            scope.launch {
-                                val r = deps.schedule.deleteDeparture(d.sanitizedForWrite())
-                                when (r) {
-                                    is CallResult.Ok -> {
-                                        if (idx >= 0) departures[idx] = d.copy(sts = 0)
-                                        snackbar(ctx.getString(R.string.sched_departure_deleted))
-                                    }
-                                    is CallResult.Err -> snackbar(ctx.getString(R.string.sched_delete_failed, r.message))
-                                }
-                            }
-                        },
+                        onToggle = { on -> toggleDeparture(d, on) },
+                        onDelete = { deleteDeparture(d) },
                     )
                 }
             }
@@ -248,40 +277,63 @@ fun ScheduleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
 
 // ---------------------------------------------------------------- departure rows
 
+/** What a departure plan shows, worked out once for both looks. */
+internal class DepartureView(
+    /** The plan's name, or the default one when it has none. */
+    val name: String,
+    /** "HH:mm", or the "no time" placeholder. */
+    val time: String,
+    /** Labels of the weekdays it repeats on, Monday first. Empty for a one-off plan. */
+    val days: List<String>,
+    val batteryPreheat: Boolean,
+    val cabinPreheat: Boolean,
+    val enabled: Boolean,
+)
+
+@Composable
+internal fun departureView(setting: BookingTravelSetting): DepartureView {
+    val dayLabels = dayLabels()
+    val defaultName = stringResource(R.string.sched_departure_default)
+    val noTime = stringResource(R.string.sched_time_none)
+    val activeDays = setting.cycleTimes.filter { it.sts == 1 }.map { it.day }.toSortedSet()
+    val rawTime = setting.cycleTimes.firstOrNull { it.sts == 1 }?.time
+        ?: setting.temporaryTime.ifBlank { "" }
+    val time = if (rawTime.isBlank()) noTime else hhmm(rawTime)
+    return DepartureView(
+        name = setting.name.ifBlank { defaultName },
+        time = time.take(5),
+        days = activeDays.map { dayLabels[(it - 1).coerceIn(0, 6)] },
+        batteryPreheat = setting.preHeatSts == 1,
+        cabinPreheat = setting.csSetting?.sts == 1,
+        enabled = setting.sts == 1,
+    )
+}
+
 @Composable
 private fun DepartureRow(
     setting: BookingTravelSetting,
     onToggle: (Boolean) -> Unit,
     onDelete: () -> Unit,
 ) {
-    val dayLabels = dayLabels()
-    val defaultName = stringResource(R.string.sched_departure_default)
+    val v = departureView(setting)
     val preheatTag = stringResource(R.string.sched_preheat_tag)
-    val noTime = stringResource(R.string.sched_time_none)
-    val activeDays = setting.cycleTimes.filter { it.sts == 1 }.map { it.day }.toSortedSet()
-    val rawTime = setting.cycleTimes.firstOrNull { it.sts == 1 }?.time
-        ?: setting.temporaryTime.ifBlank { "" }
-    val time = if (rawTime.isBlank()) noTime else hhmm(rawTime)
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.surface2).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(Icons.Filled.Schedule, null, tint = Brand.accent, modifier = Modifier.size(20.dp))
         Column(Modifier.weight(1f)) {
-            Text(setting.name.ifBlank { defaultName }, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(v.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                buildString {
-                    append(time.take(5))
-                    if (activeDays.isNotEmpty()) {
-                        append("  ·  ")
-                        append(activeDays.joinToString("") { dayLabels[(it - 1).coerceIn(0, 6)] })
-                    }
-                    if (setting.preHeatSts == 1) append("  ·  $preheatTag")
-                },
+                listOfNotNull(
+                    v.time,
+                    v.days.takeIf { it.isNotEmpty() }?.joinToString(""),
+                    preheatTag.takeIf { v.batteryPreheat },
+                ).joinToString(stringResource(R.string.sched_join_dot)),
                 color = Brand.muted, fontSize = 11.5.sp,
             )
         }
-        Switch(checked = setting.sts == 1, onCheckedChange = onToggle, colors = brandSwitchColors(Brand.good))
+        Switch(checked = v.enabled, onCheckedChange = onToggle, colors = brandSwitchColors(Brand.good))
         Icon(
             Icons.Filled.Delete, stringResource(R.string.sched_delete_cd), tint = Brand.faint,
             modifier = Modifier.size(30.dp).clip(CircleShape).clickable(onClick = onDelete).padding(6.dp),
@@ -303,6 +355,23 @@ private fun AddDepartureSheet(
     var preheat by remember { mutableStateOf(true) }
     var cabin by remember { mutableStateOf(true) }
 
+    // ---- the actions, shared by both looks ----
+    val pickDepartureTime = { pickTime(ctx, time, withSeconds = true) { time = it } }
+    val toggleDay: (Int) -> Unit = { d -> if (d in days) days.remove(d) else days.add(d) }
+    val create = { onCreate(newRecurringDeparture(name.ifBlank { defaultName }, time, days.toSet(), preheat, cabin)) }
+
+    if (Brand.isStudio) {
+        StudioAddDepartureDialog(
+            name = name, onName = { name = it },
+            time = time.take(5), onPickTime = pickDepartureTime,
+            dayLabels = dayLabels, days = days, onToggleDay = toggleDay,
+            cabin = cabin, onCabin = { cabin = it },
+            preheat = preheat, onPreheat = { preheat = it },
+            canCreate = days.isNotEmpty(), onCreate = create, onDismiss = onDismiss,
+        )
+        return
+    }
+
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.sched_new_departure)) },
@@ -313,7 +382,7 @@ private fun AddDepartureSheet(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.sched_departure_time), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    TimeChip(time.take(5)) { pickTime(ctx, time, withSeconds = true) { time = it } }
+                    TimeChip(time.take(5)) { pickDepartureTime() }
                 }
                 Text(stringResource(R.string.sched_repeat_on), color = Brand.muted, fontSize = 12.sp)
                 // FlowRow so all 7 days wrap onto a second line on narrow dialogs instead of clipping
@@ -325,7 +394,7 @@ private fun AddDepartureSheet(
                     // day is 1-based on the wire (1=Mon .. 7=Sun); dayLabels() is indexed day-1.
                     for (d in 1..7) {
                         val on = d in days
-                        SelectChip(dayLabels[d - 1], on) { if (on) days.remove(d) else days.add(d) }
+                        SelectChip(dayLabels[d - 1], on) { toggleDay(d) }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -339,9 +408,7 @@ private fun AddDepartureSheet(
             }
         },
         confirmButton = {
-            androidx.compose.material3.TextButton(enabled = days.isNotEmpty(), onClick = {
-                onCreate(newRecurringDeparture(name.ifBlank { defaultName }, time, days.toSet(), preheat, cabin))
-            }) { Text(stringResource(R.string.sched_create)) }
+            androidx.compose.material3.TextButton(enabled = days.isNotEmpty(), onClick = { create() }) { Text(stringResource(R.string.sched_create)) }
         },
         dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text(stringResource(R.string.sched_cancel)) } },
     )

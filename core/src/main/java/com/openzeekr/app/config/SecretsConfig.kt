@@ -248,6 +248,12 @@ data class SecretsConfig(
      *  name. The cloud rename API (modify-vehicle / vehNickname) is wired separately. */
     val carNickname: String = "",
 
+    // ---- appearance (UI only) ----
+    /** Which look the app wears: "studio_auto" (the new design, following the system's light/dark setting),
+     *  "studio_light", "studio_dark", or "classic" (the original dark cockpit). An unknown value is treated
+     *  as the default, so a config written by a newer build still loads. */
+    val theme: String = "studio_auto",
+
     // ---- display units (UI only) ----
     /** Tyre-pressure unit: "bar" | "psi" | "kpa". */
     val pressureUnit: String = "bar",

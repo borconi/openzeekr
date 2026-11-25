@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Velciet joslas rokturi, lai to mainītu</string>
+    <string name="vehicle_amps_lower_cd">Samazināt uzlādes strāvu</string>
+    <string name="vehicle_amps_raise_cd">Palielināt uzlādes strāvu</string>
+    <string name="vehicle_charge_stat_power">Jauda</string>
+    <string name="vehicle_charge_stat_current">Strāva</string>
+    <string name="vehicle_charge_stat_full_in">Pilna pēc</string>
+    <string name="vehicle_charge_phases">%1$d-fāžu</string>
+
+    <string name="location_updated_fmt">Atjaunināts %1$s</string>
+    <string name="location_rpa_hint">Vispirms aktivizējiet tālvadības novietošanu automašīnas centrālajā ekrānā.</string>
+
+    <string name="sec_studio_subtitle">Uzrauga automašīnu, kamēr tā ir novietota</string>
+    <string name="sec_studio_arm">Ieslēgt</string>
+    <string name="sec_studio_disarm">Izslēgt</string>
+    <string name="sec_studio_access_title">Piekļuve</string>
+    <string name="sec_studio_access_hint">Katrai izmaiņai nepieciešams PIN</string>
+
+    <string name="sched_studio_subtitle">Uzlāde un izbraukšana pēc laika, saglabāta automašīnā</string>
+    <string name="sched_studio_charge_switch">Uzlādēt pēc šī grafika</string>
+
+    <string name="journey_studio_subtitle">Automašīnas reģistrētie braucieni</string>
+    <string name="journey_studio_trips_shown">Rādītie braucieni</string>
+
+    <string name="setup_studio_subtitle">Jūsu tālrunis kā automašīnas atslēga, izmantojot Bluetooth</string>
+    <string name="setup_studio_pill_active">Aktīva</string>
+    <string name="setup_studio_pill_not_set_up">Nav iestatīta</string>
+    <string name="setup_studio_pill_connected">Savienots</string>
+    <string name="setup_studio_calibration">Kalibrācija</string>
+    <string name="setup_studio_calibrated">Kalibrēts</string>
+    <string name="setup_studio_calib_door">Pie durvīm</string>
+    <string name="setup_studio_calib_far">6 m attālumā</string>
+
+    <string name="ota_studio_checked_at">Pārbaudīts plkst. %1$s</string>
+
+    <string name="aa_studio_state_on">Ieslēgts</string>
+    <string name="aa_studio_state_off">Izslēgts</string>
+    <string name="aa_studio_state_unsupported">Nav atbalstīts</string>
+
+    <string name="settings_studio_diagnostics">Žurnāli un diagnostika</string>
+    <string name="settings_studio_dev_tools">Izstrādātāja rīki</string>
+    <string name="settings_studio_dev_hint">Testa funkcijas šeit un citās cilnēs.</string>
+    <string name="settings_studio_version_line">Versija %1$s</string>
+    <string name="settings_studio_region_hint">Zeekr serveri, kuros atrodas jūsu konts.</string>
+    <string name="settings_studio_region_verified">Pārbaudīts</string>
+    <string name="settings_studio_region_experimental">Eksperimentāls</string>
+
+    <string name="inbox_studio_has_unread">Jums ir nelasīti ziņojumi</string>
+    <string name="inbox_studio_all_read">Viss ir izlasīts</string>
+    <string name="inbox_studio_unread_cd">Nelasīts</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="zero">Koplietota ar %1$d personām</item>
+        <item quantity="one">Koplietota ar %1$d personu</item>
+        <item quantity="other">Koplietota ar %1$d personām</item>
+    </plurals>
+    <string name="carshare_studio_people">Personas ar piekļuvi</string>
+    <string name="carshare_studio_empty_body">Ikviens, ar ko koplietojat, parādās šeit, un jūs jebkurā laikā varat atsaukt viņu piekļuvi.</string>
+
+    <string name="onb_studio_region_lead">Izvēlieties tirgu, kuram pieder jūsu automašīna un konts. Tas atlasa pareizos Zeekr serverus.</string>
+    <string name="onb_studio_region_keys_note">Katram reģionam vajadzīgas savas iegūtās atslēgas (zeekr_key_extractor --region %1$s). Tās pievienosiet nākamajā solī.</string>
+    <string name="onb_studio_region_verified">Pārbaudīts</string>
+    <string name="onb_studio_region_experimental">Eksperimentāls</string>
+    <string name="onb_studio_key_not_set">Vēl nav iestatīta</string>
+
+</resources>

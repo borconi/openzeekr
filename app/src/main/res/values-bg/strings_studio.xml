@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Плъзнете дръжката на лентата, за да го промените</string>
+    <string name="vehicle_amps_lower_cd">Намали тока на зареждане</string>
+    <string name="vehicle_amps_raise_cd">Увеличи тока на зареждане</string>
+    <string name="vehicle_charge_stat_power">Мощност</string>
+    <string name="vehicle_charge_stat_current">Ток</string>
+    <string name="vehicle_charge_stat_full_in">Пълно след</string>
+    <string name="vehicle_charge_phases">%1$d-фазно</string>
+
+    <string name="location_updated_fmt">Обновено %1$s</string>
+    <string name="location_rpa_hint">Първо активирайте Дистанционно паркиране от централния екран на автомобила.</string>
+
+    <string name="sec_studio_subtitle">Следете автомобила, докато е паркиран</string>
+    <string name="sec_studio_arm">Включи</string>
+    <string name="sec_studio_disarm">Изключи</string>
+    <string name="sec_studio_access_title">Достъп</string>
+    <string name="sec_studio_access_hint">Всяка промяна изисква PIN</string>
+
+    <string name="sched_studio_subtitle">Зареждане и заминавания по график, запазени на автомобила</string>
+    <string name="sched_studio_charge_switch">Зареждай по този график</string>
+
+    <string name="journey_studio_subtitle">Пътувания, записани от автомобила</string>
+    <string name="journey_studio_trips_shown">Показани пътувания</string>
+
+    <string name="setup_studio_subtitle">Телефонът ви като ключ за автомобила, през Bluetooth</string>
+    <string name="setup_studio_pill_active">Активен</string>
+    <string name="setup_studio_pill_not_set_up">Не е настроен</string>
+    <string name="setup_studio_pill_connected">Свързан</string>
+    <string name="setup_studio_calibration">Калибриране</string>
+    <string name="setup_studio_calibrated">Калибриран</string>
+    <string name="setup_studio_calib_door">При вратата</string>
+    <string name="setup_studio_calib_far">На 6 m</string>
+
+    <string name="ota_studio_checked_at">Проверено в %1$s</string>
+
+    <string name="aa_studio_state_on">Включено</string>
+    <string name="aa_studio_state_off">Изключено</string>
+    <string name="aa_studio_state_unsupported">Не се поддържа</string>
+
+    <string name="settings_studio_diagnostics">Журнали и диагностика</string>
+    <string name="settings_studio_dev_tools">Инструменти за разработчици</string>
+    <string name="settings_studio_dev_hint">Тестови функции, тук и в други раздели.</string>
+    <string name="settings_studio_version_line">Версия %1$s</string>
+    <string name="settings_studio_region_hint">Сървърите на Zeekr, на които е акаунтът ви.</string>
+    <string name="settings_studio_region_verified">Потвърден</string>
+    <string name="settings_studio_region_experimental">Експериментален</string>
+
+    <string name="inbox_studio_has_unread">Имате непрочетени съобщения</string>
+    <string name="inbox_studio_all_read">Всичко е прочетено</string>
+    <string name="inbox_studio_unread_cd">Непрочетено</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Споделен с %1$d човек</item>
+        <item quantity="other">Споделен с %1$d души</item>
+    </plurals>
+    <string name="carshare_studio_people">Хора с достъп</string>
+    <string name="carshare_studio_empty_body">Всеки, с когото споделите, се показва тук и можете да отнемете достъпа му по всяко време.</string>
+
+    <string name="onb_studio_region_lead">Изберете пазара, към който принадлежат автомобилът и акаунтът ви. Това избира правилните сървъри на Zeekr.</string>
+    <string name="onb_studio_region_keys_note">Всеки регион се нуждае от собствени извлечени ключове (zeekr_key_extractor --region %1$s). Ще ги добавите след това.</string>
+    <string name="onb_studio_region_verified">Потвърден</string>
+    <string name="onb_studio_region_experimental">Експериментален</string>
+    <string name="onb_studio_key_not_set">Все още не е настроен</string>
+
+</resources>

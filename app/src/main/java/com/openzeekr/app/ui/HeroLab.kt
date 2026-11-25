@@ -22,10 +22,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -54,6 +56,9 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,8 +81,17 @@ fun HeroLabScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
     val model = models.getOrElse(modelIdx) { models.first() }
     var paint by remember(model) { mutableStateOf(model.colors.first()) }
 
+    val studio = Brand.isStudio
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 28.dp)) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (studio) {
+            // Studio: the kit's round back button and the display face, like the other pages.
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StudioIconButton(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.herolab_cd_back), onClick = onBack)
+                Text(stringResource(R.string.herolab_title), fontFamily = Brand.display, fontWeight = FontWeight.Bold, fontSize = 22.sp,
+                    color = Brand.text, modifier = Modifier.weight(1f))
+            }
+        } else Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.herolab_cd_back), tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onBack).padding(8.dp),
@@ -86,7 +100,12 @@ fun HeroLabScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
             Text(stringResource(R.string.herolab_title), fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
 
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Studio: the row scrolls sideways, so more models or a larger font cannot push a chip off the screen.
+        Row(
+            if (studio) Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp)
+            else Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             models.forEachIndexed { i, m -> LabChip(m.displayName, selected = i == modelIdx) { modelIdx = i } }
         }
         Spacer(Modifier.height(10.dp))
@@ -98,7 +117,10 @@ fun HeroLabScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
                 HeroMode.CHARGING -> stringResource(R.string.herolab_mode_charging)
                 HeroMode.DRIVING -> stringResource(R.string.herolab_mode_driving)
             }
-            Text(
+            if (studio) Text(
+                modeLabel, color = Brand.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 16.dp, bottom = 2.dp),
+            ) else Text(
                 modeLabel, color = Brand.faint, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 22.dp, top = 16.dp, bottom = 2.dp),
             )
@@ -170,12 +192,17 @@ private fun LabHeroCard(model: CarModel, paint: PaintColor, mode: HeroMode) {
             Image(bitmap = details, contentDescription = null, modifier = carMod)
         }
 
+        // The panel behind the car is light in every theme. Studio puts the paint name on a chip in the card
+        // colour, so it reads in the dark version too; Classic keeps its plain label.
         Row(
-            Modifier.align(Alignment.BottomStart).padding(14.dp),
+            if (Brand.isStudio) Modifier.align(Alignment.BottomStart).padding(10.dp).clip(RoundedCornerShape(10.dp))
+                .background(Brand.surface).padding(horizontal = 8.dp, vertical = 4.dp)
+            else Modifier.align(Alignment.BottomStart).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
-            Box(Modifier.size(12.dp).clip(CircleShape).background(labSwatchColor(paint)))
-            Text(paint.name, color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Box(Modifier.size(12.dp).clip(CircleShape).background(labSwatchColor(paint))
+                .let { if (Brand.isStudio) it.border(1.dp, Brand.line, CircleShape) else it })
+            Text(paint.name, color = if (Brand.isStudio) Brand.text else Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
 
         if (mode == HeroMode.CHARGING) {
@@ -224,6 +251,20 @@ private fun labSwatchColor(p: PaintColor): Color =
 
 @Composable
 private fun LabChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    if (Brand.isStudio) {
+        // Studio: a card-coloured chip with an edge (it sits on the page ground), the chosen one tinted; a
+        // screen reader hears it as one choice of a set.
+        val shape = RoundedCornerShape(14.dp)
+        Box(
+            Modifier.heightIn(min = 44.dp).clip(shape).background(if (selected) Brand.tint(Brand.accent) else Brand.surface)
+                .border(1.dp, if (selected) Brand.accent else Brand.line, shape)
+                .selectable(selected = selected, role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, color = if (selected) Brand.accent else Brand.muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
+        return
+    }
     Box(
         Modifier.clip(CircleShape).background(if (selected) Brand.accent.copy(alpha = .18f) else Brand.surface2)
             .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
@@ -240,7 +281,19 @@ private fun LabSwatches(colors: List<PaintColor>, selected: PaintColor, onPick: 
     ) {
         colors.forEach { pc ->
             val sel = pc.name == selected.name
-            Box(
+            if (Brand.isStudio) {
+                // Studio: the same dot inside a 44dp touch target, announced by its paint name.
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape).selectable(selected = sel, role = Role.RadioButton) { onPick(pc) }
+                        .semantics { contentDescription = pc.name },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier.size(if (sel) 32.dp else 26.dp).clip(CircleShape).background(labSwatchColor(pc))
+                            .border(if (sel) 2.dp else 1.dp, if (sel) Brand.text else Brand.line, CircleShape),
+                    )
+                }
+            } else Box(
                 Modifier.size(if (sel) 30.dp else 26.dp).clip(CircleShape).background(labSwatchColor(pc))
                     .border(if (sel) 2.dp else 1.dp, if (sel) MaterialTheme.colorScheme.onSurface else Brand.line, CircleShape)
                     .clickable { onPick(pc) },

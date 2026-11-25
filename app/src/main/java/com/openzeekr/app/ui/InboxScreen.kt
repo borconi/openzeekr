@@ -96,6 +96,55 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
     }
     LaunchedEffect(Unit) { load() }
 
+    // What the page can do, worked out once and used by both looks.
+    val hasUnread = serverUnread > 0 || messages.any { !it.read }
+    val markAllRead: () -> Unit = {
+        // Give immediate feedback (the button used to fire silently), report the real
+        // outcome, and reload so the badge/list reflect what actually got marked.
+        markingAll = true
+        snackbar(ctx.getString(R.string.inbox_marking_all))
+        scope.launch {
+            val r = deps.inbox.markAllRead()
+            when (r) {
+                is CallResult.Ok -> { messages = messages.map { it.copy(read = true) }; snackbar(ctx.getString(R.string.inbox_all_marked)) }
+                is CallResult.Err -> snackbar(ctx.getString(R.string.inbox_mark_all_failed, r.message))
+            }
+            runCatching { load() }   // refresh from server so the real unread state shows
+            markingAll = false
+        }
+    }
+    val openMessage: (InboxMessage) -> Unit = { m ->
+        // Mark read + open the message IN-APP (no implicit ACTION_VIEW → no jump to
+        // the stock Zeekr app). Any http(s) link is offered as an explicit button.
+        if (!m.read) {
+            messages = messages.map { if (it.id == m.id) it.copy(read = true) else it }
+            m.id?.let { id -> scope.launch { deps.inbox.markRead(id) } }
+        }
+        selected = m
+    }
+    val openLink: (String) -> Unit = { url ->
+        // Only http(s) links reach here (see inboxWebLink) — an explicit user tap, opened in
+        // the browser. zeekr:// deeplinks are never auto-followed.
+        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .onFailure { snackbar(ctx.getString(R.string.inbox_open_link_failed)) }
+        selected = null
+    }
+
+    if (Brand.isStudio) {
+        StudioInbox(
+            StudioInboxState(
+                messages = messages, loading = loading, error = error, hasUnread = hasUnread, markingAll = markingAll,
+                open = selected, openLink = selected?.let(::inboxWebLink),
+            ),
+            StudioInboxActions(
+                onBack = onBack, onReload = { scope.launch { load() } }, onMarkAll = markAllRead, onOpen = openMessage,
+                onClose = { selected = null }, onOpenLink = openLink,
+            ),
+            modifier,
+        )
+        return
+    }
+
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Header
         Row(
@@ -110,25 +159,12 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
             )
             Text(stringResource(R.string.inbox_title), fontWeight = FontWeight.Bold, fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f).padding(start = 4.dp))
-            if (serverUnread > 0 || messages.any { !it.read }) {
+            if (hasUnread) {
                 Text(
                     if (markingAll) stringResource(R.string.inbox_marking) else stringResource(R.string.inbox_mark_all_read),
                     color = Brand.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !markingAll) {
-                        // Give immediate feedback (the button used to fire silently), report the real
-                        // outcome, and reload so the badge/list reflect what actually got marked.
-                        markingAll = true
-                        snackbar(ctx.getString(R.string.inbox_marking_all))
-                        scope.launch {
-                            val r = deps.inbox.markAllRead()
-                            when (r) {
-                                is CallResult.Ok -> { messages = messages.map { it.copy(read = true) }; snackbar(ctx.getString(R.string.inbox_all_marked)) }
-                                is CallResult.Err -> snackbar(ctx.getString(R.string.inbox_mark_all_failed, r.message))
-                            }
-                            runCatching { load() }   // refresh from server so the real unread state shows
-                            markingAll = false
-                        }
-                    }.padding(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !markingAll) { markAllRead() }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                 )
             }
         }
@@ -153,15 +189,7 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 items(messages, key = { it.id ?: it.hashCode().toString() }) { m ->
-                    MessageRow(m) {
-                        // Mark read + open the message IN-APP (no implicit ACTION_VIEW → no jump to
-                        // the stock Zeekr app). Any http(s) link is offered as an explicit button.
-                        if (!m.read) {
-                            messages = messages.map { if (it.id == m.id) it.copy(read = true) else it }
-                            m.id?.let { id -> scope.launch { deps.inbox.markRead(id) } }
-                        }
-                        selected = m
-                    }
+                    MessageRow(m) { openMessage(m) }
                 }
             }
         }
@@ -171,22 +199,19 @@ fun InboxScreen(deps: Deps, onBack: () -> Unit, snackbar: (String) -> Unit, modi
         MessageDetailDialog(
             msg,
             onDismiss = { selected = null },
-            onOpenLink = { url ->
-                // Only http(s) links reach here (see the dialog) — an explicit user tap, opened in
-                // the browser. zeekr:// deeplinks are never auto-followed.
-                runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                    .onFailure { snackbar(ctx.getString(R.string.inbox_open_link_failed)) }
-                selected = null
-            },
+            onOpenLink = openLink,
         )
     }
 }
 
+/** Offer "Open link" only for real web links — never for a zeekr:// deeplink (that would jump to
+ *  the stock app, the very thing we're avoiding). */
+internal fun inboxWebLink(m: InboxMessage): String? =
+    m.redirectUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+
 @Composable
 private fun MessageDetailDialog(m: InboxMessage, onDismiss: () -> Unit, onOpenLink: (String) -> Unit) {
-    // Offer "Open link" only for real web links — never for a zeekr:// deeplink (that would jump to
-    // the stock app, the very thing we're avoiding).
-    val webLink = m.redirectUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+    val webLink = inboxWebLink(m)
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(m.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.inbox_message_fallback_title), fontWeight = FontWeight.Bold) },
@@ -219,7 +244,7 @@ private fun Modifier.verticalScrollDetail(): Modifier =
 @Composable
 private fun MessageRow(m: InboxMessage, onClick: () -> Unit) {
     val ctx = LocalContext.current
-    val (icon, tint) = categoryLook(m)
+    val (icon, tint) = inboxCategoryLook(m)
     Row(
         Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
@@ -248,7 +273,7 @@ private fun MessageRow(m: InboxMessage, onClick: () -> Unit) {
             }
             m.timeMs?.let {
                 Spacer(Modifier.size(5.dp))
-                Text(relativeTime(ctx, it), color = Brand.faint, fontSize = 11.5.sp)
+                Text(inboxRelativeTime(ctx, it), color = Brand.faint, fontSize = 11.5.sp)
             }
         }
     }
@@ -271,7 +296,7 @@ private fun InboxEmpty(icon: ImageVector, title: String, subtitle: String) {
 }
 
 /** Category → (icon, colour), inferred from the opaque customTypeId / title keywords. */
-private fun categoryLook(m: InboxMessage): Pair<ImageVector, Color> {
+internal fun inboxCategoryLook(m: InboxMessage): Pair<ImageVector, Color> {
     val hay = ((m.category ?: "") + " " + (m.title ?: "")).lowercase()
     return when {
         listOf("charg", "battery", "soc", "energy").any { it in hay } -> Icons.Filled.BatteryChargingFull to Brand.energy
@@ -284,7 +309,7 @@ private fun categoryLook(m: InboxMessage): Pair<ImageVector, Color> {
 }
 
 /** Compact relative time ("just now", "3h", "2d", else a date). */
-private fun relativeTime(context: Context, ms: Long): String {
+internal fun inboxRelativeTime(context: Context, ms: Long): String {
     val diff = System.currentTimeMillis() - ms
     if (diff < 0) return context.getString(R.string.inbox_time_just_now)
     val min = diff / 60_000

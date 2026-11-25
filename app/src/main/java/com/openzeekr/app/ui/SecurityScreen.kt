@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
@@ -130,17 +132,32 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
         }
     }
 
-    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
+    // The actions, worked out once: the Classic rows and the Studio page both call these.
+    val onSentry: (Boolean) -> Unit = { on ->
+        sentry = on
+        // Revert the optimistic flip if the command is refused (e.g. #41: car not locked).
+        fire(if (on) context.getString(R.string.sec_sentry_on) else context.getString(R.string.sec_sentry_off), if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF,
+            onErr = { sentry = !on })
+    }
+    // Glovebox and visitor mode: enter the PIN first; the state only flips once the command is confirmed.
+    val onGlovebox: (Boolean) -> Unit = { lock -> pinFor = if (lock) Command.GLOVEBOX_LOCK else Command.GLOVEBOX_UNLOCK }
+    val onVisitor: (Boolean) -> Unit = { on -> pinFor = if (on) Command.VISITOR_ON else Command.VISITOR_OFF }
+
+    if (Brand.isStudio) {
+        StudioSecurity(
+            StudioSecurityState(sentry = sentry, owner = owner, gloveboxLocked = gloveboxLocked, visitor = visitor),
+            StudioSecurityActions(
+                onSentry = onSentry, onGlovebox = onGlovebox, onVisitor = onVisitor,
+                onJourney = { showJourney = true }, onCarSharing = { showShare = true },
+            ),
+            modifier,
+        ) { SentryAutoArmSection(deps) }
+    } else Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         Label(stringResource(R.string.sec_header))
         Column(Modifier.padding(horizontal = 20.dp)) {
             SecRow(Icons.Filled.Shield, stringResource(R.string.sec_sentry_guard),
                 if (sentry) stringResource(R.string.sec_armed) else stringResource(R.string.sec_off)) {
-                Switch(checked = sentry, onCheckedChange = { on ->
-                    sentry = on
-                    // Revert the optimistic flip if the command is refused (e.g. #41: car not locked).
-                    fire(if (on) context.getString(R.string.sec_sentry_on) else context.getString(R.string.sec_sentry_off), if (on) Command.SENTINEL_ON else Command.SENTINEL_OFF,
-                        onErr = { sentry = !on })
-                }, colors = brandSwitchColors(Brand.good))
+                Switch(checked = sentry, onCheckedChange = onSentry, colors = brandSwitchColors(Brand.good))
             }
             // Auto-enable Sentry on lock (+ geofenced exclusions). Lives here next to the manual Sentry
             // toggle rather than in Settings - it's a security control.
@@ -149,16 +166,10 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
             if (owner) {
                 SecRow(Icons.Filled.Inventory2, stringResource(R.string.sec_glovebox_lock),
                     if (gloveboxLocked) stringResource(R.string.sec_glovebox_locked_sub) else stringResource(R.string.sec_glovebox_unlocked_sub)) {
-                    Switch(checked = gloveboxLocked, onCheckedChange = { lock ->
-                        // Enter PIN first; only flip once the command is confirmed.
-                        pinFor = if (lock) Command.GLOVEBOX_LOCK else Command.GLOVEBOX_UNLOCK
-                    }, colors = brandSwitchColors(Brand.good))
+                    Switch(checked = gloveboxLocked, onCheckedChange = onGlovebox, colors = brandSwitchColors(Brand.good))
                 }
                 SecRow(Icons.Filled.Person, stringResource(R.string.sec_visitor_mode), stringResource(R.string.sec_visitor_sub)) {
-                    Switch(checked = visitor, onCheckedChange = { on ->
-                        // Enter PIN first; only flip the toggle once the command is confirmed.
-                        pinFor = if (on) Command.VISITOR_ON else Command.VISITOR_OFF
-                    }, colors = brandSwitchColors(Brand.good))
+                    Switch(checked = visitor, onCheckedChange = onVisitor, colors = brandSwitchColors(Brand.good))
                 }
                 // Journey log is also owner-only server-side (a shared/Friend account is refused -
                 // confirmed 2026-09-16 against the stock app), so it lives inside the owner gate.
@@ -169,36 +180,37 @@ fun SecurityScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = 
                     onClick = { showShare = true }) { Chevron() }
             }
         }
-
-        pinFor?.let { cmd ->
-            val title = when (cmd) {
-                Command.GLOVEBOX_LOCK -> stringResource(R.string.sec_glovebox_lock_title)
-                Command.GLOVEBOX_UNLOCK -> stringResource(R.string.sec_glovebox_unlock_title)
-                Command.VISITOR_ON -> stringResource(R.string.sec_visitor_set_pin_title)
-                Command.VISITOR_OFF -> stringResource(R.string.sec_visitor_enter_pin_title)
-                else -> stringResource(R.string.sec_enter_pin)
-            }
-            val label = when (cmd) {
-                Command.GLOVEBOX_LOCK, Command.GLOVEBOX_UNLOCK -> stringResource(R.string.sec_glovebox_label)
-                Command.VISITOR_ON, Command.VISITOR_OFF -> stringResource(R.string.sec_visitor_label)
-                else -> stringResource(R.string.sec_enter_pin)
-            }
-            PinDialog(title, onDismiss = { pinFor = null }, onConfirm = { pin ->
-                fire(label, cmd, listOf(ServiceParameter("code", pin)))
-                when (cmd) {
-                    Command.VISITOR_ON -> visitor = true
-                    Command.VISITOR_OFF -> visitor = false
-                    Command.GLOVEBOX_LOCK -> gloveboxLocked = true
-                    Command.GLOVEBOX_UNLOCK -> gloveboxLocked = false
-                    else -> {}
-                }
-                pinFor = null
-            })
-        }
         Text(
             stringResource(R.string.sec_send_to_car_note),
             color = Brand.faint, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
         )
+    }
+
+    // The PIN prompt of the glovebox lock and visitor mode (a dialog, so it sits outside either layout).
+    pinFor?.let { cmd ->
+        val title = when (cmd) {
+            Command.GLOVEBOX_LOCK -> stringResource(R.string.sec_glovebox_lock_title)
+            Command.GLOVEBOX_UNLOCK -> stringResource(R.string.sec_glovebox_unlock_title)
+            Command.VISITOR_ON -> stringResource(R.string.sec_visitor_set_pin_title)
+            Command.VISITOR_OFF -> stringResource(R.string.sec_visitor_enter_pin_title)
+            else -> stringResource(R.string.sec_enter_pin)
+        }
+        val label = when (cmd) {
+            Command.GLOVEBOX_LOCK, Command.GLOVEBOX_UNLOCK -> stringResource(R.string.sec_glovebox_label)
+            Command.VISITOR_ON, Command.VISITOR_OFF -> stringResource(R.string.sec_visitor_label)
+            else -> stringResource(R.string.sec_enter_pin)
+        }
+        PinDialog(title, onDismiss = { pinFor = null }, onConfirm = { pin ->
+            fire(label, cmd, listOf(ServiceParameter("code", pin)))
+            when (cmd) {
+                Command.VISITOR_ON -> visitor = true
+                Command.VISITOR_OFF -> visitor = false
+                Command.GLOVEBOX_LOCK -> gloveboxLocked = true
+                Command.GLOVEBOX_UNLOCK -> gloveboxLocked = false
+                else -> {}
+            }
+            pinFor = null
+        })
     }
 }
 
@@ -253,7 +265,21 @@ private fun SentryAutoArmSection(deps: Deps) {
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    // The actions, worked out once: the Classic section and the Studio card both call these.
+    val onAutoArm: (Boolean) -> Unit = { on -> store.update { it.copy(autoSentryOnLock = on) } }
+    val onRemoveZone: (GeoZone) -> Unit = { zone -> store.removeSentryExclusionZone(zone) }
+    // "Add current location": ask for the location permission first when it is missing.
+    val onAddCurrent: () -> Unit = {
+        if (hasLocationPerm()) captureLocation() else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+    val onAddOnMap: () -> Unit = { openMapPicker() }
+
+    if (Brand.isStudio) {
+        StudioSentryAutoArm(
+            enabled = cfg.autoSentryOnLock, onEnabled = onAutoArm, zones = cfg.sentryExclusionZones, message = msg,
+            onRemove = onRemoveZone, onAddCurrent = onAddCurrent, onAddOnMap = onAddOnMap,
+        )
+    } else Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.sec_auto_sentry_title), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
@@ -262,7 +288,7 @@ private fun SentryAutoArmSection(deps: Deps) {
             }
             Switch(
                 checked = cfg.autoSentryOnLock,
-                onCheckedChange = { on -> store.update { it.copy(autoSentryOnLock = on) } },
+                onCheckedChange = onAutoArm,
                 colors = brandSwitchColors(Brand.good),
             )
         }
@@ -279,24 +305,20 @@ private fun SentryAutoArmSection(deps: Deps) {
                     ) {
                         Icon(Icons.Filled.Shield, null, tint = Brand.muted, modifier = Modifier.size(16.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(zone.name.ifBlank { stringResource(R.string.sec_unnamed_zone) }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-                            Text(stringResource(R.string.sec_zone_coords, "%.4f".format(zone.lat), "%.4f".format(zone.lng), zone.radiusMeters.toInt()),
-                                color = Brand.muted, fontSize = 11.sp)
+                            Text(zoneTitle(zone), fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                            Text(zoneSummary(zone), color = Brand.muted, fontSize = 11.sp)
                         }
-                        IconButton(onClick = { store.removeSentryExclusionZone(zone) }) {
+                        IconButton(onClick = { onRemoveZone(zone) }) {
                             Icon(Icons.Filled.Delete, stringResource(R.string.sec_remove_zone), tint = Brand.crit, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
             }
-            OutlinedButton(
-                onClick = { if (hasLocationPerm()) captureLocation() else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            OutlinedButton(onClick = onAddCurrent, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.sec_add_current_location))
             }
-            OutlinedButton(onClick = { openMapPicker() }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = onAddOnMap, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Place, null, modifier = Modifier.size(18.dp))
                 Text(stringResource(R.string.sec_add_on_map))
             }
@@ -371,7 +393,24 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
         else msg = ctx.getString(R.string.sec_location_perm_needed)
     }
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    // The actions, worked out once: the Classic section and the Studio list both call these.
+    val onRemoveZone: (GeoZone) -> Unit = { zone -> store.removeProximityExclusionZone(zone) }
+    // "Add current location": ask for the location permission first when it is missing.
+    val onAddCurrent: () -> Unit = {
+        if (hasLocationPerm()) captureLocation() else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+    val onAddOnMap: () -> Unit = { openMapPicker() }
+
+    if (Brand.isStudio) {
+        // No card of its own: it sits inside the passive-entry card of the Key tab. The note makes the scope
+        // explicit (#42): these zones only gate OpenZeekr's own proximity actions, not the car's passive entry.
+        StudioZoneList(
+            title = stringResource(R.string.sec_exclusion_zones_prox), emptyHint = stringResource(R.string.sec_no_zones_prox),
+            zones = cfg.proximityExclusionZones, message = msg,
+            onRemove = onRemoveZone, onAddCurrent = onAddCurrent, onAddOnMap = onAddOnMap,
+            note = stringResource(R.string.sec_exclusion_zones_prox_note),
+        )
+    } else Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(stringResource(R.string.sec_exclusion_zones_prox), color = Brand.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         // #42: make the scope explicit - these zones only gate OpenZeekr's OWN proximity actions, not the
         // car's built-in passive entry (which the car runs itself, ignoring these zones).
@@ -387,24 +426,20 @@ fun ProximityExclusionSection(config: com.openzeekr.app.config.ConfigStore, sent
                 ) {
                     Icon(Icons.Filled.Place, null, tint = Brand.muted, modifier = Modifier.size(16.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(zone.name.ifBlank { stringResource(R.string.sec_unnamed_zone) }, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-                        Text(stringResource(R.string.sec_zone_coords, "%.4f".format(zone.lat), "%.4f".format(zone.lng), zone.radiusMeters.toInt()),
-                            color = Brand.muted, fontSize = 11.sp)
+                        Text(zoneTitle(zone), fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                        Text(zoneSummary(zone), color = Brand.muted, fontSize = 11.sp)
                     }
-                    IconButton(onClick = { store.removeProximityExclusionZone(zone) }) {
+                    IconButton(onClick = { onRemoveZone(zone) }) {
                         Icon(Icons.Filled.Delete, stringResource(R.string.sec_remove_zone), tint = Brand.crit, modifier = Modifier.size(18.dp))
                     }
                 }
             }
         }
-        OutlinedButton(
-            onClick = { if (hasLocationPerm()) captureLocation() else permLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        OutlinedButton(onClick = onAddCurrent, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.sec_add_current_location))
         }
-        OutlinedButton(onClick = { openMapPicker() }, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = onAddOnMap, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Filled.Place, null, modifier = Modifier.size(18.dp))
             Text(stringResource(R.string.sec_add_on_map))
         }
@@ -445,8 +480,18 @@ private fun ZonePickerDialog(
     var lng by remember { mutableStateOf(initial?.second ?: 0.0) }
     var radius by remember { mutableStateOf(150f) }
     var name by remember { mutableStateOf("") }
+    // Worked out once: both looks save the same thing under the same condition.
+    val canSave = name.isNotBlank()
+    val save: () -> Unit = { onSave(name.trim(), lat, lng, radius.toDouble()) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.fillMaxSize().background(Color(0xFF0B0E14))) {
+        if (Brand.isStudio) StudioZonePicker(
+            name = name, onName = { name = it }, radius = radius, onRadius = { radius = it }, canSave = canSave,
+            onDismiss = onDismiss, onSave = save,
+        ) {
+            ZonePickerMap(initial?.first, initial?.second, radius.toDouble(), onCenterChange = { la, lo -> lat = la; lng = lo }, Modifier.matchParentSize())
+        }
+        // Classic keeps the exact colours it shipped with here (they differ slightly from the palette tokens).
+        else Column(Modifier.fillMaxSize().background(Color(0xFF0B0E14))) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 12.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -468,8 +513,8 @@ private fun ZonePickerDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.sec_cancel)) }
                     Button(
-                        onClick = { onSave(name.trim(), lat, lng, radius.toDouble()) },
-                        enabled = name.isNotBlank(),
+                        onClick = save,
+                        enabled = canSave,
                         modifier = Modifier.weight(1f),
                     ) { Text(stringResource(R.string.sec_save)) }
                 }
@@ -485,18 +530,19 @@ private fun AddZoneDialog(lat: Double, lng: Double, onDismiss: () -> Unit, onCon
     var radius by remember { mutableStateOf("150") }
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = dialogContainerColor(),
         title = { Text(stringResource(R.string.sec_add_exclusion_zone)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.sec_at_coords, "%.4f".format(lat), "%.4f".format(lng)), color = Brand.muted, fontSize = 12.sp)
-                OutlinedTextField(
+                DialogField(
                     value = name, onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.sec_name_hint)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    label = stringResource(R.string.sec_name_hint), modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                DialogField(
                     value = radius,
                     onValueChange = { v -> if (v.length <= 5 && v.all(Char::isDigit)) radius = v },
-                    label = { Text(stringResource(R.string.sec_radius_label)) }, singleLine = true,
+                    label = stringResource(R.string.sec_radius_label),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -517,13 +563,13 @@ private fun PinDialog(title: String, onDismiss: () -> Unit, onConfirm: (String) 
     var pin by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = dialogContainerColor(),
         title = { Text(title) },
         text = {
-            OutlinedTextField(
+            DialogField(
                 value = pin,
                 onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) pin = it },
-                label = { Text(stringResource(R.string.sec_pin)) },
-                singleLine = true,
+                label = stringResource(R.string.sec_pin),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             )
         },
@@ -531,6 +577,38 @@ private fun PinDialog(title: String, onDismiss: () -> Unit, onConfirm: (String) 
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.sec_cancel)) } },
     )
 }
+
+/**
+ * An input of this screen's dialogs in the active look: the Studio field, or the outlined field Classic has
+ * always had. One call site per input, so its filter and keyboard are the same in both looks.
+ */
+@Composable
+private fun DialogField(
+    value: String, onValueChange: (String) -> Unit, label: String, modifier: Modifier = Modifier,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+) {
+    if (Brand.isStudio) StudioTextField(value, onValueChange, label, modifier, keyboardOptions = keyboardOptions)
+    else OutlinedTextField(
+        value = value, onValueChange = onValueChange, label = { Text(label) }, singleLine = true,
+        keyboardOptions = keyboardOptions, modifier = modifier,
+    )
+}
+
+/**
+ * The ground of this screen's dialogs. Studio: the card colour, so the filled Studio fields stand out on it
+ * (Material's default dialog colour is the very colour those fields are filled with). Classic: Material's default.
+ */
+@Composable
+private fun dialogContainerColor(): Color = if (Brand.isStudio) Brand.surface else AlertDialogDefaults.containerColor
+
+/** The name a zone is listed under. */
+@Composable
+internal fun zoneTitle(zone: GeoZone): String = zone.name.ifBlank { stringResource(R.string.sec_unnamed_zone) }
+
+/** A zone's centre and radius as one line: "52.1234, 4.5678 · 150 m radius". */
+@Composable
+internal fun zoneSummary(zone: GeoZone): String =
+    stringResource(R.string.sec_zone_coords, "%.4f".format(zone.lat), "%.4f".format(zone.lng), zone.radiusMeters.toInt())
 
 @Composable
 private fun SecRow(icon: ImageVector, title: String, subtitle: String, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit) {
@@ -550,7 +628,8 @@ private fun SecRow(icon: ImageVector, title: String, subtitle: String, onClick: 
 }
 
 @Composable
-private fun Chevron() = Text("›", color = Brand.faint, fontSize = 18.sp)
+private fun Chevron() = Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+    tint = Brand.faint, modifier = Modifier.size(20.dp))   // mirrors in right-to-left languages
 
 @Composable
 private fun Label(text: String) =

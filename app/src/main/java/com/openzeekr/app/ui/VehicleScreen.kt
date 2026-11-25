@@ -237,40 +237,118 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
             }
         }
     }
+    // True from the moment a lock / unlock goes out until its result is back (the Studio slider waits on it).
+    var lockBusy by remember { mutableStateOf(false) }
     // BLE-first (confirmed) then cloud fallback, via the shared dispatcher.
     fun door(lockIt: Boolean) {
         val n = if (lockIt) ctx.getString(R.string.vehicle_lock) else ctx.getString(R.string.vehicle_unlock)
-        fire(n) { deps.vehicleControl.send(if (lockIt) Command.LOCK else Command.UNLOCK) }
+        lockBusy = true
+        fire(n) { try { deps.vehicleControl.send(if (lockIt) Command.LOCK else Command.UNLOCK) } finally { lockBusy = false } }
     }
+
+    // What the rendered hero car shows. The pack's camera looks at the car's RIGHT-hand side ("near"). Which
+    // doors those are depends on the steering side: the cloud config says so when it can
+    // (VehicleInfo.rightHandDrive), otherwise we go by the account's country.
+    fun isOpen(s: String?) = !s.isNullOrBlank() && s != "0"
+    val rhd = info?.rightHandDrive ?: (cfg.countryCode.uppercase() in RHD_COUNTRIES)
+    val drv = isOpen(safety?.doorOpenStatusDriver)
+    val drvRear = isOpen(safety?.doorOpenStatusDriverRear)
+    val pas = isOpen(safety?.doorOpenStatusPassenger)
+    val pasRear = isOpen(safety?.doorOpenStatusPassengerRear)
+    val heroStatus = Hero3dStatus(
+        doorNearFront = if (rhd) drv else pas,
+        doorNearRear = if (rhd) drvRear else pasRear,
+        doorFarFront = if (rhd) pas else drv,
+        doorFarRear = if (rhd) pasRear else drvRear,
+        hood = isOpen(safety?.engineHoodOpenStatus),
+        tailgate = trunkOpen,
+        window = when { windowsVenting -> 0.25f; windowsOpen -> 1f; else -> 0f },
+        speedKmh = (speedKmh ?: 0).toFloat(),
+        charging = charging,
+        soc = (soc ?: 0f) / 100f,
+    )
+
+    // Trunk: a DIRECT action (no confirmation sheet), exactly like lock/unlock. When a BLE key session is
+    // live the boot is actually POPPED open (CTRL_TRUNK_UNLOCK), so it reads "Open"; a powered tailgate is
+    // cloud power-opened (RDU_2) and also reads "Open". A cloud-only, non-powered car can only UNLATCH the
+    // boot, so it honestly reads "Unlock". When the boot is already open, a powered tailgate closes it.
+    val trunkPowered = caps.tailgate
+    val trunkCmd = when {
+        trunkOpen && trunkPowered -> Command.TRUNK_LOCK   // powered close
+        bleReady -> Command.TRUNK_UNLOCK                  // BLE pops it open
+        trunkPowered -> Command.TRUNK_OPEN                // cloud power-open (RDU_2)
+        else -> Command.TRUNK_UNLOCK                      // cloud latch release only
+    }
+    val trunkLabel = when {
+        trunkOpen && trunkPowered -> stringResource(R.string.vehicle_label_close)
+        bleReady || trunkPowered -> stringResource(R.string.vehicle_label_open)
+        else -> stringResource(R.string.vehicle_unlock)
+    }
+    val trunkHint = stringResource(when {
+        trunkOpen && trunkPowered -> R.string.vehicle_trunk_hint_close
+        bleReady || trunkPowered -> R.string.vehicle_trunk_hint_open
+        else -> R.string.vehicle_trunk_hint_unlock
+    })
 
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         // Persistent-401 / wrong-region banner (only shows after several consecutive auth rejections).
         AuthAlertBanner(deps)
-        // The animated rendered car replaces the static hero card when its asset pack is bundled
-        // (see WIP_DEV_HERO.md). Everything else keeps the classic hero.
+        if (Brand.isStudio) {
+            // The Studio look: same data, same commands, same sheets; only the layout is different.
+            fun deg(v: String?) = v?.toDoubleOrNull()?.let { ctx.getString(R.string.vehicle_deg, Math.round(it).toString()) }
+            Spacer(Modifier.height(4.dp))
+            StudioHome(
+                StudioHomeState(
+                    model = model, paint = paint, loading = info == null,
+                    hero3d = hero3d, heroStatus = heroStatus, heroFx = heroFx,
+                    soc = soc,
+                    range = rangeStr?.let { s -> s.toDoubleOrNull()?.let { Units.distance(it, cfg.distanceUnit) } ?: ctx.getString(R.string.vehicle_range_km, s) },
+                    avgConsumption = elec?.avgConsumption?.let { fmt1(it) },
+                    locked = locked, lockBusy = lockBusy, charging = charging, plugged = plugged, powerKw = powerKw,
+                    phases = elec?.chargePhases, timeToFullMin = elec?.timeToFullyCharged,
+                    chargeAmps = wholeOrNull(elec?.dcChargePileIAct) ?: wholeOrNull(elec?.chargeIAct),
+                    chargeVolts = wholeOrNull(elec?.dcChargePileUAct) ?: wholeOrNull(elec?.chargeUAct),
+                    portOpen = elec?.chargePortOpen == true, chargeLimitPct = cfg.chargeLimitPct,
+                    driving = driving, speed = heroSpeed, speedUnit = heroSpeedUnit,
+                    acOn = acOn, acHeating = acHeating,
+                    cabinTemp = deg(climate?.interiorTemp), outsideTemp = deg(climate?.exteriorTemp),
+                    windowsOpen = windowsOpen, windowsVenting = windowsVenting,
+                    hasSunroof = caps.sunroof, hasSunshade = caps.sunshade,
+                    trunkOpen = trunkOpen, trunkHint = trunkHint,
+                    hasFrunk = caps.frunk, hasFridge = caps.fridge, fridgeOn = fridgeOn,
+                    tyresKpa = listOf(maint?.tyreStatusDriver, maint?.tyreStatusPassenger, maint?.tyreStatusDriverRear, maint?.tyreStatusPassengerRear),
+                    pressureUnit = cfg.pressureUnit,
+                    odometer = maint?.odometer?.let { Units.distance(it.toDouble(), cfg.distanceUnit) },
+                    lowVoltage = maint?.lowVoltageBattery?.toDouble(),
+                    serviceDistance = maint?.distanceToService?.let { Units.distance(it.toDouble(), cfg.distanceUnit) },
+                    serviceTime = maint?.daysToService?.let { d -> if (d >= 60) ctx.getString(R.string.vehicle_service_months, d / 30) else ctx.getString(R.string.vehicle_service_days, d) },
+                    dataUsedGb = traffic?.usage?.toFloatOrNull(), dataTotalGb = traffic?.total?.toFloatOrNull(), dataLeftGb = traffic?.remain?.toFloatOrNull(),
+                ),
+                StudioHomeActions(
+                    onLockToggle = { door(!locked) },
+                    onClimate = { showClimate = true },
+                    onCharge = { showCharge = true },
+                    onWindows = { showWindows = true },
+                    onTrunk = { heroFx.onCommand(scope, trunkCmd); fire(trunkLabel) { deps.vehicleControl.send(trunkCmd) } },
+                    onFlash = { heroFx.onCommand(scope, Command.FLASH); fire(ctx.getString(R.string.vehicle_flash)) { deps.vehicleControl.send(Command.FLASH) } },
+                    onFlashHonk = { heroFx.onCommand(scope, Command.FLASH_HORN); fire(ctx.getString(R.string.vehicle_action_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } },
+                    onFrunk = { heroFx.onCommand(scope, Command.FRONT_TRUNK); fire(ctx.getString(R.string.vehicle_frunk)) { deps.vehicleControl.send(Command.FRONT_TRUNK) } },
+                    onFridge = { showFridge = true },
+                    // Same command and the same remembered value as the limit control in the charging sheet.
+                    onChargeLimit = { pct ->
+                        fire(ctx.getString(R.string.vehicle_action_charge)) {
+                            deps.control.send(Command.SET_CHARGE_SOC, listOf(ServiceParameter("soc", (pct * 10).toString())))
+                        }
+                        deps.config.update { it.copy(chargeLimitPct = pct) }
+                    },
+                ),
+            )
+        } else {
+        // The animated rendered car replaces the static hero card when its asset pack is bundled.
+        // Everything else keeps the classic hero.
         if (hero3d && info != null) {
-            fun isOpen(s: String?) = !s.isNullOrBlank() && s != "0"
-            // The pack's camera looks at the car's RIGHT-hand side ("near"). Which doors those are depends
-            // on the steering side: the cloud config says so when it can (VehicleInfo.rightHandDrive),
-            // otherwise we go by the account's country.
-            val rhd = info?.rightHandDrive ?: (cfg.countryCode.uppercase() in RHD_COUNTRIES)
-            val drv = isOpen(safety?.doorOpenStatusDriver)
-            val drvRear = isOpen(safety?.doorOpenStatusDriverRear)
-            val pas = isOpen(safety?.doorOpenStatusPassenger)
-            val pasRear = isOpen(safety?.doorOpenStatusPassengerRear)
             Box {
-                Hero3d(model.key, paint.color, Hero3dStatus(
-                    doorNearFront = if (rhd) drv else pas,
-                    doorNearRear = if (rhd) drvRear else pasRear,
-                    doorFarFront = if (rhd) pas else drv,
-                    doorFarRear = if (rhd) pasRear else drvRear,
-                    hood = isOpen(safety?.engineHoodOpenStatus),
-                    tailgate = trunkOpen,
-                    window = when { windowsVenting -> 0.25f; windowsOpen -> 1f; else -> 0f },
-                    speedKmh = (speedKmh ?: 0).toFloat(),
-                    charging = charging,
-                    soc = (soc ?: 0f) / 100f,
-                ), heroFx)
+                Hero3d(model.key, paint.color, heroStatus, heroFx)
                 if (driving) HeroSpeedBadge(heroSpeed, heroSpeedUnit, Modifier.align(Alignment.TopEnd).padding(end = 20.dp))
             }
         } else Hero(model, paint, charging, soc, powerKw, driving = driving, speedNum = heroSpeed,
@@ -308,24 +386,8 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                 // action — the car only supports flash-only and flash+honk together.)
                 add { Ctl(Icons.Filled.Campaign, stringResource(R.string.vehicle_tile_flash_honk), modifier = Modifier.weight(1f)) { heroFx.onCommand(scope, Command.FLASH_HORN); fire(ctx.getString(R.string.vehicle_action_locate)) { deps.vehicleControl.send(Command.FLASH_HORN) } } }
                 add { Ctl(Icons.Filled.FlashOn, stringResource(R.string.vehicle_flash), modifier = Modifier.weight(1f)) { heroFx.onCommand(scope, Command.FLASH); fire(ctx.getString(R.string.vehicle_flash)) { deps.vehicleControl.send(Command.FLASH) } } }
-                // Trunk: a DIRECT action (no confirmation sheet), exactly like lock/unlock. When a BLE
-                // key session is live the boot is actually POPPED open (CTRL_TRUNK_UNLOCK), so the tile
-                // reads "Open"; a powered tailgate is cloud power-opened (RDU_2) and also reads "Open".
-                // A cloud-only, non-powered car can only UNLATCH the boot, so it honestly reads "Unlock".
-                // When the boot is already open, a powered tailgate closes it on the next tap.
+                // Trunk: one tap, no sheet; what it does is worked out above (trunkCmd / trunkLabel).
                 add {
-                    val trunkPowered = caps.tailgate
-                    val trunkCmd = when {
-                        trunkOpen && trunkPowered -> Command.TRUNK_LOCK   // powered close
-                        bleReady -> Command.TRUNK_UNLOCK                  // BLE pops it open
-                        trunkPowered -> Command.TRUNK_OPEN                // cloud power-open (RDU_2)
-                        else -> Command.TRUNK_UNLOCK                      // cloud latch release only
-                    }
-                    val trunkLabel = when {
-                        trunkOpen && trunkPowered -> stringResource(R.string.vehicle_label_close)
-                        bleReady || trunkPowered -> stringResource(R.string.vehicle_label_open)
-                        else -> stringResource(R.string.vehicle_unlock)
-                    }
                     Ctl(Icons.Filled.Luggage, trunkLabel, tint = Brand.energy, active = trunkOpen, modifier = Modifier.weight(1f)) {
                         heroFx.onCommand(scope, trunkCmd)
                         fire(trunkLabel) { deps.vehicleControl.send(trunkCmd) }
@@ -395,11 +457,13 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
                 }
             }
         }
+        }   // classic look
     }
 
     if (showCharge) ChargeSheet(status, soc, powerKw, charging, plugged, elec,
         initialLimitPct = cfg.chargeLimitPct,
         devMode = cfg.devMode,
+        range = rangeStr?.let { s -> s.toDoubleOrNull()?.let { Units.distance(it, cfg.distanceUnit) } ?: ctx.getString(R.string.vehicle_range_km, s) },
         onCmd = { c, extra -> fire(ctx.getString(R.string.vehicle_action_charge)) { deps.control.send(c, extra) } },
         onLimitSet = { pct -> deps.config.update { it.copy(chargeLimitPct = pct) } },
         onDismiss = { showCharge = false })
@@ -453,9 +517,10 @@ private fun AuthAlertBanner(deps: Deps) {
         Button(
             onClick = { rechecking = true; deps.requestAuthRecheck() },
             enabled = !rechecking,
-            colors = ButtonDefaults.buttonColors(containerColor = Brand.crit),
+            colors = if (Brand.isStudio) ButtonDefaults.buttonColors(containerColor = Brand.crit, contentColor = Brand.onCrit)
+                else ButtonDefaults.buttonColors(containerColor = Brand.crit),
         ) {
-            if (rechecking) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+            if (rechecking) CircularProgressIndicator(Modifier.size(16.dp), color = if (Brand.isStudio) Brand.onCrit else Color.White, strokeWidth = 2.dp)
             else Text(stringResource(R.string.vehicle_auth_recheck), fontSize = 13.sp)
         }
     }
@@ -509,7 +574,7 @@ private fun Hero(
 
 /** Live-speed badge shown on the hero while the car is being driven (a "Driving" chip when no speed is reported). */
 @Composable
-private fun HeroSpeedBadge(speedNum: Int?, speedUnit: String, modifier: Modifier = Modifier) {
+internal fun HeroSpeedBadge(speedNum: Int?, speedUnit: String, modifier: Modifier = Modifier) {
     Row(
         modifier.clip(RoundedCornerShape(14.dp))
             .background(Color.Black.copy(alpha = .38f)).padding(horizontal = 12.dp, vertical = 7.dp),
@@ -557,7 +622,7 @@ private fun Ctl(icon: ImageVector, label: String, tint: Color = MaterialTheme.co
 }
 
 /** "6.4 kW · 3-phase" (or just "6.4 kW" when the phase count is unknown / DC), or null when no power. */
-private fun chargePowerLabel(context: Context, powerKw: Double?, phases: Int?): String? =
+internal fun chargePowerLabel(context: Context, powerKw: Double?, phases: Int?): String? =
     powerKw?.let { context.getString(R.string.vehicle_charge_power_kw, fmt1(it)) + (phases?.let { p -> context.getString(R.string.vehicle_charge_phase_suffix, p) } ?: "") }
 
 @Composable
@@ -604,7 +669,7 @@ private fun ChargeCtl(
  * no estimate.
  */
 @Composable
-private fun chargeCountdown(totalMinutes: Int?): String? {
+internal fun chargeCountdown(totalMinutes: Int?): String? {
     if (totalMinutes == null || totalMinutes <= 0) return null
     val anchorMs = remember(totalMinutes) { System.currentTimeMillis() }
     var now by remember(totalMinutes) { mutableStateOf(System.currentTimeMillis()) }
@@ -626,6 +691,9 @@ private fun Tyre(pos: String, kpa: String?, unit: String, modifier: Modifier = M
     }
 }
 
+/** A reading such as "15.6" as a whole number, or null when it is missing, unreadable or not above zero. */
+private fun wholeOrNull(v: String?): Int? = v?.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { kotlin.math.round(it).toInt() }
+
 /** AC charge-current setpoint bounds (amps): min 5 A, max 32 A = the car's onboard AC ceiling
  *  (~22 kW 3-phase, 32 A/phase). Same in EU and AU/NZ (230 V / 400 V). Reuses the shared [StepBtn]. */
 private const val AC_CURRENT_MIN = 5
@@ -638,6 +706,8 @@ private fun ChargeSheet(
     charging: Boolean, plugged: Boolean, elec: ElectricStatusVo?,
     initialLimitPct: Int = 80,
     devMode: Boolean = false,
+    /** Range in the user's unit (Studio look). */
+    range: String? = null,
     onCmd: (Command, List<ServiceParameter>) -> Unit,
     onLimitSet: (Int) -> Unit = {}, onDismiss: () -> Unit,
 ) {
@@ -647,6 +717,50 @@ private fun ChargeSheet(
     val portOpen = elec?.chargePortOpen == true
     // Seed from the last-set value (the car has no reliable limit-read endpoint — see config).
     var limit by remember { mutableStateOf(initialLimitPct.toFloat().coerceIn(50f, 100f)) }
+    if (Brand.isStudio) {
+        // Same state and the same commands as the classic sheet below; only the layout differs.
+        var amps by remember(elec?.acSettingCurrent, elec?.chargeIAct) {
+            val seed = elec?.acSettingCurrent?.toIntOrNull()
+                ?: elec?.chargeIAct?.toDoubleOrNull()?.let { kotlin.math.round(it).toInt() }
+                ?: 16
+            mutableStateOf(seed.coerceIn(AC_CURRENT_MIN, AC_CURRENT_MAX))
+        }
+        StudioSheet(onDismiss, stringResource(R.string.vehicle_charging), trailing = {
+            StudioPill(
+                stringResource(when { charging -> R.string.vehicle_charging; plugged -> R.string.vehicle_status_plugged_in; else -> R.string.vehicle_status_unplugged }),
+                when { charging -> Brand.energy; plugged -> Brand.accent; else -> Brand.muted },
+            )
+        }) {
+            StudioChargeBody(
+                StudioChargeState(
+                    soc = soc, range = range, charging = charging, plugged = plugged, powerKw = powerKw, phases = elec?.chargePhases,
+                    amps = wholeOrNull(elec?.dcChargePileIAct) ?: wholeOrNull(elec?.chargeIAct),
+                    volts = wholeOrNull(elec?.dcChargePileUAct) ?: wholeOrNull(elec?.chargeUAct),
+                    timeToFullMin = elec?.timeToFullyCharged, limitPct = limit.roundToInt(),
+                    preheatOn = elec?.hvBatteryPreHeatingActive == true, portOpen = portOpen, devMode = devMode,
+                    carAmpsLine = elec?.acSettingCurrent?.let { context.getString(R.string.vehicle_car_reports_amps, it) }
+                        ?: stringResource(R.string.vehicle_car_reports_not_set),
+                    setAmps = amps, ampsMin = AC_CURRENT_MIN, ampsMax = AC_CURRENT_MAX,
+                ),
+                StudioChargeActions(
+                    onLimit = { pct ->
+                        limit = pct.toFloat()
+                        onCmd(Command.SET_CHARGE_SOC, listOf(ServiceParameter("soc", (pct * 10).toString())))
+                        onLimitSet(pct)
+                    },
+                    onPreheat = { on -> onCmd(if (on) Command.BATTERY_PREHEAT_ON else Command.BATTERY_PREHEAT_OFF, emptyList()) },
+                    onPortOpen = { onCmd(Command.CHARGE_LID_OPEN, emptyList()) },
+                    onPortClose = { onCmd(Command.CHARGE_LID_CLOSE, emptyList()) },
+                    onAmpsDown = { amps = (amps - 1).coerceAtLeast(AC_CURRENT_MIN) },
+                    onAmpsUp = { amps = (amps + 1).coerceAtMost(AC_CURRENT_MAX) },
+                    onSetAmps = { onCmd(Command.SET_CHARGE_CURRENT, listOf(ServiceParameter("rcs.ac.current", amps.toString()))) },
+                    onStart = { onCmd(Command.CHARGING_ON, emptyList()) },
+                    onStop = { onCmd(Command.CHARGING_OFF, emptyList()) },
+                ),
+            )
+        }
+        return
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = 22.dp).padding(bottom = 26.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(R.string.vehicle_charging), fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -659,7 +773,7 @@ private fun ChargeSheet(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.vehicle_charge_limit_target), fontWeight = FontWeight.SemiBold); Text(context.getString(R.string.vehicle_pct, limit.roundToInt()), color = Brand.muted, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.vehicle_charge_limit_target), fontWeight = FontWeight.SemiBold); Text(context.getString(R.string.vehicle_pct, limit.roundToInt().toString()), color = Brand.muted, fontWeight = FontWeight.SemiBold)
             }
             // Full 0–100 scale so the fill reads as the ACTUAL target % (an 80% limit fills 80% of
             // the bar), but dragging is clamped to ≥50 — the 0–50 region is a fixed floor you can't
@@ -739,6 +853,10 @@ private fun WindowsSheet(
     windowsOpen: Boolean, windowsVenting: Boolean, sunroofOpen: Boolean,
     onCmd: (Command, String) -> Unit, onDismiss: () -> Unit,
 ) {
+    if (Brand.isStudio) {
+        StudioWindowsSheet(sunroof, sunshade, windowsOpen, windowsVenting, sunroofOpen, onCmd, onDismiss)
+        return
+    }
     val sheet = rememberModalBottomSheetState()
     val context = LocalContext.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
@@ -827,7 +945,40 @@ private fun ClimateSheet(
     val context = LocalContext.current
     val dash = stringResource(R.string.vehicle_dash)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
+    // The Studio page shows defrost as a tile; like the classic pill it starts from the car's report.
+    var defrostOn by remember(climate?.defrostOn) { mutableStateOf(climate?.defrostOn == true) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet,
+        containerColor = if (Brand.isStudio) Brand.bg else MaterialTheme.colorScheme.surface) {
+        if (Brand.isStudio) {
+            fun deg(v: String?) = v?.toDoubleOrNull()?.let { context.getString(R.string.vehicle_deg, Math.round(it).toString()) }
+            StudioClimate(
+                StudioClimateState(
+                    cabinTemp = deg(cabinTemp), outsideTemp = deg(outsideTemp), acOn = acOn,
+                    setTemp = stringResource(R.string.vehicle_deg, fmt1(temp)),
+                    rapidCool = acOn && temp <= 16.01, rapidHeat = acOn && temp >= 27.99,
+                    ventOn = ventOn, defrostOn = defrostOn, wheelHeatOn = steerOn,
+                    seats = listOf(
+                        StudioSeat(stringResource(R.string.vehicle_pos_driver), rememberSeatControl("11", climate?.drvHeatSts, climate?.drvVentDetail, onCmd), showSeatCool),
+                        StudioSeat(stringResource(R.string.vehicle_pos_passenger), rememberSeatControl("19", climate?.passHeatingSts, climate?.passVentDetail, onCmd), showSeatCool),
+                        StudioSeat(stringResource(R.string.vehicle_pos_rear_l), rememberSeatControl("21", climate?.rlHeatingSts, climate?.rlVentDetail, onCmd), showRearSeatCool),
+                        StudioSeat(stringResource(R.string.vehicle_pos_rear_r), rememberSeatControl("29", climate?.rrHeatingSts, climate?.rrVentDetail, onCmd), showRearSeatCool),
+                    ),
+                ),
+                StudioClimateActions(
+                    onPower = {
+                        if (acOn) onCmd(Command.CLIMATE_ZAF, listOf(ServiceParameter("AC", "false")))
+                        else onCmd(Command.CLIMATE_ZAF, acOnParams())
+                    },
+                    onTempDown = { if (temp > 15.5) { temp -= 0.5; tempDirty = true } },
+                    onTempUp = { if (temp < 28.5) { temp += 0.5; tempDirty = true } },
+                    onRapidCool = { temp = 16.0; tempDirty = true },
+                    onRapidHeat = { temp = 28.0; tempDirty = true },
+                    onVent = { ventOn = !ventOn; onCmd(if (ventOn) Command.CABIN_ON else Command.CABIN_OFF, emptyList()) },
+                    onDefrost = { defrostOn = !defrostOn; onCmd(if (defrostOn) Command.DEFROST_ON else Command.DEFROST_OFF, emptyList()) },
+                    onWheelHeat = { steerOn = !steerOn; onCmd(if (steerOn) Command.STEER_WHEEL_ON else Command.STEER_WHEEL_OFF, emptyList()) },
+                ),
+            )
+        } else
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             // ---- top-down cabin: wheel + climate readout + defrost, then front & rear seats ----
             Column(
@@ -930,12 +1081,28 @@ private fun FridgeSheet(
         delay(600)
         onCmd(Command.FRIDGE_ON, onParams())
     }
+    if (Brand.isStudio) {
+        StudioSheet(onDismiss, stringResource(R.string.vehicle_refrigerator)) {
+            StudioFridgeBody(
+                temp = temp, on = on, constTemp = constTemp,
+                onMinus = { if (temp > -6.0) { temp -= 1.0; dirty = true } },
+                onPlus = { if (temp < 50.0) { temp += 1.0; dirty = true } },
+                onConstTemp = { constTemp = it; if (on) dirty = true },
+                onPower = {
+                    on = !on; onSetOn(on)
+                    if (on) { dirty = true; onCmd(Command.FRIDGE_ON, onParams()) } else onCmd(Command.FRIDGE_OFF, emptyList())
+                },
+            )
+        }
+        return
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(stringResource(R.string.vehicle_refrigerator), fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
-                    .background(Brush.verticalGradient(listOf(Color(0xFF141A1E), Color(0xFF0C1013)))).padding(20.dp),
+                    .background(if (Brand.isStudio) SolidColor(Brand.surface2) else Brush.verticalGradient(listOf(Color(0xFF141A1E), Color(0xFF0C1013))))
+                    .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(Icons.Filled.Kitchen, null, tint = if (on) Brand.accent else Brand.faint, modifier = Modifier.size(30.dp))
@@ -988,11 +1155,14 @@ private val ZConsole = Color(0xFF2C322E)
  * ONE ZAF command. pos: 11=driver, 19=passenger, 21=rear-left, 29=rear-right. Levels seed from
  * climateStatus `*HeatSts` / `*VentDetail`.
  */
+/** One seat's heat and vent levels (0-3) and the "step to the next level" action for each. */
+internal class SeatControl(val heat: Int, val cool: Int, val cycleHeat: () -> Unit, val cycleCool: () -> Unit)
+
+/** The level state and debounced commands of one seat; see [SeatCabinTile] for the rules. Shared by both looks. */
 @Composable
-private fun SeatCabinTile(
-    label: String, pos: String, seedHeat: String?, seedCool: String?, showCool: Boolean,
-    modifier: Modifier = Modifier, onCmd: (Command, List<ServiceParameter>) -> Unit,
-) {
+internal fun rememberSeatControl(
+    pos: String, seedHeat: String?, seedCool: String?, onCmd: (Command, List<ServiceParameter>) -> Unit,
+): SeatControl {
     // Optimistic level state. NOT keyed on the seed: a status poll must not silently reset it while
     // the user is cycling the control. We re-seed from the car's readback only outside a short
     // "user owns it" window after the last tap (below) - otherwise a lagging readback snaps the bars
@@ -1040,6 +1210,31 @@ private fun SeatCabinTile(
         delay(SEAT_DEBOUNCE_MS); sendCool(n); coolPending = null
     }
 
+    return SeatControl(
+        heat, cool,
+        cycleHeat = {
+            val n = (heat + 1) % 4; heat = n; if (n > 0) cool = 0
+            lastTouchMs = System.currentTimeMillis()
+            coolPending = null   // heat wins; sendHeat>0 also turns cooling off at the car
+            heatPending = n
+        },
+        cycleCool = {
+            val n = (cool + 1) % 4; cool = n; if (n > 0) heat = 0
+            lastTouchMs = System.currentTimeMillis()
+            heatPending = null
+            coolPending = n
+        },
+    )
+}
+
+@Composable
+private fun SeatCabinTile(
+    label: String, pos: String, seedHeat: String?, seedCool: String?, showCool: Boolean,
+    modifier: Modifier = Modifier, onCmd: (Command, List<ServiceParameter>) -> Unit,
+) {
+    val seat = rememberSeatControl(pos, seedHeat, seedCool, onCmd)
+    val heat = seat.heat
+    val cool = seat.cool
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().height(124.dp), contentAlignment = Alignment.BottomCenter) {
             // Top-down bucket seat: headrest, two raised side bolsters, an inset cushion with quilt
@@ -1077,19 +1272,9 @@ private fun SeatCabinTile(
                     .background(Color(0x4D06090B)).padding(horizontal = 7.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                SeatMiniBtn(Icons.Filled.Whatshot, heat, Brand.energy) {
-                    val n = (heat + 1) % 4; heat = n; if (n > 0) cool = 0
-                    lastTouchMs = System.currentTimeMillis()
-                    coolPending = null   // heat wins; sendHeat>0 also turns cooling off at the car
-                    heatPending = n
-                }
+                SeatMiniBtn(Icons.Filled.Whatshot, heat, Brand.energy) { seat.cycleHeat() }
                 // Cooled/ventilated seats only where the car advertises them (VehicleCapabilities.seatCool).
-                if (showCool) SeatMiniBtn(Icons.Filled.Air, cool, Brand.accent) {
-                    val n = (cool + 1) % 4; cool = n; if (n > 0) heat = 0
-                    lastTouchMs = System.currentTimeMillis()
-                    heatPending = null
-                    coolPending = n
-                }
+                if (showCool) SeatMiniBtn(Icons.Filled.Air, cool, Brand.accent) { seat.cycleCool() }
             }
         }
         Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Brand.muted)
@@ -1197,15 +1382,15 @@ private fun Divider() = Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp).
 
 /** Load a car render from assets/ (gitignored). Null if absent → hero shows just the colour card. */
 @Composable
-private fun rememberAssetBitmap(path: String): ImageBitmap? {
+internal fun rememberAssetBitmap(path: String): ImageBitmap? {
     val ctx = LocalContext.current
     return remember(path) {
         runCatching { ctx.assets.open(path).use { BitmapFactory.decodeStream(it) }.asImageBitmap() }.getOrNull()
     }
 }
 
-private fun fmt(f: Float) = if (f % 1f == 0f) f.toInt().toString() else "%.1f".format(f)
-private fun fmt1(d: Double) = "%.1f".format(d)
+internal fun fmt(f: Float) = if (f % 1f == 0f) f.toInt().toString() else "%.1f".format(f)
+internal fun fmt1(d: Double) = "%.1f".format(d)
 
 // Remembered A/C target temperature (°C). The car doesn't report the climate setpoint, so we keep the
 // last value the user set and use it for the home cool/heat glyph + to seed the climate sheet. Stored

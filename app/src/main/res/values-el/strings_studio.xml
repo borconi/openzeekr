@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Σύρετε τη λαβή στη μπάρα για να το αλλάξετε</string>
+    <string name="vehicle_amps_lower_cd">Μείωση ρεύματος φόρτισης</string>
+    <string name="vehicle_amps_raise_cd">Αύξηση ρεύματος φόρτισης</string>
+    <string name="vehicle_charge_stat_power">Ισχύς</string>
+    <string name="vehicle_charge_stat_current">Ρεύμα</string>
+    <string name="vehicle_charge_stat_full_in">Πλήρες σε</string>
+    <string name="vehicle_charge_phases">%1$d-φασικό</string>
+
+    <string name="location_updated_fmt">Ενημερώθηκε %1$s</string>
+    <string name="location_rpa_hint">Ενεργοποιήστε πρώτα την Απομακρυσμένη στάθμευση στην κεντρική οθόνη του οχήματος.</string>
+
+    <string name="sec_studio_subtitle">Επιτηρείτε το όχημα όσο είναι σταθμευμένο</string>
+    <string name="sec_studio_arm">Όπλιση</string>
+    <string name="sec_studio_disarm">Αφόπλιση</string>
+    <string name="sec_studio_access_title">Πρόσβαση</string>
+    <string name="sec_studio_access_hint">Κάθε αλλαγή ζητά PIN</string>
+
+    <string name="sched_studio_subtitle">Προγραμματισμένη φόρτιση και αναχωρήσεις, αποθηκευμένες στο όχημα</string>
+    <string name="sched_studio_charge_switch">Φόρτιση με αυτό το πρόγραμμα</string>
+
+    <string name="journey_studio_subtitle">Διαδρομές που κατέγραψε το όχημα</string>
+    <string name="journey_studio_trips_shown">Εμφανιζόμενες διαδρομές</string>
+
+    <string name="setup_studio_subtitle">Το τηλέφωνό σας ως κλειδί του οχήματος, μέσω Bluetooth</string>
+    <string name="setup_studio_pill_active">Ενεργό</string>
+    <string name="setup_studio_pill_not_set_up">Μη ρυθμισμένο</string>
+    <string name="setup_studio_pill_connected">Συνδεδεμένο</string>
+    <string name="setup_studio_calibration">Βαθμονόμηση</string>
+    <string name="setup_studio_calibrated">Βαθμονομημένο</string>
+    <string name="setup_studio_calib_door">Στην πόρτα</string>
+    <string name="setup_studio_calib_far">Στα 6 m</string>
+
+    <string name="ota_studio_checked_at">Ελέγχθηκε στις %1$s</string>
+
+    <string name="aa_studio_state_on">Ενεργό</string>
+    <string name="aa_studio_state_off">Ανενεργό</string>
+    <string name="aa_studio_state_unsupported">Δεν υποστηρίζεται</string>
+
+    <string name="settings_studio_diagnostics">Αρχεία καταγραφής και διαγνωστικά</string>
+    <string name="settings_studio_dev_tools">Εργαλεία προγραμματιστή</string>
+    <string name="settings_studio_dev_hint">Δοκιμαστικές λειτουργίες, εδώ και σε άλλες καρτέλες.</string>
+    <string name="settings_studio_version_line">Έκδοση %1$s</string>
+    <string name="settings_studio_region_hint">Οι διακομιστές Zeekr όπου βρίσκεται ο λογαριασμός σας.</string>
+    <string name="settings_studio_region_verified">Επαληθευμένο</string>
+    <string name="settings_studio_region_experimental">Πειραματικό</string>
+
+    <string name="inbox_studio_has_unread">Έχετε μη αναγνωσμένα μηνύματα</string>
+    <string name="inbox_studio_all_read">Όλα έχουν αναγνωστεί</string>
+    <string name="inbox_studio_unread_cd">Μη αναγνωσμένο</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Κοινοποιήθηκε σε %1$d άτομο</item>
+        <item quantity="other">Κοινοποιήθηκε σε %1$d άτομα</item>
+    </plurals>
+    <string name="carshare_studio_people">Άτομα με πρόσβαση</string>
+    <string name="carshare_studio_empty_body">Όλοι όσοι μοιράζεστε το όχημα μαζί τους εμφανίζονται εδώ, και μπορείτε να ανακαλέσετε την πρόσβασή τους ανά πάσα στιγμή.</string>
+
+    <string name="onb_studio_region_lead">Επιλέξτε την αγορά στην οποία ανήκουν το όχημα και ο λογαριασμός σας. Αυτό επιλέγει τους σωστούς διακομιστές Zeekr.</string>
+    <string name="onb_studio_region_keys_note">Κάθε περιοχή χρειάζεται τα δικά της εξαχθέντα κλειδιά (zeekr_key_extractor --region %1$s). Θα τα προσθέσετε στη συνέχεια.</string>
+    <string name="onb_studio_region_verified">Επαληθευμένο</string>
+    <string name="onb_studio_region_experimental">Πειραματικό</string>
+    <string name="onb_studio_key_not_set">Δεν έχει ρυθμιστεί ακόμη</string>
+
+</resources>

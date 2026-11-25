@@ -128,7 +128,16 @@ public final class CompassRenderer {
         // Waze poll status in the bottom-left of the safe area.
         status.setTextSize(Math.max(10f, radius * 0.07f));
         String statusText;
-        if (wazeFailing) {
+        if (wazeLastOkMs < 0) {
+            // Cameras-only mode (no Waze key): show the loaded fixed-camera count instead of Waze state.
+            if (CameraStore.isLoaded()) {
+                status.setColor(COL_OK);
+                statusText = "Cameras: " + CameraStore.size();
+            } else {
+                status.setColor(COL_WAIT);
+                statusText = "Cameras: loading...";
+            }
+        } else if (wazeFailing) {
             status.setColor(COL_WARN);
             statusText = wazeLastOkMs > 0 ? "Waze: no data (last " + hhmm(wazeLastOkMs) + ")" : "Waze: no data";
         } else if (wazeLastOkMs > 0) {

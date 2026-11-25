@@ -249,7 +249,14 @@ public final class EnergyModelTranslator {
                         .append(" displayId=").append(sink.getDisplayId())
                         .append(" videoConfigs=").append(sink.getVideoConfigsCount());
 
-                if (sink.getDisplayType() == DisplayType.DISPLAY_TYPE_CLUSTER
+                boolean isClusterOrHud = sink.getDisplayType() == DisplayType.DISPLAY_TYPE_CLUSTER
+                        || sink.getDisplayType() == DisplayType.DISPLAY_TYPE_AUXILIARY;
+                // Prefer DISPLAY_TYPE_CLUSTER when both exist, but accept DISPLAY_TYPE_AUXILIARY when the
+                // car routes its secondary navigation projection to the windshield HUD. A real CLUSTER
+                // can still override a previously-taken AUXILIARY (canTakeSink), not the other way round.
+                boolean canTakeSink = clusterDisplayId == Integer.MIN_VALUE
+                        || sink.getDisplayType() == DisplayType.DISPLAY_TYPE_CLUSTER;
+                if (isClusterOrHud && canTakeSink
                         && sink.getVideoConfigsCount() > 0) {
                     // Record EVERY config the car offers, indexed exactly like its list (the
                     // car's Config/Start refer to these positions), and remember which ones we

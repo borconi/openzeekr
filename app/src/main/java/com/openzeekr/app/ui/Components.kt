@@ -81,7 +81,7 @@ fun AutoSizeText(
  */
 @Composable
 fun brandSwitchColors(checkedTrack: Color = Brand.accent): SwitchColors = SwitchDefaults.colors(
-    checkedThumbColor = Color(0xFF07121F),
+    checkedThumbColor = Brand.onAccent,
     checkedTrackColor = checkedTrack,
     checkedBorderColor = Color.Transparent,
     uncheckedThumbColor = Brand.muted,
@@ -111,11 +111,20 @@ fun BrandBadge(size: Int = 30) {
     }
 }
 
-/** Rounded surface panel — the cockpit "card". */
+/** Corner radius of a content card in the active look. */
+val cardRadius get() = if (Brand.isStudio) 22.dp else 18.dp
+
+/** The fill, shape and (where the look has one) outline of a content card. */
+fun Modifier.cardSurface(radius: androidx.compose.ui.unit.Dp = cardRadius): Modifier {
+    val shape = RoundedCornerShape(radius)
+    return clip(shape).background(Brand.surface).border(1.dp, Brand.cardBorder, shape)
+}
+
+/** Rounded surface panel — the "card". */
 @Composable
 fun CockpitCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp),
+        modifier.fillMaxWidth().cardSurface().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         content = content,
     )
@@ -128,6 +137,18 @@ fun CockpitCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.
  */
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, tint: Color = Brand.accent, onClick: () -> Unit) {
+    if (Brand.isStudio) {
+        // Studio: a solid fill. The accent keeps its own on-colour; any other tint gets the surface colour on top.
+        val on = if (tint == Brand.accent) Brand.onAccent else Brand.surface
+        Box(
+            modifier.clip(RoundedCornerShape(16.dp))
+                .background(if (enabled) tint else Brand.surface3)
+                .let { if (enabled) it.clickable(onClick = onClick) else it }
+                .padding(vertical = 14.dp, horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text(text, color = if (enabled) on else Brand.faint, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, textAlign = TextAlign.Center) }
+        return
+    }
     Box(
         modifier.clip(RoundedCornerShape(14.dp))
             .background(if (enabled) tint.copy(alpha = 0.16f) else Brand.surface3)
@@ -142,6 +163,18 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
  *  tint + light text, not a loud fill). Use everywhere a "radio" choice appears. */
 @Composable
 fun SelectChip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    if (Brand.isStudio) {
+        // Studio: the chosen option is the strongest fill on the card, the others sit back.
+        Box(
+            modifier.clip(RoundedCornerShape(12.dp))
+                .background(if (selected) Brand.strong else Brand.surface2)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        ) {
+            Text(label, color = if (selected) Brand.onStrong else Brand.muted, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+        }
+        return
+    }
     Box(
         modifier.clip(RoundedCornerShape(10.dp))
             .background(if (selected) Brand.accent.copy(alpha = 0.18f) else Brand.surface2)
@@ -160,9 +193,10 @@ fun SelectChip(label: String, selected: Boolean, modifier: Modifier = Modifier, 
 /** Secondary / outline action, cockpit-styled with a visible disabled state. */
 @Composable
 fun GhostButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, tint: Color = Brand.accent, onClick: () -> Unit) {
+    val ghostRadius = if (Brand.isStudio) 16.dp else 14.dp
     Box(
-        modifier.clip(RoundedCornerShape(14.dp)).background(Brand.surface2)
-            .border(1.dp, if (enabled) Brand.line else Brand.line.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+        modifier.clip(RoundedCornerShape(ghostRadius)).background(Brand.surface2)
+            .border(1.dp, if (enabled) Brand.line else Brand.line.copy(alpha = 0.5f), RoundedCornerShape(ghostRadius))
             .let { if (enabled) it.clickable(onClick = onClick) else it }
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center,

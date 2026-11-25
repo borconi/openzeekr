@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -144,7 +145,95 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
         prefs.edit().putString(GatsoUpdater.KEY_SOURCES, list.joinToString("\n")).apply()
     }
 
-    Column(
+    // ---- What the controls do. Written once: the Classic and the Studio layout both call these. ----
+    fun applyEnabled(on: Boolean) {
+        enabled = on
+        prefs.edit().putBoolean(AaCertMaintenance.KEY_ENABLED, on).apply()
+        // Turning the feature on kicks off the same silent cert upkeep as app start.
+        if (on) AaCertMaintenance.maintain(context, deps.appScope)
+    }
+    val reextractingDetail = stringResource(R.string.aa_reextracting_detail)
+    fun reextractCert() {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                CertProvider.invalidate(context)
+                AppStatus.setCert(AppStatus.CertSource.CHECKING, reextractingDetail)
+                runCatching { CertProvider.getKeyStore(context) }
+            }
+        }
+    }
+    fun openAndroidAuto() { GearheadSettings.openAndroidAutoSettings(context) }
+    fun applyReplaceMaps(on: Boolean) { replaceMaps = on; prefs.edit().putBoolean("replace_maps", on).apply() }
+    fun applyWazeKey(v: String) { wazeKey = v; prefs.edit().putString("waze_api_key", v.trim()).apply() }
+    fun applyWazeInterval(v: String) {
+        wazeInterval = v.filter { it.isDigit() }
+        wazeInterval.toIntOrNull()?.let { prefs.edit().putInt("waze_interval_sec", it.coerceAtLeast(15)).apply() }
+    }
+    fun testWaze() {
+        wazeTesting = true
+        wazeResult = null
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { WazeTester.run(context) }
+            wazeOk = r.ok
+            wazeResult = r.message
+            wazeTesting = false
+        }
+    }
+    fun addCameraSource() {
+        val s = newSource.trim()
+        if (GatsoUpdater.isValidRepo(s) && !cameraSources.contains(s)) {
+            saveCameraSources(cameraSources + s); newSource = ""
+        }
+    }
+    fun resetCameraSources() { saveCameraSources(GatsoUpdater.DEFAULT_SOURCES.toList()) }
+    fun applyOffset(v: Float) { offset = v.toInt() }
+    fun saveOffset() { prefs.edit().putInt("offset_value", offset).apply() }
+    fun pickEnergy(key: String) {
+        energyKey = key
+        prefs.edit().putString(EnergyProfiles.PREF_KEY, key).apply()
+        showEnergyPicker = false
+    }
+
+    // Studio: its own layout over the same state and the same calls (AndroidAutoStudio.kt).
+    if (Brand.isStudio) StudioAndroidAuto(
+        StudioAaState(
+            supported = supported,
+            androidRelease = Build.VERSION.RELEASE,
+            enabled = enabled,
+            connStage = connStage,
+            certFailed = certSource == AppStatus.CertSource.EXTRACTION_FAILED,
+            certDetail = certDetail,
+            energyName = remember(energyKey) { EnergyProfiles.byKey(energyKey).name },
+            replaceMaps = replaceMaps,
+            wazeKey = wazeKey,
+            wazeInterval = wazeInterval,
+            wazeTesting = wazeTesting,
+            wazeResult = wazeResult,
+            wazeOk = wazeOk,
+            cameraSources = cameraSources,
+            newSource = newSource,
+            offset = offset,
+        ),
+        StudioAaActions(
+            onEnabled = { applyEnabled(it) },
+            onReextractCert = { reextractCert() },
+            onOpenAndroidAuto = { openAndroidAuto() },
+            onDevModeHelp = { openUrl(context, URL_AA_DEVMODE_DOCS) },
+            onPickEnergy = { showEnergyPicker = true },
+            onReplaceMaps = { applyReplaceMaps(it) },
+            onWazeKey = { applyWazeKey(it) },
+            onGetApiKey = { openUrl(context, URL_WAZE_API) },
+            onWazeInterval = { applyWazeInterval(it) },
+            onTestWaze = { testWaze() },
+            onRemoveSource = { saveCameraSources(cameraSources - it) },
+            onNewSource = { newSource = it },
+            onAddSource = { addCameraSource() },
+            onResetSources = { resetCameraSources() },
+            onOffset = { applyOffset(it) },
+            onOffsetFinished = { saveOffset() },
+        ),
+        modifier,
+    ) else Column(
         modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
@@ -177,12 +266,7 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                 Switch(
                     checked = enabled,
                     enabled = supported,
-                    onCheckedChange = {
-                        enabled = it
-                        prefs.edit().putBoolean(AaCertMaintenance.KEY_ENABLED, it).apply()
-                        // Turning the feature on kicks off the same silent cert upkeep as app start.
-                        if (it) AaCertMaintenance.maintain(context, deps.appScope)
-                    },
+                    onCheckedChange = { applyEnabled(it) },
                     colors = brandSwitchColors(),
                 )
             }
@@ -191,7 +275,7 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
             if (enabled && connStage.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "${stringResource(R.string.aa_status_header)}: $connStage",
+                    stringResource(R.string.aa_status_line, stringResource(R.string.aa_status_header), connStage),
                     fontSize = 12.sp, color = Brand.muted,
                 )
             }
@@ -203,25 +287,16 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                 SectionHeader(stringResource(R.string.aa_cert_header))
                 Text(stringResource(R.string.aa_cert_error_desc), fontSize = 12.5.sp, color = Brand.crit)
                 if (certDetail.isNotEmpty()) Text(certDetail, color = Brand.muted, fontSize = 11.sp)
-                val reextractingDetail = stringResource(R.string.aa_reextracting_detail)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     GhostButton(
                         text = stringResource(R.string.aa_reextract_cert),
                         modifier = Modifier.weight(1f),
-                        onClick = {
-                            scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    CertProvider.invalidate(context)
-                                    AppStatus.setCert(AppStatus.CertSource.CHECKING, reextractingDetail)
-                                    runCatching { CertProvider.getKeyStore(context) }
-                                }
-                            }
-                        },
+                        onClick = { reextractCert() },
                     )
                     GhostButton(
                         text = stringResource(R.string.aa_open_android_auto),
                         modifier = Modifier.weight(1f),
-                        onClick = { GearheadSettings.openAndroidAutoSettings(context) },
+                        onClick = { openAndroidAuto() },
                     )
                 }
             }
@@ -242,7 +317,7 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
             Box(
                 Modifier.clip(RoundedCornerShape(12.dp)).background(Brand.surface2)
                     .border(1.dp, Brand.line, RoundedCornerShape(12.dp))
-                    .clickable { GearheadSettings.openAndroidAutoSettings(context) }
+                    .clickable { openAndroidAuto() }
                     .padding(horizontal = 14.dp, vertical = 11.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -284,13 +359,13 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                     }
                     Switch(
                         checked = replaceMaps,
-                        onCheckedChange = { replaceMaps = it; prefs.edit().putBoolean("replace_maps", it).apply() },
+                        onCheckedChange = { applyReplaceMaps(it) },
                         colors = brandSwitchColors(),
                     )
                 }
                 OutlinedTextField(
                     value = wazeKey,
-                    onValueChange = { wazeKey = it; prefs.edit().putString("waze_api_key", it.trim()).apply() },
+                    onValueChange = { applyWazeKey(it) },
                     singleLine = true,
                     label = { Text(stringResource(R.string.aa_waze_api_key_label)) },
                     modifier = Modifier.fillMaxWidth(),
@@ -301,10 +376,7 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                 }
                 OutlinedTextField(
                     value = wazeInterval,
-                    onValueChange = { v ->
-                        wazeInterval = v.filter { it.isDigit() }
-                        wazeInterval.toIntOrNull()?.let { prefs.edit().putInt("waze_interval_sec", it.coerceAtLeast(15)).apply() }
-                    },
+                    onValueChange = { applyWazeInterval(it) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     label = { Text(stringResource(R.string.aa_poll_interval_label)) },
@@ -313,16 +385,7 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                 PrimaryButton(
                     text = if (wazeTesting) stringResource(R.string.aa_testing_waze) else stringResource(R.string.aa_test_waze),
                     enabled = !wazeTesting,
-                    onClick = {
-                        wazeTesting = true
-                        wazeResult = null
-                        scope.launch {
-                            val r = withContext(Dispatchers.IO) { WazeTester.run(context) }
-                            wazeOk = r.ok
-                            wazeResult = r.message
-                            wazeTesting = false
-                        }
-                    },
+                    onClick = { testWaze() },
                 )
                 wazeResult?.let { Text((if (wazeOk) stringResource(R.string.aa_ok_prefix) else stringResource(R.string.aa_failed_prefix)) + it, fontSize = 11.5.sp, color = if (wazeOk) Brand.good else Brand.crit) }
             }
@@ -350,16 +413,11 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(8.dp))
-                    TextButton(onClick = {
-                        val s = newSource.trim()
-                        if (GatsoUpdater.isValidRepo(s) && !cameraSources.contains(s)) {
-                            saveCameraSources(cameraSources + s); newSource = ""
-                        }
-                    }) {
+                    TextButton(onClick = { addCameraSource() }) {
                         Text(stringResource(R.string.aa_add), color = Brand.accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     }
                 }
-                TextButton(onClick = { saveCameraSources(GatsoUpdater.DEFAULT_SOURCES.toList()) }) {
+                TextButton(onClick = { resetCameraSources() }) {
                     Text(stringResource(R.string.aa_camera_sources_reset), color = Brand.muted, fontSize = 12.sp)
                 }
             }
@@ -371,8 +429,8 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                 Text(stringResource(R.string.aa_offset_fmt, offset), color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
                 Slider(
                     value = offset.toFloat(),
-                    onValueChange = { offset = it.toInt() },
-                    onValueChangeFinished = { prefs.edit().putInt("offset_value", offset).apply() },
+                    onValueChange = { applyOffset(it) },
+                    onValueChangeFinished = { saveOffset() },
                     valueRange = -10f..10f,
                     steps = 19,
                 )
@@ -388,23 +446,16 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
             onDismissRequest = { showEnergyPicker = false },
             title = { Text(stringResource(R.string.aa_energy_profile_title)) },
             text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+                Column(Modifier.verticalScroll(rememberScrollState()).then(if (Brand.isStudio) Modifier.selectableGroup() else Modifier)) {
                     EnergyProfiles.ALL.forEach { p ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable {
-                                energyKey = p.key
-                                prefs.edit().putString(EnergyProfiles.PREF_KEY, p.key).apply()
-                                showEnergyPicker = false
-                            }.padding(vertical = 6.dp),
+                        if (Brand.isStudio) StudioAaProfileOption(p.name, p.key == energyKey) { pickEnergy(p.key) }
+                        else Row(
+                            Modifier.fillMaxWidth().clickable { pickEnergy(p.key) }.padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(
                                 selected = p.key == energyKey,
-                                onClick = {
-                                    energyKey = p.key
-                                    prefs.edit().putString(EnergyProfiles.PREF_KEY, p.key).apply()
-                                    showEnergyPicker = false
-                                },
+                                onClick = { pickEnergy(p.key) },
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(p.name, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
@@ -421,7 +472,7 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
 @Composable
 private fun BulletLine(text: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("•", color = Brand.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.aa_bullet), color = Brand.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         Text(text, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp)
     }
 }

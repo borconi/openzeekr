@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Arrastra el control de la barra para cambiarlo</string>
+    <string name="vehicle_amps_lower_cd">Reducir la corriente de carga</string>
+    <string name="vehicle_amps_raise_cd">Aumentar la corriente de carga</string>
+    <string name="vehicle_charge_stat_power">Potencia</string>
+    <string name="vehicle_charge_stat_current">Corriente</string>
+    <string name="vehicle_charge_stat_full_in">Completa en</string>
+    <string name="vehicle_charge_phases">%1$d fases</string>
+
+    <string name="location_updated_fmt">Actualizado %1$s</string>
+    <string name="location_rpa_hint">Activa primero el Aparcamiento remoto en la pantalla central del coche.</string>
+
+    <string name="sec_studio_subtitle">Vigila el coche mientras está aparcado</string>
+    <string name="sec_studio_arm">Armar</string>
+    <string name="sec_studio_disarm">Desarmar</string>
+    <string name="sec_studio_access_title">Acceso</string>
+    <string name="sec_studio_access_hint">Cada cambio pide un PIN</string>
+
+    <string name="sched_studio_subtitle">Carga y salidas programadas, guardadas en el coche</string>
+    <string name="sched_studio_charge_switch">Cargar según esta programación</string>
+
+    <string name="journey_studio_subtitle">Trayectos registrados por el coche</string>
+    <string name="journey_studio_trips_shown">Trayectos mostrados</string>
+
+    <string name="setup_studio_subtitle">Tu teléfono como llave del coche, por Bluetooth</string>
+    <string name="setup_studio_pill_active">Activa</string>
+    <string name="setup_studio_pill_not_set_up">Sin configurar</string>
+    <string name="setup_studio_pill_connected">Conectado</string>
+    <string name="setup_studio_calibration">Calibración</string>
+    <string name="setup_studio_calibrated">Calibrado</string>
+    <string name="setup_studio_calib_door">En la puerta</string>
+    <string name="setup_studio_calib_far">A 6 m</string>
+
+    <string name="ota_studio_checked_at">Comprobado a las %1$s</string>
+
+    <string name="aa_studio_state_on">Activado</string>
+    <string name="aa_studio_state_off">Desactivado</string>
+    <string name="aa_studio_state_unsupported">No compatible</string>
+
+    <string name="settings_studio_diagnostics">Registros y diagnóstico</string>
+    <string name="settings_studio_dev_tools">Herramientas de desarrollador</string>
+    <string name="settings_studio_dev_hint">Funciones de prueba, aquí y en otras pestañas.</string>
+    <string name="settings_studio_version_line">Versión %1$s</string>
+    <string name="settings_studio_region_hint">Los servidores de Zeekr donde está tu cuenta.</string>
+    <string name="settings_studio_region_verified">Verificada</string>
+    <string name="settings_studio_region_experimental">Experimental</string>
+
+    <string name="inbox_studio_has_unread">Tienes mensajes sin leer</string>
+    <string name="inbox_studio_all_read">Todo está leído</string>
+    <string name="inbox_studio_unread_cd">Sin leer</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Compartido con %1$d persona</item>
+        <item quantity="many">Compartido con %1$d personas</item>
+        <item quantity="other">Compartido con %1$d personas</item>
+    </plurals>
+    <string name="carshare_studio_people">Personas con acceso</string>
+    <string name="carshare_studio_empty_body">Todas las personas con las que compartas aparecen aquí, y puedes revocar su acceso en cualquier momento.</string>
+
+    <string name="onb_studio_region_lead">Elige el mercado al que pertenecen tu coche y tu cuenta. Esto selecciona los servidores Zeekr correctos.</string>
+    <string name="onb_studio_region_keys_note">Cada región necesita sus propias claves extraídas (zeekr_key_extractor --region %1$s). Las añadirás a continuación.</string>
+    <string name="onb_studio_region_verified">Verificada</string>
+    <string name="onb_studio_region_experimental">Experimental</string>
+    <string name="onb_studio_key_not_set">Aún sin configurar</string>
+
+</resources>

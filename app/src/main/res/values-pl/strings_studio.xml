@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Przeciągnij uchwyt na pasku, aby zmienić limit</string>
+    <string name="vehicle_amps_lower_cd">Zmniejsz prąd ładowania</string>
+    <string name="vehicle_amps_raise_cd">Zwiększ prąd ładowania</string>
+    <string name="vehicle_charge_stat_power">Moc</string>
+    <string name="vehicle_charge_stat_current">Prąd</string>
+    <string name="vehicle_charge_stat_full_in">Do pełna</string>
+    <string name="vehicle_charge_phases">%1$d-fazowe</string>
+
+    <string name="location_updated_fmt">Zaktualizowano %1$s</string>
+    <string name="location_rpa_hint">Najpierw włącz Zdalne parkowanie na środkowym ekranie auta.</string>
+
+    <string name="sec_studio_subtitle">Pilnuj auta, gdy stoi zaparkowane</string>
+    <string name="sec_studio_arm">Uzbrój</string>
+    <string name="sec_studio_disarm">Rozbrój</string>
+    <string name="sec_studio_access_title">Dostęp</string>
+    <string name="sec_studio_access_hint">Każda zmiana wymaga PIN-u</string>
+
+    <string name="sched_studio_subtitle">Zaplanowane ładowanie i odjazdy, zapisane w aucie</string>
+    <string name="sched_studio_charge_switch">Ładuj według tego harmonogramu</string>
+
+    <string name="journey_studio_subtitle">Przejazdy zarejestrowane przez auto</string>
+    <string name="journey_studio_trips_shown">Wyświetlane przejazdy</string>
+
+    <string name="setup_studio_subtitle">Twój telefon jako klucz do auta, przez Bluetooth</string>
+    <string name="setup_studio_pill_active">Aktywny</string>
+    <string name="setup_studio_pill_not_set_up">Nieskonfigurowany</string>
+    <string name="setup_studio_pill_connected">Połączono</string>
+    <string name="setup_studio_calibration">Kalibracja</string>
+    <string name="setup_studio_calibrated">Skalibrowano</string>
+    <string name="setup_studio_calib_door">Przy drzwiach</string>
+    <string name="setup_studio_calib_far">W 6 m</string>
+
+    <string name="ota_studio_checked_at">Sprawdzono o %1$s</string>
+
+    <string name="aa_studio_state_on">Włączone</string>
+    <string name="aa_studio_state_off">Wyłączone</string>
+    <string name="aa_studio_state_unsupported">Nieobsługiwane</string>
+
+    <string name="settings_studio_diagnostics">Logi i diagnostyka</string>
+    <string name="settings_studio_dev_tools">Narzędzia dewelopera</string>
+    <string name="settings_studio_dev_hint">Funkcje testowe, tutaj i na innych kartach.</string>
+    <string name="settings_studio_version_line">Wersja %1$s</string>
+    <string name="settings_studio_region_hint">Serwery Zeekr, na których jest Twoje konto.</string>
+    <string name="settings_studio_region_verified">Zweryfikowany</string>
+    <string name="settings_studio_region_experimental">Eksperymentalny</string>
+
+    <string name="inbox_studio_has_unread">Masz nieprzeczytane wiadomości</string>
+    <string name="inbox_studio_all_read">Wszystko przeczytane</string>
+    <string name="inbox_studio_unread_cd">Nieprzeczytane</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Udostępniono %1$d osobie</item>
+        <item quantity="few">Udostępniono %1$d osobom</item>
+        <item quantity="many">Udostępniono %1$d osobom</item>
+        <item quantity="other">Udostępniono %1$d osobom</item>
+    </plurals>
+    <string name="carshare_studio_people">Osoby z dostępem</string>
+    <string name="carshare_studio_empty_body">Każdy, komu udostępnisz, pojawi się tutaj, a jego dostęp możesz cofnąć w dowolnej chwili.</string>
+
+    <string name="onb_studio_region_lead">Wybierz rynek, do którego należy Twoje auto i konto. To wybiera właściwe serwery Zeekr.</string>
+    <string name="onb_studio_region_keys_note">Każdy region potrzebuje własnych wyodrębnionych kluczy (zeekr_key_extractor --region %1$s). Dodasz je w następnym kroku.</string>
+    <string name="onb_studio_region_verified">Zweryfikowany</string>
+    <string name="onb_studio_region_experimental">Eksperymentalny</string>
+    <string name="onb_studio_key_not_set">Jeszcze nieskonfigurowany</string>
+
+</resources>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Kaxkar il-manku fuq il-bar biex tibdlu</string>
+    <string name="vehicle_amps_lower_cd">Naqqas il-kurrent taċ-ċarġ</string>
+    <string name="vehicle_amps_raise_cd">Żid il-kurrent taċ-ċarġ</string>
+    <string name="vehicle_charge_stat_power">Qawwa</string>
+    <string name="vehicle_charge_stat_current">Kurrent</string>
+    <string name="vehicle_charge_stat_full_in">Mimlija fi</string>
+    <string name="vehicle_charge_phases">%1$d-fażi</string>
+
+    <string name="location_updated_fmt">Aġġornat %1$s</string>
+    <string name="location_rpa_hint">L-ewwel arma l-Parkeġġ Remot fuq l-iskrin ċentrali tal-karozza.</string>
+
+    <string name="sec_studio_subtitle">Żomm għajnejk fuq il-karozza waqt li tkun ipparkjata</string>
+    <string name="sec_studio_arm">Arma</string>
+    <string name="sec_studio_disarm">Iddiżarma</string>
+    <string name="sec_studio_access_title">Aċċess</string>
+    <string name="sec_studio_access_hint">Kull bidla titlob PIN</string>
+
+    <string name="sched_studio_subtitle">Iċċarġjar u tluq skedati, issejvjati fuq il-karozza</string>
+    <string name="sched_studio_charge_switch">Iċċarġja skont din l-iskeda</string>
+
+    <string name="journey_studio_subtitle">Sewqan irreġistrat mill-karozza</string>
+    <string name="journey_studio_trips_shown">Vjaġġi murija</string>
+
+    <string name="setup_studio_subtitle">It-telefon tiegħek bħala ċ-ċavetta tal-karozza, bil-Bluetooth</string>
+    <string name="setup_studio_pill_active">Attiva</string>
+    <string name="setup_studio_pill_not_set_up">Mhux issettjata</string>
+    <string name="setup_studio_pill_connected">Konness</string>
+    <string name="setup_studio_calibration">Kalibrazzjoni</string>
+    <string name="setup_studio_calibrated">Ikkalibrat</string>
+    <string name="setup_studio_calib_door">Ħdejn il-bieb</string>
+    <string name="setup_studio_calib_far">F\'6 m</string>
+
+    <string name="ota_studio_checked_at">Iċċekkjat: %1$s</string>
+
+    <string name="aa_studio_state_on">Mixgħul</string>
+    <string name="aa_studio_state_off">Mitfi</string>
+    <string name="aa_studio_state_unsupported">Mhux appoġġjat</string>
+
+    <string name="settings_studio_diagnostics">Logs u dijanjostika</string>
+    <string name="settings_studio_dev_tools">Għodod tal-iżviluppatur</string>
+    <string name="settings_studio_dev_hint">Karatteristiċi tat-test, hawn u f\'tabs oħra.</string>
+    <string name="settings_studio_version_line">Verżjoni %1$s</string>
+    <string name="settings_studio_region_hint">Is-servers Zeekr li fuqhom jinsab il-kont tiegħek.</string>
+    <string name="settings_studio_region_verified">Verifikat</string>
+    <string name="settings_studio_region_experimental">Sperimentali</string>
+
+    <string name="inbox_studio_has_unread">Għandek messaġġi mhux moqrija</string>
+    <string name="inbox_studio_all_read">Kollox moqri</string>
+    <string name="inbox_studio_unread_cd">Mhux moqri</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Kondiviża ma\' %1$d persuna</item>
+        <item quantity="two">Kondiviża ma\' %1$d persuni</item>
+        <item quantity="few">Kondiviża ma\' %1$d persuni</item>
+        <item quantity="many">Kondiviża ma\' %1$d-il persuna</item>
+        <item quantity="other">Kondiviża ma\' %1$d persuna</item>
+    </plurals>
+    <string name="carshare_studio_people">Persuni b\'aċċess</string>
+    <string name="carshare_studio_empty_body">Kull min taqsam miegħu jidher hawn, u tista\' tirrevoka l-aċċess tiegħu fi kwalunkwe ħin.</string>
+
+    <string name="onb_studio_region_lead">Agħżel is-suq li jappartjenu għalih il-karozza u l-kont tiegħek. Dan jagħżel is-servers Zeekr it-tajbin.</string>
+    <string name="onb_studio_region_keys_note">Kull reġjun jeħtieġ iċ-ċwievet estratti tiegħu stess (zeekr_key_extractor --region %1$s). Iżżidhom fil-pass li jmiss.</string>
+    <string name="onb_studio_region_verified">Verifikat</string>
+    <string name="onb_studio_region_experimental">Sperimentali</string>
+    <string name="onb_studio_key_not_set">Għadha mhux issettjata</string>
+
+</resources>

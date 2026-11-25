@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Změníte ho tažením úchytu na liště</string>
+    <string name="vehicle_amps_lower_cd">Snížit nabíjecí proud</string>
+    <string name="vehicle_amps_raise_cd">Zvýšit nabíjecí proud</string>
+    <string name="vehicle_charge_stat_power">Výkon</string>
+    <string name="vehicle_charge_stat_current">Proud</string>
+    <string name="vehicle_charge_stat_full_in">Do plna za</string>
+    <string name="vehicle_charge_phases">%1$d-fázové</string>
+
+    <string name="location_updated_fmt">Aktualizováno %1$s</string>
+    <string name="location_rpa_hint">Nejprve aktivujte Dálkové parkování na středové obrazovce auta.</string>
+
+    <string name="sec_studio_subtitle">Hlídejte auto, když je zaparkované</string>
+    <string name="sec_studio_arm">Zapnout</string>
+    <string name="sec_studio_disarm">Vypnout</string>
+    <string name="sec_studio_access_title">Přístup</string>
+    <string name="sec_studio_access_hint">Každá změna vyžaduje PIN</string>
+
+    <string name="sched_studio_subtitle">Časované nabíjení a odjezdy, uložené v autě</string>
+    <string name="sched_studio_charge_switch">Nabíjet podle tohoto plánu</string>
+
+    <string name="journey_studio_subtitle">Jízdy zaznamenané autem</string>
+    <string name="journey_studio_trips_shown">Zobrazené jízdy</string>
+
+    <string name="setup_studio_subtitle">Váš telefon jako klíč od auta, přes Bluetooth</string>
+    <string name="setup_studio_pill_active">Aktivní</string>
+    <string name="setup_studio_pill_not_set_up">Nenastaveno</string>
+    <string name="setup_studio_pill_connected">Připojeno</string>
+    <string name="setup_studio_calibration">Kalibrace</string>
+    <string name="setup_studio_calibrated">Zkalibrováno</string>
+    <string name="setup_studio_calib_door">U dveří</string>
+    <string name="setup_studio_calib_far">V 6 m</string>
+
+    <string name="ota_studio_checked_at">Zkontrolováno v %1$s</string>
+
+    <string name="aa_studio_state_on">Zapnuto</string>
+    <string name="aa_studio_state_off">Vypnuto</string>
+    <string name="aa_studio_state_unsupported">Nepodporováno</string>
+
+    <string name="settings_studio_diagnostics">Protokoly a diagnostika</string>
+    <string name="settings_studio_dev_tools">Vývojářské nástroje</string>
+    <string name="settings_studio_dev_hint">Testovací funkce, zde i na dalších kartách.</string>
+    <string name="settings_studio_version_line">Verze %1$s</string>
+    <string name="settings_studio_region_hint">Servery Zeekr, na kterých je váš účet.</string>
+    <string name="settings_studio_region_verified">Ověřeno</string>
+    <string name="settings_studio_region_experimental">Experimentální</string>
+
+    <string name="inbox_studio_has_unread">Máte nepřečtené zprávy</string>
+    <string name="inbox_studio_all_read">Vše je přečteno</string>
+    <string name="inbox_studio_unread_cd">Nepřečtené</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Sdíleno s %1$d osobou</item>
+        <item quantity="few">Sdíleno s %1$d osobami</item>
+        <item quantity="many">Sdíleno s %1$d osoby</item>
+        <item quantity="other">Sdíleno s %1$d osobami</item>
+    </plurals>
+    <string name="carshare_studio_people">Lidé s přístupem</string>
+    <string name="carshare_studio_empty_body">Každý, s kým auto sdílíte, se zobrazí zde a přístup mu můžete kdykoli zrušit.</string>
+
+    <string name="onb_studio_region_lead">Vyberte trh, kam patří vaše auto a účet. Tím se zvolí správné servery Zeekr.</string>
+    <string name="onb_studio_region_keys_note">Každý region potřebuje vlastní extrahované klíče (zeekr_key_extractor --region %1$s). Přidáte je v dalším kroku.</string>
+    <string name="onb_studio_region_verified">Ověřeno</string>
+    <string name="onb_studio_region_experimental">Experimentální</string>
+    <string name="onb_studio_key_not_set">Zatím nenastaveno</string>
+
+</resources>

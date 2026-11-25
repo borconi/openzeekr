@@ -30,6 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,11 +53,92 @@ import com.openzeekr.app.ble.rpa.RpaController
 import com.openzeekr.app.ble.rpa.RpaReq
 import com.openzeekr.app.ui.theme.Brand
 
+/**
+ * What the remote-parking controls can ask of the car. Built once from the controller and handed to whichever
+ * look is drawn, so a button in Classic and the same button in Studio always run the same [RpaController] call.
+ */
+internal class RpaActions(rpa: RpaController) {
+    val connect: () -> Unit = { rpa.begin() }
+    val stop: () -> Unit = { rpa.stop() }
+    val blindProbe: () -> Unit = { rpa.blindProbe() }
+    val searchSlot: () -> Unit = { rpa.searchSlot() }
+    val parkIn: () -> Unit = { rpa.startParkIn() }
+    val continueParking: () -> Unit = { rpa.continueParking() }
+    val pause: () -> Unit = { rpa.pause() }
+    val undo: () -> Unit = { rpa.undo() }
+    /** Takes one of the [RpaReq] `*_OUT` directions. */
+    val parkOut: (Byte) -> Unit = { rpa.startParkOut(it) }
+    /** Press: true = forward, false = backward. Must be followed by [releaseMove] when the finger lifts. */
+    val holdMove: (Boolean) -> Unit = { rpa.holdMove(it) }
+    val releaseMove: () -> Unit = { rpa.releaseMove() }
+}
+
+/** The link is being opened: Connect shows its busy state. */
+internal val RpaController.UiState.connecting: Boolean get() = phase == RpaController.Phase.CONNECTING
+/** No session is open (never started, failed or finished), so Connect is offered. */
+internal val RpaController.UiState.canConnect: Boolean
+    get() = phase == RpaController.Phase.IDLE || phase == RpaController.Phase.ERROR || phase == RpaController.Phase.DONE
+/** A session is open or opening, so Stop is offered. */
+internal val RpaController.UiState.active: Boolean
+    get() = phase != RpaController.Phase.IDLE && phase != RpaController.Phase.ERROR && phase != RpaController.Phase.DONE
+
+/** The word and the colour for a remote-parking phase. */
+@Composable
+internal fun rpaPhaseStyle(phase: RpaController.Phase): Pair<String, Color> = when (phase) {
+    RpaController.Phase.READY -> stringResource(R.string.parking_phase_ready) to Brand.good
+    RpaController.Phase.MOVING, RpaController.Phase.PARKING_IN, RpaController.Phase.PARKING_OUT -> stringResource(R.string.parking_phase_active) to Brand.accent
+    RpaController.Phase.PAUSED -> stringResource(R.string.parking_phase_paused) to Brand.energy
+    RpaController.Phase.DONE -> stringResource(R.string.parking_phase_done) to Brand.good
+    RpaController.Phase.ERROR -> stringResource(R.string.parking_phase_error) to Brand.crit
+    RpaController.Phase.CONNECTING -> stringResource(R.string.parking_phase_connecting) to Brand.accent
+    else -> stringResource(R.string.parking_phase_idle) to Brand.faint
+}
+
+/** How the car leaves a space: out of a parallel space, or out of a perpendicular one nose first or tail first. */
+internal enum class ParkOutKind { PARALLEL, HEAD_PERPENDICULAR, TAIL_PERPENDICULAR }
+
+/** One park-out choice: its label, the side the car leaves to, and the direction code sent to the car. */
+internal class ParkOutOption(val labelRes: Int, val kind: ParkOutKind, val toRight: Boolean, val direction: Byte)
+
+/** Every park-out choice, in the order the Classic look lists them. */
+internal val ParkOutOptions = listOf(
+    ParkOutOption(R.string.parking_parallel_r, ParkOutKind.PARALLEL, true, RpaReq.PARALLEL_RIGHT_OUT),
+    ParkOutOption(R.string.parking_parallel_l, ParkOutKind.PARALLEL, false, RpaReq.PARALLEL_LEFT_OUT),
+    ParkOutOption(R.string.parking_head_perp_r, ParkOutKind.HEAD_PERPENDICULAR, true, RpaReq.HEAD_PERPENDICULAR_RIGHT_OUT),
+    ParkOutOption(R.string.parking_head_perp_l, ParkOutKind.HEAD_PERPENDICULAR, false, RpaReq.HEAD_PERPENDICULAR_LEFT_OUT),
+    ParkOutOption(R.string.parking_tail_perp_r, ParkOutKind.TAIL_PERPENDICULAR, true, RpaReq.TAIL_PERPENDICULAR_RIGHT_OUT),
+    ParkOutOption(R.string.parking_tail_perp_l, ParkOutKind.TAIL_PERPENDICULAR, false, RpaReq.TAIL_PERPENDICULAR_LEFT_OUT),
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ParkingScreen(deps: Deps, modifier: Modifier = Modifier) {
     val state by deps.rpa.state.collectAsState()
     val cfg by deps.config.config.collectAsState()
+    val rpa = remember(deps.rpa) { RpaActions(deps.rpa) }
+    if (Brand.isStudio) {
+        // The Studio look: the same position, the same navigation hand-off and the same remote-parking calls;
+        // only the layout (ParkingStudio.kt) is different.
+        val ctx = LocalContext.current
+        val loc = rememberCarLocation(deps)
+        val pos = loc.pos
+        StudioLocationPage(
+            StudioLocationState(
+                lat = pos?.first, lng = pos?.second,
+                // Street address from the phone's own geocoder (the owner chose to have it, 2026-11-25). This hands
+                // the car position to the phone's geocoding service, once per position: results are cached for
+                // the life of the process. Pass null to show coordinates only.
+                address = rememberCarAddress(pos),
+                updated = if (pos != null) loc.updatedAt?.takeIf { it > 0L }?.let { formatLocationTime(ctx, it) } else null,
+                devMode = cfg.devMode,
+                rpa = state,
+            ),
+            onNavigate = { if (pos != null) navigateToCar(ctx, pos.first, pos.second) },
+            rpa = rpa,
+            modifier = modifier,
+        )
+        return
+    }
     Column(
         modifier = modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -69,18 +153,18 @@ fun ParkingScreen(deps: Deps, modifier: Modifier = Modifier) {
             // Remote parking — the car engages RPA over the ordinary BLE DK session (REQ_MODE ACKed
             // 0x1000, streams 0x117 SYNC, issues 0x115 challenges); NOT DK-3.0/SE tier-walled. To
             // actually maneuver, Remote Parking must be ARMED on the car's centre screen first.
-            RemoteParkingControls(deps.rpa, state)
+            RemoteParkingControls(rpa, state)
         }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiState) {
+private fun RemoteParkingControls(rpa: RpaActions, state: RpaController.UiState) {
     val phase = state.phase
-    val connecting = phase == RpaController.Phase.CONNECTING
-    val canConnect = phase == RpaController.Phase.IDLE || phase == RpaController.Phase.ERROR || phase == RpaController.Phase.DONE
-    val active = phase != RpaController.Phase.IDLE && phase != RpaController.Phase.ERROR && phase != RpaController.Phase.DONE
+    val connecting = state.connecting
+    val canConnect = state.canConnect
+    val active = state.active
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -94,7 +178,7 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
             Text(it, color = if (phase == RpaController.Phase.ERROR) Brand.crit else Brand.muted, fontSize = 12.5.sp)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton(if (connecting) stringResource(R.string.parking_connecting) else stringResource(R.string.parking_connect), Modifier.weight(1f), enabled = canConnect) { rpa.begin() }
+            PrimaryButton(if (connecting) stringResource(R.string.parking_connecting) else stringResource(R.string.parking_connect), Modifier.weight(1f), enabled = canConnect) { rpa.connect() }
             GhostButton(stringResource(R.string.parking_stop), Modifier.weight(1f), enabled = active, tint = Brand.crit) { rpa.stop() }
         }
 
@@ -108,7 +192,7 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
         SectionHeader(stringResource(R.string.parking_section_park_in))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Tile(stringResource(R.string.parking_search), Modifier.weight(1f)) { rpa.searchSlot() }
-            Tile(stringResource(R.string.parking_park_in), Modifier.weight(1f)) { rpa.startParkIn() }
+            Tile(stringResource(R.string.parking_park_in), Modifier.weight(1f)) { rpa.parkIn() }
             Tile(stringResource(R.string.parking_continue), Modifier.weight(1f)) { rpa.continueParking() }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -119,14 +203,7 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
 
         SectionHeader(stringResource(R.string.parking_section_park_out))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                stringResource(R.string.parking_parallel_r) to RpaReq.PARALLEL_RIGHT_OUT,
-                stringResource(R.string.parking_parallel_l) to RpaReq.PARALLEL_LEFT_OUT,
-                stringResource(R.string.parking_head_perp_r) to RpaReq.HEAD_PERPENDICULAR_RIGHT_OUT,
-                stringResource(R.string.parking_head_perp_l) to RpaReq.HEAD_PERPENDICULAR_LEFT_OUT,
-                stringResource(R.string.parking_tail_perp_r) to RpaReq.TAIL_PERPENDICULAR_RIGHT_OUT,
-                stringResource(R.string.parking_tail_perp_l) to RpaReq.TAIL_PERPENDICULAR_LEFT_OUT,
-            ).forEach { (label, dir) -> Chip(label) { rpa.startParkOut(dir) } }
+            ParkOutOptions.forEach { o -> Chip(stringResource(o.labelRes)) { rpa.parkOut(o.direction) } }
         }
 
         SectionHeader(stringResource(R.string.parking_section_hold_to_move))
@@ -141,15 +218,7 @@ private fun RemoteParkingControls(rpa: RpaController, state: RpaController.UiSta
 
 @Composable
 private fun PhasePill(phase: RpaController.Phase, connecting: Boolean) {
-    val (label, color) = when (phase) {
-        RpaController.Phase.READY -> stringResource(R.string.parking_phase_ready) to Brand.good
-        RpaController.Phase.MOVING, RpaController.Phase.PARKING_IN, RpaController.Phase.PARKING_OUT -> stringResource(R.string.parking_phase_active) to Brand.accent
-        RpaController.Phase.PAUSED -> stringResource(R.string.parking_phase_paused) to Brand.energy
-        RpaController.Phase.DONE -> stringResource(R.string.parking_phase_done) to Brand.good
-        RpaController.Phase.ERROR -> stringResource(R.string.parking_phase_error) to Brand.crit
-        RpaController.Phase.CONNECTING -> stringResource(R.string.parking_phase_connecting) to Brand.accent
-        else -> stringResource(R.string.parking_phase_idle) to Brand.faint
-    }
+    val (label, color) = rpaPhaseStyle(phase)
     Row(
         Modifier.clip(CircleShape).background(color.copy(alpha = 0.16f)).padding(horizontal = 11.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),

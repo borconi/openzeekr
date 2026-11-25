@@ -4,14 +4,20 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateDecay
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,9 +32,11 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -47,12 +55,17 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.openzeekr.app.remote.Command
 import com.openzeekr.app.ui.theme.Brand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,9 +91,15 @@ import kotlin.math.roundToInt
  * is behind the car even when fully open (opening it changes about 0.03% of the picture); such a part is left
  * out of "parts"/"part_order" and listed under "hidden_parts". A far-side door's frame 0 is always null because
  * the shut door is drawn as part of the body layer.
+ *
+ * Turntable: a pack may also carry "spin" frames - the whole car, shut, turned in equal steps about its own
+ * axis under the same camera and lights (frame 0 is the hero itself, so it is null). Dragging sideways on the
+ * hero scrubs through them; the moving parts and effects exist only at the hero angle.
  */
 
 private const val HERO3D_ROOT = "cars/hero3d"
+/** How far the car turns per pixel dragged (in the pack's canvas pixels); about what makes the flank follow the finger. */
+private const val SPIN_DEG_PER_PX = 1f / 3f
 
 /** Countries that drive on the left (right-hand-drive cars); used only when the cloud config does not say. */
 internal val RHD_COUNTRIES = setOf(
@@ -148,13 +167,17 @@ internal class H3Pack(
     val w: Int, val h: Int, val steps: Int,
     /** Rolling radius in metres, so the wheels turn at the right rate for the road speed. */
     val wheelRadius: Float,
-    val carLeft: Float, val carRight: Float,
+    /** The wheel frames cover this many degrees; after that the wheel looks the same again (72 = five-fold rim). */
+    val wheelStepDeg: Float,
+    val carLeft: Float, val carRight: Float, val carTop: Float, val carBottom: Float,
     val shadow: H3Layer?, val body: H3Layer,
     val partOrder: List<String>,
     val parts: Map<String, List<H3Layer?>>,
     val glass: Map<String, List<H3Layer?>>,
     val wheelFrames: List<List<H3Layer>>, val wheelSmear: List<H3Layer>,
     val lights: H3Layer?, val neonLines: H3Layer?, val neonGlow: H3Layer?,
+    /** Number of turntable angles (0 = no turntable in this pack) and a loader that tints one of them. */
+    val spinCount: Int, val spinFrame: (Int) -> H3Layer?,
 )
 
 object Hero3dAssets {
@@ -239,6 +262,7 @@ object Hero3dAssets {
             val canvas = m.getJSONArray("canvas")
             val steps = m.getInt("steps")
             val carX = m.getJSONArray("car_x")
+            val carY = m.optJSONArray("car_y")
             val order = m.getJSONArray("part_order").let { a -> List(a.length()) { a.getString(it) } }
             val partsJ = m.getJSONObject("parts")
             val parts = order.associateWith { name ->
@@ -250,6 +274,7 @@ object Hero3dAssets {
                 val arr = glassJ.getJSONArray(name)
                 List(arr.length()) { i -> plain(ctx, dir, arr.optJSONObject(i)) }
             }
+            val spinJ = m.optJSONObject("spin")?.optJSONArray("frames")
             val wheelsJ = m.getJSONArray("wheels")
             val wheelFrames = List(wheelsJ.length()) { wi ->
                 val fr = wheelsJ.getJSONObject(wi).getJSONArray("frames")
@@ -259,7 +284,10 @@ object Hero3dAssets {
             H3Pack(
                 w = canvas.getInt(0), h = canvas.getInt(1), steps = steps,
                 wheelRadius = m.optDouble("wheel_radius", 0.36).toFloat(),
+                wheelStepDeg = m.optDouble("wheel_step_deg", 72.0).toFloat().coerceIn(10f, 360f),
                 carLeft = carX.getInt(0).toFloat(), carRight = carX.getInt(1).toFloat(),
+                carTop = carY?.getInt(0)?.toFloat() ?: canvas.getInt(1) * 0.28f,
+                carBottom = carY?.getInt(1)?.toFloat() ?: canvas.getInt(1) * 0.78f,
                 shadow = plain(ctx, dir, m.optJSONObject("shadow")),
                 body = painted(ctx, dir, m.getJSONObject("body"), tint, curve) ?: error("body layer missing"),
                 partOrder = order, parts = parts, glass = glass,
@@ -267,6 +295,8 @@ object Hero3dAssets {
                 lights = plain(ctx, dir, m.optJSONObject("lights")),
                 neonLines = plain(ctx, dir, m.optJSONObject("neon_lines")),
                 neonGlow = plain(ctx, dir, m.optJSONObject("neon_glow")),
+                spinCount = spinJ?.length() ?: 0,
+                spinFrame = { i -> painted(ctx, dir, spinJ?.optJSONObject(i), tint, curve) },
             )
         }.getOrNull()
         synchronized(this@Hero3dAssets) { cacheKey = id; cached = pack }
@@ -281,15 +311,37 @@ fun Hero3d(modelKey: String, paint: Color, status: Hero3dStatus, fx: Hero3dFx, m
     val ctx = LocalContext.current.applicationContext
     var pack by remember(modelKey, paint) { mutableStateOf<H3Pack?>(null) }
     LaunchedEffect(modelKey, paint) { pack = Hero3dAssets.load(ctx, modelKey, paint) }
+    // Turntable frames are tinted in the background once the hero is up, the angles nearest to it first. They
+    // live only as long as this screen does (about 1 MB each), so nothing is held when the hero is not shown.
+    val spin = remember(pack) { mutableStateListOf<H3Layer?>().apply { repeat(pack?.spinCount ?: 0) { add(null) } } }
+    LaunchedEffect(pack) {
+        val p = pack ?: return@LaunchedEffect
+        val n = p.spinCount
+        for (k in 1..n / 2) for (i in listOf(k, n - k).distinct()) {
+            spin[i] = withContext(Dispatchers.Default) { runCatching { p.spinFrame(i) }.getOrNull() }
+        }
+    }
     Box(modifier.fillMaxWidth().padding(horizontal = 6.dp).aspectRatio(2f), contentAlignment = Alignment.Center) {
         val p = pack
         if (p == null) CircularProgressIndicator(Modifier.size(30.dp), color = Brand.muted, strokeWidth = 3.dp)
-        else Hero3dCanvas(p, status, fx)
+        else Hero3dCanvas(p, status, fx, spin)
+    }
+}
+
+private val POOL_COLOR = Color(0xFF96ACC4)
+private val POOL_FALLOFF = listOf(0f to 1f, 0.45f to 0.92f, 0.70f to 0.50f, 0.88f to 0.15f, 1f to 0f)
+
+/** One elliptical glow, brightest in the middle and gone at its edge. */
+private fun DrawScope.lightPool(cx: Float, cy: Float, rx: Float, ry: Float, alpha: Float) {
+    if (rx <= 0f || ry <= 0f || alpha <= 0f) return
+    val stops = POOL_FALLOFF.map { (t, a) -> t to POOL_COLOR.copy(alpha = a * alpha) }.toTypedArray()
+    withTransform({ translate(cx, cy); scale(1f, ry / rx, pivot = Offset.Zero) }) {
+        drawCircle(Brush.radialGradient(*stops, center = Offset.Zero, radius = rx), radius = rx, center = Offset.Zero)
     }
 }
 
 @Composable
-private fun Hero3dCanvas(p: H3Pack, status: Hero3dStatus, fx: Hero3dFx) {
+private fun Hero3dCanvas(p: H3Pack, status: Hero3dStatus, fx: Hero3dFx, spin: List<H3Layer?>) {
     @Composable
     fun part(name: String, open: Boolean, ms: Int = 900): Float {
         val v by animateFloatAsState(fx.resolve(name, if (open) 1f else 0f), tween(ms, easing = LinearEasing), label = name)
@@ -319,7 +371,7 @@ private fun Hero3dCanvas(p: H3Pack, status: Hero3dStatus, fx: Hero3dFx) {
                 val mps = speed / 3.6f
                 // Above walking pace a true-speed wheel would strobe on a 60 Hz screen, so cap what is drawn.
                 val degPerS = min(Math.toDegrees((mps / p.wheelRadius).toDouble()).toFloat(), 420f)
-                wheelDeg = (wheelDeg + degPerS * dt) % 72f
+                wheelDeg = (wheelDeg + degPerS * dt) % p.wheelStepDeg
                 roadPx = (roadPx + min(mps, 30f) * 60f * dt) % 100_000f
             }
             last = now
@@ -343,8 +395,48 @@ private fun Hero3dCanvas(p: H3Pack, status: Hero3dStatus, fx: Hero3dFx) {
     val sweep by loop.animateFloat(0f, 1f, infiniteRepeatable(tween(1900, easing = LinearEasing), RepeatMode.Restart), label = "sweep")
     val pulse by loop.animateFloat(0.55f, 1f, infiniteRepeatable(tween(1300), RepeatMode.Reverse), label = "pulse")
     val streak = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.13f)
+    // Every car stands in a soft pool of light, behind and under it: on the dark app background a dark car
+    // (and any car's black roof and sills) would otherwise lose its outline. Only a light background skips it.
+    val pool = if (MaterialTheme.colorScheme.background.luminance() < 0.2f) 1f else 0f
 
-    Canvas(Modifier.fillMaxSize()) {
+    // Drag sideways to turn the car. Away from the home angle the pre-rendered turntable frame is shown (car
+    // shut, no effects); a moment after letting go the car turns back home and the live hero takes over again.
+    var spinDeg by remember { mutableFloatStateOf(0f) }
+    val spinScope = rememberCoroutineScope()
+    val spinJob = remember { arrayOfNulls<Job>(1) }
+    val spinDecay = remember { exponentialDecay<Float>(frictionMultiplier = 1.4f) }
+    val spinN = spin.size
+    val spinLayer: H3Layer? = if (spinN < 2) null else {
+        val idx = Math.floorMod((spinDeg / (360f / spinN)).roundToInt(), spinN)
+        // A frame that is still loading is stood in for by its nearest loaded neighbour.
+        if (idx == 0) null else spin[idx] ?: (1..3).firstNotNullOfOrNull { d ->
+            spin[Math.floorMod(idx + d, spinN)] ?: spin[Math.floorMod(idx - d, spinN)]
+        }
+    }
+    val spinGesture = if (spinN < 2) Modifier else Modifier.pointerInput(p, spinN) {
+        val tracker = VelocityTracker()
+        fun settle(velocity: Float) {
+            spinJob[0] = spinScope.launch {
+                AnimationState(spinDeg, velocity.coerceIn(-1500f, 1500f)).animateDecay(spinDecay) { spinDeg = value }
+                delay(2500)
+                val home = (spinDeg / 360f).roundToInt() * 360f      // the nearer way round
+                animate(spinDeg, home, animationSpec = tween(900, easing = FastOutSlowInEasing)) { v, _ -> spinDeg = v }
+                spinDeg = 0f
+            }
+        }
+        detectHorizontalDragGestures(
+            onDragStart = { spinJob[0]?.cancel(); tracker.resetTracking() },
+            onHorizontalDrag = { change, dx ->
+                tracker.addPosition(change.uptimeMillis, change.position)
+                spinDeg += dx * SPIN_DEG_PER_PX * p.w / size.width
+                change.consume()
+            },
+            onDragEnd = { settle(tracker.calculateVelocity().x * SPIN_DEG_PER_PX * p.w / size.width) },
+            onDragCancel = { settle(0f) },
+        )
+    }
+
+    Canvas(Modifier.fillMaxSize().then(spinGesture)) {
         val sc = size.width / p.w
         scale(sc, sc, pivot = Offset.Zero) {
             fun layer(l: H3Layer?, alpha: Float = 1f, tint: Color? = null, blend: BlendMode = BlendMode.SrcOver) {
@@ -352,13 +444,27 @@ private fun Hero3dCanvas(p: H3Pack, status: Hero3dStatus, fx: Hero3dFx) {
                 drawImage(l.bmp, topLeft = Offset(l.x, l.y), alpha = alpha,
                     colorFilter = tint?.let { ColorFilter.tint(it) }, blendMode = blend)
             }
+            if (pool > 0f) {
+                val cx = (p.carLeft + p.carRight) / 2f
+                val cw = p.carRight - p.carLeft
+                val ch = p.carBottom - p.carTop
+                val maxRx = min(cx, p.w - cx)          // keep both glows inside the canvas so they never end in an edge
+                val backY = p.carTop + 0.45f * ch
+                lightPool(cx, backY, min(0.70f * cw, maxRx), min(0.95f * ch, min(backY, p.h - backY)), 0.30f * pool)
+                val floorY = p.carBottom - 0.05f * ch
+                lightPool(cx, floorY, min(0.62f * cw, maxRx), min(0.24f * ch, p.h - floorY), 0.24f * pool)
+            }
+            if (spinLayer != null) {
+                layer(spinLayer)        // shadow and car in one picture
+                return@scale
+            }
             if (moving) streaks(p, roadPx, streak)
             layer(p.shadow)
             layer(p.body)
 
             p.wheelFrames.forEachIndexed { i, frames ->
                 if (frames.isEmpty()) return@forEachIndexed
-                val idx = ((wheelDeg / 72f) * frames.size).toInt().coerceIn(0, frames.size - 1)
+                val idx = ((wheelDeg / p.wheelStepDeg) * frames.size).toInt().coerceIn(0, frames.size - 1)
                 layer(frames[idx], alpha = 1f)
                 layer(p.wheelSmear.getOrNull(i), alpha = smear)
             }

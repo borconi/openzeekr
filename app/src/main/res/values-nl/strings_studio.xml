@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Sleep de greep op de balk om de limiet te wijzigen</string>
+    <string name="vehicle_amps_lower_cd">Laadstroom verlagen</string>
+    <string name="vehicle_amps_raise_cd">Laadstroom verhogen</string>
+    <string name="vehicle_charge_stat_power">Vermogen</string>
+    <string name="vehicle_charge_stat_current">Stroom</string>
+    <string name="vehicle_charge_stat_full_in">Vol over</string>
+    <string name="vehicle_charge_phases">%1$d-fase</string>
+
+    <string name="location_updated_fmt">Bijgewerkt %1$s</string>
+    <string name="location_rpa_hint">Activeer eerst Op afstand parkeren op het middenscherm van de auto.</string>
+
+    <string name="sec_studio_subtitle">Houd de auto in de gaten terwijl hij geparkeerd staat</string>
+    <string name="sec_studio_arm">Aanzetten</string>
+    <string name="sec_studio_disarm">Uitzetten</string>
+    <string name="sec_studio_access_title">Toegang</string>
+    <string name="sec_studio_access_hint">Elke wijziging vraagt om een PIN</string>
+
+    <string name="sched_studio_subtitle">Gepland laden en vertrekken, opgeslagen op de auto</string>
+    <string name="sched_studio_charge_switch">Laden volgens dit schema</string>
+
+    <string name="journey_studio_subtitle">Ritten vastgelegd door de auto</string>
+    <string name="journey_studio_trips_shown">Getoonde ritten</string>
+
+    <string name="setup_studio_subtitle">Je telefoon als autosleutel, via Bluetooth</string>
+    <string name="setup_studio_pill_active">Actief</string>
+    <string name="setup_studio_pill_not_set_up">Niet ingesteld</string>
+    <string name="setup_studio_pill_connected">Verbonden</string>
+    <string name="setup_studio_calibration">Kalibratie</string>
+    <string name="setup_studio_calibrated">Gekalibreerd</string>
+    <string name="setup_studio_calib_door">Bij de deur</string>
+    <string name="setup_studio_calib_far">Op 6 m</string>
+
+    <string name="ota_studio_checked_at">Gecontroleerd om %1$s</string>
+
+    <string name="aa_studio_state_on">Aan</string>
+    <string name="aa_studio_state_off">Uit</string>
+    <string name="aa_studio_state_unsupported">Niet ondersteund</string>
+
+    <string name="settings_studio_diagnostics">Logs en diagnose</string>
+    <string name="settings_studio_dev_tools">Ontwikkelaarstools</string>
+    <string name="settings_studio_dev_hint">Testfuncties, hier en op andere tabbladen.</string>
+    <string name="settings_studio_version_line">Versie %1$s</string>
+    <string name="settings_studio_region_hint">De Zeekr-servers waarop je account staat.</string>
+    <string name="settings_studio_region_verified">Geverifieerd</string>
+    <string name="settings_studio_region_experimental">Experimenteel</string>
+
+    <string name="inbox_studio_has_unread">Je hebt ongelezen berichten</string>
+    <string name="inbox_studio_all_read">Alles is gelezen</string>
+    <string name="inbox_studio_unread_cd">Ongelezen</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Gedeeld met %1$d persoon</item>
+        <item quantity="other">Gedeeld met %1$d personen</item>
+    </plurals>
+    <string name="carshare_studio_people">Personen met toegang</string>
+    <string name="carshare_studio_empty_body">Iedereen met wie je deelt verschijnt hier, en je kunt hun toegang op elk moment intrekken.</string>
+
+    <string name="onb_studio_region_lead">Kies de markt waartoe je auto en account behoren. Dit selecteert de juiste Zeekr-servers.</string>
+    <string name="onb_studio_region_keys_note">Elke regio heeft eigen geëxtraheerde sleutels nodig (zeekr_key_extractor --region %1$s). Die voeg je hierna toe.</string>
+    <string name="onb_studio_region_verified">Geverifieerd</string>
+    <string name="onb_studio_region_experimental">Experimenteel</string>
+    <string name="onb_studio_key_not_set">Nog niet ingesteld</string>
+
+</resources>

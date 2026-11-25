@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Muutmiseks lohista ribal olevat käepidet</string>
+    <string name="vehicle_amps_lower_cd">Vähenda laadimisvoolu</string>
+    <string name="vehicle_amps_raise_cd">Suurenda laadimisvoolu</string>
+    <string name="vehicle_charge_stat_power">Võimsus</string>
+    <string name="vehicle_charge_stat_current">Vool</string>
+    <string name="vehicle_charge_stat_full_in">Täislaadimiseni</string>
+    <string name="vehicle_charge_phases">%1$d-faasiline</string>
+
+    <string name="location_updated_fmt">Uuendatud %1$s</string>
+    <string name="location_rpa_hint">Lülita Kaugparkimine esmalt sisse auto keskekraanil.</string>
+
+    <string name="sec_studio_subtitle">Hoia pargitud autol silm peal</string>
+    <string name="sec_studio_arm">Sisse</string>
+    <string name="sec_studio_disarm">Välja</string>
+    <string name="sec_studio_access_title">Juurdepääs</string>
+    <string name="sec_studio_access_hint">Iga muudatus küsib PIN-koodi</string>
+
+    <string name="sched_studio_subtitle">Ajastatud laadimine ja väljasõidud, salvestatud autosse</string>
+    <string name="sched_studio_charge_switch">Lae selle graafiku järgi</string>
+
+    <string name="journey_studio_subtitle">Auto salvestatud sõidud</string>
+    <string name="journey_studio_trips_shown">Kuvatud sõidud</string>
+
+    <string name="setup_studio_subtitle">Sinu telefon autovõtmena, Bluetoothi kaudu</string>
+    <string name="setup_studio_pill_active">Aktiivne</string>
+    <string name="setup_studio_pill_not_set_up">Seadistamata</string>
+    <string name="setup_studio_pill_connected">Ühendatud</string>
+    <string name="setup_studio_calibration">Kalibreering</string>
+    <string name="setup_studio_calibrated">Kalibreeritud</string>
+    <string name="setup_studio_calib_door">Ukse juures</string>
+    <string name="setup_studio_calib_far">6 m kaugusel</string>
+
+    <string name="ota_studio_checked_at">Kontrollitud kell %1$s</string>
+
+    <string name="aa_studio_state_on">Sees</string>
+    <string name="aa_studio_state_off">Väljas</string>
+    <string name="aa_studio_state_unsupported">Pole toetatud</string>
+
+    <string name="settings_studio_diagnostics">Logid ja diagnostika</string>
+    <string name="settings_studio_dev_tools">Arendaja tööriistad</string>
+    <string name="settings_studio_dev_hint">Testfunktsioonid, siin ja teistel vahekaartidel.</string>
+    <string name="settings_studio_version_line">Versioon %1$s</string>
+    <string name="settings_studio_region_hint">Zeekri serverid, kus su konto asub.</string>
+    <string name="settings_studio_region_verified">Kinnitatud</string>
+    <string name="settings_studio_region_experimental">Eksperimentaalne</string>
+
+    <string name="inbox_studio_has_unread">Sul on lugemata sõnumeid</string>
+    <string name="inbox_studio_all_read">Kõik on loetud</string>
+    <string name="inbox_studio_unread_cd">Lugemata</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Jagatud %1$d inimesega</item>
+        <item quantity="other">Jagatud %1$d inimesega</item>
+    </plurals>
+    <string name="carshare_studio_people">Juurdepääsuga inimesed</string>
+    <string name="carshare_studio_empty_body">Kõik, kellega jagad, kuvatakse siin ja saad nende juurdepääsu igal ajal tühistada.</string>
+
+    <string name="onb_studio_region_lead">Vali turg, kuhu su auto ja konto kuuluvad. See valib õiged Zeekri serverid.</string>
+    <string name="onb_studio_region_keys_note">Iga piirkond vajab oma ekstraktitud võtmeid (zeekr_key_extractor --region %1$s). Lisad need järgmisena.</string>
+    <string name="onb_studio_region_verified">Kinnitatud</string>
+    <string name="onb_studio_region_experimental">Eksperimentaalne</string>
+    <string name="onb_studio_key_not_set">Pole veel seadistatud</string>
+
+</resources>

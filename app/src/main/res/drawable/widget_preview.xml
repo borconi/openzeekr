@@ -1,29 +1,32 @@
-<!-- Static widget-picker preview image (android:previewImage). A simple schematic of the live
-     widget - a dark rounded cockpit card, a status dot, and a 3x2 grid of tinted action badges -
-     so the picker never has to inflate a RemoteViews layout (which is what failed before). -->
+<!-- Static widget-picker preview image (android:previewImage): a schematic of the live widget in the Studio look
+     (light) - the card, the header line and the 3 + 2 action tiles. A drawing, so the picker never has to
+     inflate a RemoteViews layout. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="240dp"
     android:height="150dp"
     android:viewportWidth="240"
     android:viewportHeight="150">
 
-    <!-- Card ground -->
-    <path
-        android:fillColor="#FF14181C"
-        android:pathData="M16,0 L224,0 Q240,0 240,16 L240,134 Q240,150 224,150 L16,150 Q0,150 0,134 L0,16 Q0,0 16,0 Z" />
-
-    <!-- Header status dot -->
-    <path
-        android:fillColor="#FF46D8A0"
-        android:pathData="M14,18 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z" />
-
-    <!-- Row 1 badges -->
-    <path android:fillColor="#FF46D8A0" android:pathData="M56,74 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
-    <path android:fillColor="#FFF5B740" android:pathData="M120,74 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
-    <path android:fillColor="#FF5AA9FF" android:pathData="M184,74 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
-
-    <!-- Row 2 badges -->
-    <path android:fillColor="#FF31E08A" android:pathData="M56,118 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
-    <path android:fillColor="#FF5AA9FF" android:pathData="M120,118 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
-    <path android:fillColor="#FF8B979E" android:pathData="M184,118 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0 Z" />
+    <!-- Card -->
+    <path android:fillColor="#FFFFFFFF" android:pathData="M22,0 L218,0 Q240,0 240,22 L240,128 Q240,150 218,150 L22,150 Q0,150 0,128 L0,22 Q0,0 22,0 Z" />
+    <!-- Header: status dot, car name, status text -->
+    <path android:fillColor="#FF0B7A4F" android:pathData="M18,20 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 Z" />
+    <path android:fillColor="#FF0F1419" android:pathData="M32,16 L86,16 Q90,16 90,20 L90,20 Q90,24 86,24 L32,24 Q28,24 28,20 L28,20 Q28,16 32,16 Z" />
+    <path android:fillColor="#FF8E98A3" android:pathData="M175,17 L223,17 Q226,17 226,20 L226,20 Q226,23 223,23 L175,23 Q172,23 172,20 L172,20 Q172,17 175,17 Z" />
+    <!-- Action tiles: an icon dot over a label line -->
+    <path android:fillColor="#FFEEF0F2" android:pathData="M26,36 L66,36 Q80,36 80,50 L80,72 Q80,86 66,86 L26,86 Q12,86 12,72 L12,50 Q12,36 26,36 Z" />
+    <path android:fillColor="#FF0B7A4F" android:pathData="M46,55 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+    <path android:fillColor="#FF8E98A3" android:pathData="M34.5,70 L57.5,70 Q60,70 60,72.5 L60,72.5 Q60,75 57.5,75 L34.5,75 Q32,75 32,72.5 L32,72.5 Q32,70 34.5,70 Z" />
+    <path android:fillColor="#FFEEF0F2" android:pathData="M100,36 L140,36 Q154,36 154,50 L154,72 Q154,86 140,86 L100,86 Q86,86 86,72 L86,50 Q86,36 100,36 Z" />
+    <path android:fillColor="#FF1B5FD9" android:pathData="M120,55 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+    <path android:fillColor="#FF8E98A3" android:pathData="M108.5,70 L131.5,70 Q134,70 134,72.5 L134,72.5 Q134,75 131.5,75 L108.5,75 Q106,75 106,72.5 L106,72.5 Q106,70 108.5,70 Z" />
+    <path android:fillColor="#FFEEF0F2" android:pathData="M174,36 L214,36 Q228,36 228,50 L228,72 Q228,86 214,86 L174,86 Q160,86 160,72 L160,50 Q160,36 174,36 Z" />
+    <path android:fillColor="#FF0B7A4F" android:pathData="M194,55 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+    <path android:fillColor="#FF8E98A3" android:pathData="M182.5,70 L205.5,70 Q208,70 208,72.5 L208,72.5 Q208,75 205.5,75 L182.5,75 Q180,75 180,72.5 L180,72.5 Q180,70 182.5,70 Z" />
+    <path android:fillColor="#FFEEF0F2" android:pathData="M26,92 L103,92 Q117,92 117,106 L117,124 Q117,138 103,138 L26,138 Q12,138 12,124 L12,106 Q12,92 26,92 Z" />
+    <path android:fillColor="#FF9A5B00" android:pathData="M64.5,109 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+    <path android:fillColor="#FF8E98A3" android:pathData="M53,124 L76,124 Q78.5,124 78.5,126.5 L78.5,126.5 Q78.5,129 76,129 L53,129 Q50.5,129 50.5,126.5 L50.5,126.5 Q50.5,124 53,124 Z" />
+    <path android:fillColor="#FFEEF0F2" android:pathData="M137,92 L214,92 Q228,92 228,106 L228,124 Q228,138 214,138 L137,138 Q123,138 123,124 L123,106 Q123,92 137,92 Z" />
+    <path android:fillColor="#FF1B5FD9" android:pathData="M175.5,109 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+    <path android:fillColor="#FF8E98A3" android:pathData="M164,124 L187,124 Q189.5,124 189.5,126.5 L189.5,126.5 Q189.5,129 187,129 L164,129 Q161.5,129 161.5,126.5 L161.5,126.5 Q161.5,124 164,124 Z" />
 </vector>

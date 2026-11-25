@@ -73,7 +73,9 @@ object CarCatalog {
         // luminance-recolour matrices), plus Mystic Lilac (the reference car). The hero generates the
         // recolour matrix from each hex at draw time.
         CarModel("7GT", "Zeekr 7GT", "cars/car_7gt.webp", listOf(
-            PaintColor("Mystic Lilac", c(0xB9A7C4), "Pearl", recolor = floatArrayOf(0.801f, 0.731f, 0.844f)),
+            // A dark mauve-grey on Zeekr's own renders, not a pastel: calibrated 2026-11-24 against the official
+            // EU picture, on the same scale as the other 7GT paints (the old value was #B9A7C4).
+            PaintColor("Mystic Lilac", c(0x6D646D), "Pearl", recolor = floatArrayOf(0.490f, 0.452f, 0.490f)),
             PaintColor("Crystal White", c(0xF0F1F3), "Pearl", recolor = floatArrayOf(0.94f, 0.95f, 0.96f)),
             PaintColor("Glacier Silver", c(0xCED3D9), "Metallic", recolor = floatArrayOf(0.81f, 0.83f, 0.86f)),
             PaintColor("Tech Grey", c(0x84878B), "Metallic", recolor = floatArrayOf(0.585f, 0.596f, 0.613f)),

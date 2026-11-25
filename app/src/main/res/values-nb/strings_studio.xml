@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Dra håndtaket på linjen for å endre den</string>
+    <string name="vehicle_amps_lower_cd">Senk ladestrømmen</string>
+    <string name="vehicle_amps_raise_cd">Øk ladestrømmen</string>
+    <string name="vehicle_charge_stat_power">Effekt</string>
+    <string name="vehicle_charge_stat_current">Strøm</string>
+    <string name="vehicle_charge_stat_full_in">Full om</string>
+    <string name="vehicle_charge_phases">%1$d-fase</string>
+
+    <string name="location_updated_fmt">Oppdatert %1$s</string>
+    <string name="location_rpa_hint">Aktiver Fjernparkering på bilens midtskjerm først.</string>
+
+    <string name="sec_studio_subtitle">Hold vakt over bilen mens den står parkert</string>
+    <string name="sec_studio_arm">Aktiver</string>
+    <string name="sec_studio_disarm">Deaktiver</string>
+    <string name="sec_studio_access_title">Tilgang</string>
+    <string name="sec_studio_access_hint">Hver endring krever PIN</string>
+
+    <string name="sched_studio_subtitle">Tidsstyrt lading og avganger, lagret på bilen</string>
+    <string name="sched_studio_charge_switch">Lad etter denne planen</string>
+
+    <string name="journey_studio_subtitle">Turer registrert av bilen</string>
+    <string name="journey_studio_trips_shown">Viste turer</string>
+
+    <string name="setup_studio_subtitle">Telefonen din som bilnøkkel, via Bluetooth</string>
+    <string name="setup_studio_pill_active">Aktiv</string>
+    <string name="setup_studio_pill_not_set_up">Ikke satt opp</string>
+    <string name="setup_studio_pill_connected">Tilkoblet</string>
+    <string name="setup_studio_calibration">Kalibrering</string>
+    <string name="setup_studio_calibrated">Kalibrert</string>
+    <string name="setup_studio_calib_door">Ved døren</string>
+    <string name="setup_studio_calib_far">På 6 m</string>
+
+    <string name="ota_studio_checked_at">Sjekket kl. %1$s</string>
+
+    <string name="aa_studio_state_on">På</string>
+    <string name="aa_studio_state_off">Av</string>
+    <string name="aa_studio_state_unsupported">Støttes ikke</string>
+
+    <string name="settings_studio_diagnostics">Logger og diagnostikk</string>
+    <string name="settings_studio_dev_tools">Utviklerverktøy</string>
+    <string name="settings_studio_dev_hint">Testfunksjoner, her og på andre faner.</string>
+    <string name="settings_studio_version_line">Versjon %1$s</string>
+    <string name="settings_studio_region_hint">Zeekr-serverne kontoen din ligger på.</string>
+    <string name="settings_studio_region_verified">Verifisert</string>
+    <string name="settings_studio_region_experimental">Eksperimentell</string>
+
+    <string name="inbox_studio_has_unread">Du har uleste meldinger</string>
+    <string name="inbox_studio_all_read">Alt er lest</string>
+    <string name="inbox_studio_unread_cd">Ulest</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Delt med %1$d person</item>
+        <item quantity="other">Delt med %1$d personer</item>
+    </plurals>
+    <string name="carshare_studio_people">Personer med tilgang</string>
+    <string name="carshare_studio_empty_body">Alle du deler med vises her, og du kan når som helst tilbakekalle tilgangen deres.</string>
+
+    <string name="onb_studio_region_lead">Velg markedet som bilen og kontoen din tilhører. Dette velger de riktige Zeekr-serverne.</string>
+    <string name="onb_studio_region_keys_note">Hver region krever egne uthentede nøkler (zeekr_key_extractor --region %1$s). Dem legger du til i neste steg.</string>
+    <string name="onb_studio_region_verified">Verifisert</string>
+    <string name="onb_studio_region_experimental">Eksperimentell</string>
+    <string name="onb_studio_key_not_set">Ikke satt opp ennå</string>
+
+</resources>

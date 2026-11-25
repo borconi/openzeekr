@@ -94,11 +94,31 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
     var disclaimerAccepted by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<OtaStatus?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // When the cloud last answered a check (shown by the Studio look only).
+    var checkedAt by remember { mutableStateOf<Long?>(null) }
 
     suspend fun refresh() {
         when (val r = deps.ota.checkUpdate()) {
-            is CallResult.Ok -> { status = r.value; error = null }
+            is CallResult.Ok -> { status = r.value; error = null; checkedAt = System.currentTimeMillis() }
             is CallResult.Err -> { error = context.getString(R.string.ota_err_check, r.message) }
+        }
+    }
+
+    // The Refresh button (both looks).
+    fun doRefresh() {
+        checking = true; error = null
+        scope.launch { refresh(); checking = false }
+    }
+
+    // Manual download kick (both looks).
+    fun doStartDownload() {
+        downloading = true; error = null
+        scope.launch {
+            when (val r = deps.ota.startDownload()) {
+                is CallResult.Ok -> { status = r.value; error = null }
+                is CallResult.Err -> error = context.getString(R.string.ota_err_download_start, r.message)
+            }
+            downloading = false
         }
     }
 
@@ -197,7 +217,27 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
         }
     }
 
-    Column(
+    // Studio: its own layout over the same state and the same calls (OtaStudio.kt).
+    if (Brand.isStudio) StudioOta(
+        StudioOtaState(
+            status = status,
+            phase = phaseLabel(context, status?.newStatus),
+            checkedAt = checkedAt?.let { android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(it)) },
+            error = error,
+            checking = checking, downloading = downloading, installing = installing, cancelling = cancelling,
+            disclaimerAccepted = disclaimerAccepted,
+            devMode = cfg.devMode,
+        ),
+        StudioOtaActions(
+            onRefresh = { doRefresh() },
+            onStartDownload = { doStartDownload() },
+            onDisclaimer = { disclaimerAccepted = it },
+            onInstallNow = { doInstall(now = true, scheduledTime = null) },
+            onSchedule = { pickScheduleAndInstall() },
+            onCancelUpdate = { showCancelConfirm = true },
+        ),
+        modifier,
+    ) else Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -295,20 +335,12 @@ fun OtaScreen(deps: Deps, modifier: Modifier = Modifier) {
 
             val busy = checking || downloading || installing
             PrimaryButton(if (checking) stringResource(R.string.ota_checking) else stringResource(R.string.ota_refresh), Modifier.fillMaxWidth(), enabled = !busy) {
-                checking = true; error = null
-                scope.launch { refresh(); checking = false }
+                doRefresh()
             }
             // Manual download kick - only when an update is assigned but the car hasn't auto-started it.
             status?.takeIf { it.canStartDownload }?.let {
                 PrimaryButton(if (downloading) stringResource(R.string.ota_starting) else stringResource(R.string.ota_start_download), Modifier.fillMaxWidth(), enabled = !busy) {
-                    downloading = true; error = null
-                    scope.launch {
-                        when (val r = deps.ota.startDownload()) {
-                            is CallResult.Ok -> { status = r.value; error = null }
-                            is CallResult.Err -> error = context.getString(R.string.ota_err_download_start, r.message)
-                        }
-                        downloading = false
-                    }
+                    doStartDownload()
                 }
             }
             // DEV-only: cancel/abort the assignment - recovery for a stuck install. Shown only in dev mode

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vehicle_charge_limit_drag_hint">Arraste o manípulo na barra para o alterar</string>
+    <string name="vehicle_amps_lower_cd">Baixar a corrente de carga</string>
+    <string name="vehicle_amps_raise_cd">Aumentar a corrente de carga</string>
+    <string name="vehicle_charge_stat_power">Potência</string>
+    <string name="vehicle_charge_stat_current">Corrente</string>
+    <string name="vehicle_charge_stat_full_in">Carga total em</string>
+    <string name="vehicle_charge_phases">%1$d fases</string>
+
+    <string name="location_updated_fmt">Atualizado %1$s</string>
+    <string name="location_rpa_hint">Ative primeiro o Estacionamento remoto no ecrã central do carro.</string>
+
+    <string name="sec_studio_subtitle">Vigie o carro enquanto está estacionado</string>
+    <string name="sec_studio_arm">Armar</string>
+    <string name="sec_studio_disarm">Desarmar</string>
+    <string name="sec_studio_access_title">Acesso</string>
+    <string name="sec_studio_access_hint">Cada alteração pede um PIN</string>
+
+    <string name="sched_studio_subtitle">Carregamento e partidas agendados, guardados no carro</string>
+    <string name="sched_studio_charge_switch">Carregar segundo este agendamento</string>
+
+    <string name="journey_studio_subtitle">Viagens registadas pelo carro</string>
+    <string name="journey_studio_trips_shown">Viagens mostradas</string>
+
+    <string name="setup_studio_subtitle">O seu telemóvel como chave do carro, por Bluetooth</string>
+    <string name="setup_studio_pill_active">Ativa</string>
+    <string name="setup_studio_pill_not_set_up">Não configurada</string>
+    <string name="setup_studio_pill_connected">Ligado</string>
+    <string name="setup_studio_calibration">Calibração</string>
+    <string name="setup_studio_calibrated">Calibrado</string>
+    <string name="setup_studio_calib_door">Junto à porta</string>
+    <string name="setup_studio_calib_far">A 6 m</string>
+
+    <string name="ota_studio_checked_at">Verificado às %1$s</string>
+
+    <string name="aa_studio_state_on">Ativado</string>
+    <string name="aa_studio_state_off">Desativado</string>
+    <string name="aa_studio_state_unsupported">Não suportado</string>
+
+    <string name="settings_studio_diagnostics">Registos e diagnóstico</string>
+    <string name="settings_studio_dev_tools">Ferramentas de programador</string>
+    <string name="settings_studio_dev_hint">Funcionalidades de teste, aqui e noutros separadores.</string>
+    <string name="settings_studio_version_line">Versão %1$s</string>
+    <string name="settings_studio_region_hint">Os servidores Zeekr onde está a sua conta.</string>
+    <string name="settings_studio_region_verified">Verificada</string>
+    <string name="settings_studio_region_experimental">Experimental</string>
+
+    <string name="inbox_studio_has_unread">Tem mensagens não lidas</string>
+    <string name="inbox_studio_all_read">Está tudo lido</string>
+    <string name="inbox_studio_unread_cd">Não lida</string>
+
+    <plurals name="carshare_studio_count">
+        <item quantity="one">Partilhado com %1$d pessoa</item>
+        <item quantity="many">Partilhado com %1$d de pessoas</item>
+        <item quantity="other">Partilhado com %1$d pessoas</item>
+    </plurals>
+    <string name="carshare_studio_people">Pessoas com acesso</string>
+    <string name="carshare_studio_empty_body">Todas as pessoas com quem partilhar aparecem aqui e pode revogar o seu acesso a qualquer momento.</string>
+
+    <string name="onb_studio_region_lead">Escolha o mercado a que o seu carro e conta pertencem. Isto seleciona os servidores Zeekr corretos.</string>
+    <string name="onb_studio_region_keys_note">Cada região precisa das suas próprias chaves extraídas (zeekr_key_extractor --region %1$s). Irá adicioná-las de seguida.</string>
+    <string name="onb_studio_region_verified">Verificada</string>
+    <string name="onb_studio_region_experimental">Experimental</string>
+    <string name="onb_studio_key_not_set">Ainda não configurada</string>
+
+</resources>

@@ -114,37 +114,10 @@ public class MainTaskService extends Service implements ServiceThreadPair {
         });
     }
 
-    /**
-     * A2DP connection-state broadcasts are not manifest-exempt from the implicit-broadcast ban on
-     * API 26+, so we register the BluetoothReceiver dynamically while the service is alive to catch
-     * the car re-connecting A2DP as a fresh-session signal (it drives the same start path as a cold
-     * start). Registered in onCreate, unregistered in onDestroy.
-     */
-    private BluetoothReceiver a2dpReceiver;
-
     @Override
     public void onCreate() {
         super.onCreate();
         installCrashFileLogger();
-        try {
-            a2dpReceiver = new BluetoothReceiver();
-            android.content.IntentFilter filter = new android.content.IntentFilter();
-            filter.addAction(BluetoothReceiver.A2DP_CONNECTION_STATE_CHANGED);
-            // Also catch ACL transitions while alive (manifest already has them; harmless overlap).
-            filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
-            filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
-            // System (protected) broadcasts: the flagged overload exists only on API 33+ (and the
-            // AA feature is gated there). Use it when present, else the plain overload.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(a2dpReceiver, filter, Context.RECEIVER_EXPORTED);
-            } else {
-                registerReceiver(a2dpReceiver, filter);
-            }
-            Log.d(TAG, "Registered dynamic A2DP/ACL receiver for car-driven re-start");
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to register dynamic A2DP receiver", e);
-            a2dpReceiver = null;
-        }
     }
 
     @Override
@@ -173,22 +146,10 @@ public class MainTaskService extends Service implements ServiceThreadPair {
         }
 
 
-        // NOTE: constant-first equals - action may legitimately be null here.
-        if (targetAddress == null && !"io.aawireless.MANUAL_START".equals(action)) {
+        // The only legitimate start carries the car's address (from BluetoothReceiver, ACL path).
+        if (targetAddress == null) {
             updateNotification("No target address");
             stopSelf();
-            return START_NOT_STICKY;
-        }
-
-        if ("io.aawireless.MANUAL_START".equals(action)) {
-            PhoneSimulator phoneSim = new PhoneSimulator(MainTaskService.this, t);
-            phone = phoneSim;
-            CarSimulator carSim = new CarSimulator(MainTaskService.this, t);
-            car = carSim;
-            phoneSim.start();
-            carSim.start(); // AASimulator no longer self-starts
-            if (!carSim.isHeadUnitServerMode()) AAStarter.startself(MainTaskService.this);
-            running=true;
             return START_NOT_STICKY;
         }
 
@@ -251,6 +212,19 @@ public class MainTaskService extends Service implements ServiceThreadPair {
                             updateNotification("WiFi connected");
 
 
+                        }
+
+                        @Override
+                        public void onCarWifiLost() {
+                            // The car AP dropped: proactively full-close the gearhead (5277) link so
+                            // its stuck pump hits EOF and its accept-loop frees (the FIN/RST cascades
+                            // through gearhead's shared socketpair fd). Capture the field locally to
+                            // avoid a race with teardown; closeGearheadLink() is idempotent + safe.
+                            AASimulator c = car;
+                            if (c instanceof CarSimulator) {
+                                Log.w(TAG, "Car WiFi lost -> proactively closing the gearhead 5277 link");
+                                ((CarSimulator) c).closeGearheadLink();
+                            }
                         }
 
                         @Override
@@ -415,12 +389,6 @@ public class MainTaskService extends Service implements ServiceThreadPair {
         carLaunched=false;
         // Reset the idle-waiting guard so the next session starts clean.
         projectionDown.set(false);
-
-        // Unregister the dynamic A2DP/ACL receiver.
-        if (a2dpReceiver != null) {
-            try { unregisterReceiver(a2dpReceiver); } catch (Exception ignored) {}
-            a2dpReceiver = null;
-        }
 
         // Stop the test schedulers first: both are non-daemon / linger-against-a-dead-service
         // executors that the old process-kill teardown used to reap. OutsideTempService.start()
@@ -709,16 +677,18 @@ public class MainTaskService extends Service implements ServiceThreadPair {
         if (key == null || key.trim().isEmpty()) {
             key = io.aawireless.wirelessaamanipulator.BuildConfig.WAZE_API_KEY;
         }
-        if (key == null || key.trim().isEmpty()) {
-            Log.w(TAG, "No Waze API key set (Settings) - police HUD disabled");
-            return;
-        }
-        key = key.trim();
-
-        long pollMs = prefs.getInt("waze_interval_sec", 300) * 1000L;
-        if (wazePoller == null) {
-            wazePoller = new io.aawireless.wirelessaamanipulator.hud.waze.WazePoller(this, key, pollMs);
-            wazePoller.start();
+        // Fixed speed cameras (GatsoUpdater / OSM feeds) do NOT need a Waze key, so keep the cluster
+        // HUD running in cameras-only mode when no Waze key is configured - only the live police layer
+        // needs Waze. (Previously we returned early here, which also left GATSO cameras unrendered.)
+        String trimmedKey = (key != null) ? key.trim() : "";
+        if (!trimmedKey.isEmpty()) {
+            long pollMs = prefs.getInt("waze_interval_sec", 300) * 1000L;
+            if (wazePoller == null) {
+                wazePoller = new io.aawireless.wirelessaamanipulator.hud.waze.WazePoller(this, trimmedKey, pollMs);
+                wazePoller.start();
+            }
+        } else {
+            Log.i(TAG, "No Waze API key set - starting cluster HUD in speed-cameras-only mode");
         }
         if (hudState == null) {
             hudState = new io.aawireless.wirelessaamanipulator.hud.HudState(this, wazePoller);

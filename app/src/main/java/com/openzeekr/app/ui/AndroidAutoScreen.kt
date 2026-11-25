@@ -57,6 +57,7 @@ import io.aawireless.wirelessaamanipulator.helpers.energymodel.EnergyProfiles
 import io.aawireless.wirelessaamanipulator.helpers.ssl.CertProvider
 import io.aawireless.wirelessaamanipulator.hud.GatsoUpdater
 import io.aawireless.wirelessaamanipulator.hud.waze.WazeTester
+import io.aawireless.wirelessaamanipulator.receivers.BluetoothReceiver
 import io.aawireless.wirelessaamanipulator.status.AppStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -110,12 +111,14 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
     var certSource by remember { mutableStateOf(AppStatus.getCertSource()) }
     var certDetail by remember { mutableStateOf(AppStatus.getCertDetail().orEmpty()) }
     var connStage by remember { mutableStateOf(AppStatus.getConnectionStage().orEmpty()) }
+    var advice by remember { mutableStateOf(AppStatus.getAdvice().orEmpty()) }
 
     DisposableEffect(Unit) {
         val l = AppStatus.Listener {
             certSource = AppStatus.getCertSource()
             certDetail = AppStatus.getCertDetail().orEmpty()
             connStage = AppStatus.getConnectionStage().orEmpty()
+            advice = AppStatus.getAdvice().orEmpty()
         }
         AppStatus.addListener(l)
         onDispose { AppStatus.removeListener(l) }
@@ -182,6 +185,7 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                         prefs.edit().putBoolean(AaCertMaintenance.KEY_ENABLED, it).apply()
                         // Turning the feature on kicks off the same silent cert upkeep as app start.
                         if (it) AaCertMaintenance.maintain(context, deps.appScope)
+                        else BluetoothReceiver.stopManual(context)
                     },
                     colors = brandSwitchColors(),
                 )
@@ -194,6 +198,41 @@ fun AndroidAutoScreen(deps: Deps, modifier: Modifier = Modifier) {
                     "${stringResource(R.string.aa_status_header)}: $connStage",
                     fontSize = 12.sp, color = Brand.muted,
                 )
+            }
+            if (enabled && advice.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                        .background(Brand.crit.copy(alpha = 0.12f))
+                        .border(1.dp, Brand.crit.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        .padding(10.dp),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(advice, fontSize = 12.sp, color = Brand.crit)
+                        GhostButton(
+                            text = stringResource(R.string.aa_open_android_auto),
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { GearheadSettings.openAndroidAutoSettings(context) },
+                        )
+                    }
+                }
+            }
+            if (enabled && supported) {
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(R.string.aa_service_desc), fontSize = 11.5.sp, color = Brand.muted)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PrimaryButton(
+                        text = stringResource(R.string.aa_start_service),
+                        modifier = Modifier.weight(1f),
+                        onClick = { BluetoothReceiver.triggerManual(context) },
+                    )
+                    GhostButton(
+                        text = stringResource(R.string.aa_stop_service),
+                        modifier = Modifier.weight(1f),
+                        onClick = { BluetoothReceiver.stopManual(context) },
+                    )
+                }
             }
         }
 

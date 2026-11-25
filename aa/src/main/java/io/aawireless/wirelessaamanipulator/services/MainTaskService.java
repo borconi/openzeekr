@@ -233,15 +233,22 @@ public class MainTaskService extends Service implements ServiceThreadPair {
                             running=true;
                             updateLocation();
 
-                            // Launch the car side + tell gearhead to connect EXACTLY once.
-                            // The car may re-send WifiInfoResponse (id=3); a second
-                            // CarSimulator would fight the first for port 6288.
+                            // In legacy (<17.3) 6288 mode we must bind 6288 + broadcast before Wi-Fi
+                            // finishes. In head-unit-server (>17.3, port 5277) mode, connecting to 5277
+                            // ~9s before the car's Wi-Fi/TCP is up leaves gearhead waiting post-TLS with
+                            // no AuthComplete/SDR and wedges 5277; let onTcpConnected launch both sides
+                            // simultaneously once the car's projection TCP socket is actually connected.
+                            if (io.aawireless.wirelessaamanipulator.helpers.GearheadSettings
+                                    .needsHeadUnitServer(MainTaskService.this)) {
+                                Log.d(TAG, "AA >17.3 (5277) -> deferring CarSimulator until car TCP connects");
+                                return;
+                            }
                             if (carLaunched) {
                                 Log.d(TAG, "Car side already launched - ignoring duplicate creds");
                                 return;
                             }
                             carLaunched = true;
-                            if (!startCarSide()) carLaunched = false; // bind failed -> allow a retry on the next creds
+                            if (!startCarSide()) carLaunched = false;
                         }
 
                         @Override
@@ -249,8 +256,6 @@ public class MainTaskService extends Service implements ServiceThreadPair {
                             wifiNetwork = network;
                             Log.d(TAG, "WiFi connected. network=" + network);
                             updateNotification("WiFi connected");
-
-
                         }
 
                         @Override
@@ -705,20 +710,21 @@ public class MainTaskService extends Service implements ServiceThreadPair {
         }
 
         // Waze API key comes from settings; fall back to the build-time key if present.
+        // Fixed speed cameras (GatsoUpdater / OSM feeds) do NOT need a Waze key, so keep the
+        // cluster HUD running in cameras-only mode when no Waze key is configured.
         String key = prefs.getString("waze_api_key", "");
         if (key == null || key.trim().isEmpty()) {
             key = io.aawireless.wirelessaamanipulator.BuildConfig.WAZE_API_KEY;
         }
-        if (key == null || key.trim().isEmpty()) {
-            Log.w(TAG, "No Waze API key set (Settings) - police HUD disabled");
-            return;
-        }
-        key = key.trim();
-
-        long pollMs = prefs.getInt("waze_interval_sec", 300) * 1000L;
-        if (wazePoller == null) {
-            wazePoller = new io.aawireless.wirelessaamanipulator.hud.waze.WazePoller(this, key, pollMs);
-            wazePoller.start();
+        String trimmedKey = (key != null) ? key.trim() : "";
+        if (!trimmedKey.isEmpty()) {
+            long pollMs = prefs.getInt("waze_interval_sec", 300) * 1000L;
+            if (wazePoller == null) {
+                wazePoller = new io.aawireless.wirelessaamanipulator.hud.waze.WazePoller(this, trimmedKey, pollMs);
+                wazePoller.start();
+            }
+        } else {
+            Log.i(TAG, "No Waze API key set - starting cluster HUD in speed-cameras-only mode");
         }
         if (hudState == null) {
             hudState = new io.aawireless.wirelessaamanipulator.hud.HudState(this, wazePoller);

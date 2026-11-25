@@ -221,4 +221,100 @@ public class BluetoothReceiver extends BroadcastReceiver {
         context.startService(serviceIntent);
         Log.d(TAG, "MainTaskService started for AA device: " + device.getName() + " / " + device.getAddress());
     }
+
+    /**
+     * Manually start (or cleanly restart) the Android Auto bridge from the foreground UI against
+     * the pinned, previously known, or AA-capable bonded car Bluetooth device. Useful when the car
+     * Bluetooth is already connected so no fresh ACTION_ACL_CONNECTED broadcast fires.
+     *
+     * @return human-readable label of the target device started, or null if no candidate was found.
+     */
+    @SuppressLint("MissingPermission")
+    public static String triggerManual(Context context) {
+        Context app = context.getApplicationContext();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                && app.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage("Missing Nearby devices permission");
+            return null;
+        }
+        android.bluetooth.BluetoothManager bm = app.getSystemService(android.bluetooth.BluetoothManager.class);
+        android.bluetooth.BluetoothAdapter adapter = bm != null ? bm.getAdapter() : null;
+        if (adapter == null || !adapter.isEnabled()) {
+            io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage("Bluetooth is off");
+            return null;
+        }
+        java.util.Set<BluetoothDevice> bonded = adapter.getBondedDevices();
+        if (bonded == null || bonded.isEmpty()) {
+            io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage("No paired Bluetooth devices");
+            return null;
+        }
+
+        BluetoothDevice chosen = null;
+        // 1. Pinned device in SelectionStore
+        if (!SelectionStore.isAnyMode(app)) {
+            for (BluetoothDevice d : bonded) {
+                if (SelectionStore.matches(app, d.getAddress())) {
+                    chosen = d;
+                    break;
+                }
+            }
+        }
+        // 2. Previously successful AA car in KnowDevicesStore (prefer currently connected if detectable)
+        if (chosen == null) {
+            for (BluetoothDevice d : bonded) {
+                if (io.aawireless.wirelessaamanipulator.storage.KnowDevicesStore.contains(app, d.getAddress())) {
+                    chosen = d;
+                    if (isDeviceConnectedBestEffort(d)) break;
+                }
+            }
+        }
+        // 3. Any bonded device advertising the Android Auto SDP UUID
+        if (chosen == null) {
+            for (BluetoothDevice d : bonded) {
+                if (hasAndroidAutoProfile(d)) {
+                    chosen = d;
+                    if (isDeviceConnectedBestEffort(d)) break;
+                }
+            }
+        }
+        if (chosen == null) {
+            io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage("No paired Android Auto car found");
+            return null;
+        }
+
+        // Tear down any stuck handshake/service first so CarHandshakeClientManager starts a fresh session.
+        io.aawireless.wirelessaamanipulator.connectors.CarHandshakeClientManager.shutdown();
+        app.stopService(new Intent(app, MainTaskService.class));
+        io.aawireless.wirelessaamanipulator.status.AppStatus.clearAdvice();
+
+        ACL_CONNECTED_ADDRS.add(chosen.getAddress());
+        ourDevice = chosen;
+        String label = (chosen.getName() != null && !chosen.getName().isEmpty())
+                ? chosen.getName() : chosen.getAddress();
+        io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage("Connecting to " + label + "…");
+        startMainService(app, chosen);
+        return label;
+    }
+
+    /** Manually stop the Android Auto bridge from the UI. */
+    public static void stopManual(Context context) {
+        Context app = context.getApplicationContext();
+        ourDevice = null;
+        io.aawireless.wirelessaamanipulator.connectors.CarHandshakeClientManager.shutdown();
+        Intent stop = new Intent(app, MainTaskService.class);
+        stop.setAction("io.aawireless.ACTION_STOP");
+        app.stopService(stop);
+        io.aawireless.wirelessaamanipulator.status.AppStatus.clearAdvice();
+        io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage("Idle");
+    }
+
+    private static boolean isDeviceConnectedBestEffort(BluetoothDevice d) {
+        try {
+            Object r = BluetoothDevice.class.getMethod("isConnected").invoke(d);
+            return r instanceof Boolean && (Boolean) r;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
 }

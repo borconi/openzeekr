@@ -535,6 +535,9 @@ public class CarHandshakeClient extends Thread {
                         } catch (IOException e) {
                             Log.e(TAG, "TCP connect failed on WifiStartRequest", e);
                         }
+                    } else if (wifiNetwork == null && havewificredentials && lastSsid != null && !lastSsid.isEmpty()) {
+                        Log.d(TAG, "WifiStartRequest arrived with wifiNetwork=null -> retrying Wi-Fi join");
+                        startWifiJoinAsync();
                     }
                     return;
                 }
@@ -658,6 +661,7 @@ public class CarHandshakeClient extends Thread {
                 }
             });
             wifiConnector = connector;
+            io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage("Joining car Wi-Fi: " + ssid);
 
             Network joined = connector.connectWpa2(mContext, ssid, key != null ? key : "")
                     .orTimeout(25, TimeUnit.SECONDS)
@@ -693,6 +697,9 @@ public class CarHandshakeClient extends Thread {
             }
         } catch (Throwable t) {
             Log.e(TAG, "WiFi connect attempt failed", t);
+            Throwable root = (t.getCause() != null) ? t.getCause() : t;
+            io.aawireless.wirelessaamanipulator.status.AppStatus.setConnectionStage(
+                    "Wi-Fi join failed (" + ssid + "): " + root.getClass().getSimpleName());
             // Release the failed request's callback so the next attempt starts clean.
             releaseWifi();
         }

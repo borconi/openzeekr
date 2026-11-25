@@ -42,10 +42,10 @@ public final class HudState {
 
     public List<HudMarker> getMarkers() { return markers; }
 
-    /** Epoch millis of the last successful Waze fetch (0 = none yet). */
-    public long getWazeLastSuccessMs() { return poller.getLastSuccessMs(); }
+    /** Epoch millis of the last successful Waze fetch (0 = waiting; -1 = cameras-only, no Waze key). */
+    public long getWazeLastSuccessMs() { return poller != null ? poller.getLastSuccessMs() : -1L; }
     /** True if the most recent Waze poll failed. */
-    public boolean isWazeFailing() { return poller.isFailing(); }
+    public boolean isWazeFailing() { return poller != null && poller.isFailing(); }
 
     public synchronized void start() {
         if (sched != null) return;
@@ -62,7 +62,9 @@ public final class HudState {
     private void tick() {
         try {
             List<HudMarker> merged = new ArrayList<>();
-            for (PoliceAlert a : poller.getLatestAlerts()) merged.add(HudMarker.fromWaze(a));
+            if (poller != null) {
+                for (PoliceAlert a : poller.getLatestAlerts()) merged.add(HudMarker.fromWaze(a));
+            }
 
             if (CarLocationStore.hasFix() && CameraStore.isLoaded()) {
                 merged.addAll(CameraStore.nearby(CarLocationStore.getLatitude(),

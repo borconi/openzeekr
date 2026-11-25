@@ -118,31 +118,14 @@ public class CarSimulator extends AASimulator{
         while (MainTaskService.running && !isInterrupted() && System.currentTimeMillis() < deadline) {
             attempt++;
 
-            // EXPERIMENTAL: unify the 5277 network context with the projection socket. Try our OWN
-            // address on the car Wi-Fi (e.g. 192.168.x.y):5277 OVER the car network FIRST. gearhead's
-            // DHU may only listen on 127.0.0.1 though, so if that fails fall back to the plain
-            // loopback 127.0.0.1:5277 that has always worked.
-            android.net.Network carNet = other.getCarNetwork();
-            String ourIp = other.getOwnCarNetworkIp();
-            if (carNet != null && ourIp != null) {
-                java.net.Socket s = connectOverCarNetwork(carNet, ourIp, 5277);
-                if (s != null) {
-                    Log.d(TAG, "Connected to head unit server " + ourIp + ":5277 over the car network "
-                            + "(attempt " + attempt + ")");
-                    io.aawireless.wirelessaamanipulator.status.AppStatus.clearAdvice();
-                    return s;
-                }
-                Log.d(TAG, "5277 over car network (" + ourIp + ") failed -> trying loopback");
-            }
-
-            // Plain (unbound) loopback socket to gearhead. It MUST NOT be bound to the car
-            // network: that network is local-only (no loopback route), so a marked socket's
-            // data send finds no route to 127.0.0.1 and the gearhead handshake stalls even
-            // though connect() slips through the kernel's local table.
+            // Always use a plain (unbound) loopback socket to gearhead on 127.0.0.1:5277.
+            // Binding or routing 5277 over the car's local-only Wi-Fi network causes gearhead's
+            // reply path to stall in CLOSE_WAIT even though TCP connect() succeeds locally.
             java.net.Socket s = new java.net.Socket();
             try {
                 s.connect(new InetSocketAddress("127.0.0.1", 5277), 2000);
                 Log.d(TAG, "Connected to head unit server 127.0.0.1:5277 over loopback (attempt " + attempt + ")");
+                io.aawireless.wirelessaamanipulator.status.AppStatus.clearAdvice();
                 return s;
             } catch (Exception e) {
                 try { s.close(); } catch (Exception ignored) {}
@@ -239,7 +222,17 @@ public class CarSimulator extends AASimulator{
             inoutstream.write(new byte[]{0, 3, 0, 6, 0, 1, 0, 4, 0, 1}, 500);
             //00 03 00 06 00 01 00 04 00 01
 
-            byte[] data = inoutstream.readraw();
+            socket.setSoTimeout(6000);
+            final byte[] data;
+            try {
+                data = inoutstream.readraw();
+            } catch (java.net.SocketTimeoutException ste) {
+                io.aawireless.wirelessaamanipulator.status.AppStatus.setAdvice(
+                        "Android Auto Head Unit Server (5277) stopped responding. "
+                                + "Open Android Auto → ⋮ → Stop head unit server, then Start head unit server again.");
+                throw ste;
+            }
+            socket.setSoTimeout(15000);
             Log.w(TAG, "Read phone hello: "+ Util.bytesToHex(data));
 
             Log.w(TAG, "Phone hello: ");

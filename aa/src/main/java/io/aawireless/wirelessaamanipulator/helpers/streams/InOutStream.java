@@ -71,7 +71,7 @@ public class InOutStream  {
     public InOutStream(Socket socket) {
         this.socket = socket;
         try {
-            socket.setSoTimeout(10000);
+            socket.setSoTimeout(15000);
             socket.setTcpNoDelay(true);
             socket.setKeepAlive(true);
             socket.setReuseAddress(true);

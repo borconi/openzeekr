@@ -50,8 +50,9 @@ data class CarModel(
 object CarCatalog {
     private fun c(rgb: Long) = Color(0xFF000000 or rgb)
 
-    /** Estimated, like the other 7X paints; not yet calibrated against a render. */
-    private val SILVER_ROOF = c(0xC0C4C8)
+    /** Sampled mid-roof from Zeekr's official 7X Brookblue + Silverroof render (zeekrlife.com en-ph), the same
+     *  picture whose door gives Brookblue's #677FA3. */
+    private val SILVER_ROOF = c(0xBCC1C5)
 
     val models: List<CarModel> = listOf(
         CarModel("001", "Zeekr 001", "cars/car_001.webp", listOf(

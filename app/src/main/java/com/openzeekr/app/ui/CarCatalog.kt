@@ -1,6 +1,7 @@
 package com.openzeekr.app.ui
 
 import androidx.compose.ui.graphics.Color
+import com.openzeekr.app.net.model.VehicleMarket
 
 /**
  * Per-model paint palettes + white render. Zeekr publishes no official hex, so these
@@ -20,7 +21,14 @@ data class PaintColor(
      * deriving a luminance matrix from [color].
      */
     val recolor: FloatArray? = null,
+    /** Roof colour of a two-tone paint. null = the roof stays as rendered (black). Only the animated hero
+     *  uses it, and only when its asset pack has a roof layer. */
+    val roof: Color? = null,
 )
+
+/** A paint whose name differs in one market: a car in [market] (see VehicleMarket) whose cloud reports exactly
+ *  [reportedAs] gets [paint] instead of the model's usual match. */
+data class MarketPaint(val market: String, val reportedAs: String, val paint: PaintColor)
 
 data class CarModel(
     val key: String,
@@ -36,10 +44,14 @@ data class CarModel(
      */
     val bodyAsset: String? = null,
     val detailsAsset: String? = null,
+    val marketColors: List<MarketPaint> = emptyList(),
 )
 
 object CarCatalog {
     private fun c(rgb: Long) = Color(0xFF000000 or rgb)
+
+    /** Estimated, like the other 7X paints; not yet calibrated against a render. */
+    private val SILVER_ROOF = c(0xC0C4C8)
 
     val models: List<CarModel> = listOf(
         CarModel("001", "Zeekr 001", "cars/car_001.webp", listOf(
@@ -66,9 +78,13 @@ object CarCatalog {
             PaintColor("Onyx Black", c(0x111111), "Metallic"),
             PaintColor("Tech Grey", c(0x868686), "Metallic"),
             PaintColor("Brookblue", c(0x677FA3), "Two-tone"),
-            // AU 7X "Brook Blue/Silver Roof" - vehicle-config API returns this exact name (reported by calvinbui, PR #32)
-            PaintColor("Shadow Blue (including silver roof)", c(0x677FA3), "Two-tone"),
-        ), bodyAsset = "cars/7x_body.png", detailsAsset = "cars/7x_details.png"),
+            // The vehicle-config API's name for the blue body with a silver roof (PR #32). The silver roof is in the
+            // name itself, so it applies in every market; only Australia sells it under another name (below).
+            PaintColor("Shadow Blue (including silver roof)", c(0x677FA3), "Two-tone", roof = SILVER_ROOF),
+        ), bodyAsset = "cars/7x_body.png", detailsAsset = "cars/7x_details.png", marketColors = listOf(
+            MarketPaint(VehicleMarket.AU, "Shadow Blue (including silver roof)",
+                PaintColor("Brook Blue / Silver Roof", c(0x677FA3), "Two-tone", roof = SILVER_ROOF)),
+        )),
         // 7GT: the six factory finishes with hexes calibrated against the studio renders (see the
         // luminance-recolour matrices), plus Mystic Lilac (the reference car). The hero generates the
         // recolour matrix from each hex at draw time.
@@ -135,16 +151,25 @@ object CarCatalog {
      * mislabelled Onyx-Black 7GTs as "Mystic Lilac" - issue #8); instead we keep the car's real reported
      * name but paint it a neutral graphite, so the label stays truthful and the render is never confidently
      * wrong. A null/blank name (colour genuinely unknown) also yields the neutral placeholder.
+     *
+     * [market] (see VehicleMarket) first picks a market-specific paint, matched on the exact reported name only.
+     * Two-tone paints (with a [PaintColor.roof]) are also matched on the exact name only, so a plain "Shadow
+     * Blue" never borrows a silver roof.
      */
-    fun colorFor(model: CarModel, colorName: String?): PaintColor {
+    fun colorFor(model: CarModel, colorName: String?, market: String? = null): PaintColor {
         val raw = colorName?.trim()?.takeIf { it.isNotBlank() }
             ?: return PaintColor("", NEUTRAL, "-")
         val target = norm(raw)
+        // 0) market-specific name for this exact paint.
+        if (market != null) {
+            model.marketColors.firstOrNull { it.market == market && norm(it.reportedAs) == target }?.let { return it.paint }
+        }
         // 1) exact (normalised) match.
         model.colors.firstOrNull { norm(it.name) == target }?.let { return it }
+        val fuzzy = model.colors.filter { it.roof == null }
         // 2) token overlap: any word of the reported name appears in a palette name, or vice-versa.
         val targetTokens = raw.lowercase().split(Regex("[\\s\\-_]+")).filter { it.length >= 3 }
-        model.colors.firstOrNull { pc ->
+        fuzzy.firstOrNull { pc ->
             val palTokens = pc.name.lowercase().split(' ')
             targetTokens.any { t -> palTokens.any { it == t } } ||
                 palTokens.any { pt -> target.contains(pt) && pt.length >= 4 }
@@ -152,7 +177,7 @@ object CarCatalog {
         // 3) localised aliases -> map a foreign colour word to an English token, then match a palette name.
         val aliasHit = (targetTokens + target).firstNotNullOfOrNull { ALIASES[it] }
         if (aliasHit != null) {
-            model.colors.firstOrNull { it.name.lowercase().contains(aliasHit) }?.let { return it }
+            fuzzy.firstOrNull { it.name.lowercase().contains(aliasHit) }?.let { return it }
         }
         // 4) no palette match - keep the real name, neutral tint (never a wrong vivid paint).
         return PaintColor(raw, NEUTRAL, "-")

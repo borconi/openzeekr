@@ -12,6 +12,7 @@ import com.openzeekr.app.net.model.ModifyVehicleRequest
 import com.openzeekr.app.net.model.ServiceParameter
 import com.openzeekr.app.net.model.VehicleGarage
 import com.openzeekr.app.net.model.VehicleInfo
+import com.openzeekr.app.net.model.VehicleMarket
 import com.openzeekr.app.net.model.VehicleStatus
 import com.openzeekr.app.net.model.VehicleStatusBean
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +75,9 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
     private val configCache = java.util.concurrent.ConcurrentHashMap<String, VehicleConfigInfo>()
 
     /** The two identity fields we read from the azure config endpoint. Blank string = present-but-empty. */
-    private data class VehicleConfigInfo(val colorName: String, val seriesName: String, val rightHandDrive: Boolean? = null)
+    private data class VehicleConfigInfo(
+        val colorName: String, val seriesName: String, val rightHandDrive: Boolean? = null, val market: String? = null,
+    )
 
     /**
      * Left- or right-hand drive, read from the vehicle-config payload. We have not identified a dedicated
@@ -263,6 +266,7 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                     colorName = cfg?.colorName?.ifBlank { null } ?: info.colorName,
                     model = cfg?.seriesName?.ifBlank { null } ?: info.model,
                     rightHandDrive = cfg?.rightHandDrive,
+                    market = vehicleMarket(activeVin, cfg, shared = !info.isOwner),
                 )
             } else info
             colored?.also { if (it.isOwner != store.current().isOwner) store.update { c -> c.copy(isOwner = it.isOwner) } }
@@ -289,13 +293,46 @@ class RemoteControlRepository(private val store: ConfigStore, private val client
                 (data?.get("exDecoration") as? kotlinx.serialization.json.JsonObject)?.get("featureName"),
             )
             val series = str(data?.get("seriesName"))
-            VehicleConfigInfo(colorName = color, seriesName = series, rightHandDrive = steeringSide(data))
+            com.openzeekr.app.util.Logx.d("veh", "config keys: ${data?.keys?.sorted()}")
+            VehicleConfigInfo(colorName = color, seriesName = series, rightHandDrive = steeringSide(data),
+                market = VehicleMarket.of(data))
         }.getOrNull()
         configCache[vin] = info ?: VehicleConfigInfo("", "")   // cache the miss too (don't re-fetch every poll)
         com.openzeekr.app.util.Logx.d("veh",
             "config for …${vin.takeLast(4)}: paint=${info?.colorName?.ifBlank { null } ?: "(none)"} " +
                 "series=${info?.seriesName?.ifBlank { null } ?: "(none)"}")
         return info
+    }
+
+    /** Market found per VIN by [vehicleMarket] ("" = looked up, none found), so the share list is read once. */
+    private val marketCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * The car's sales market ([VehicleMarket]): from the vehicle-config payload; for a shared car, from the
+     * model name on its car-share entry (the acceptlist carries "极氪7X EM-澳大利亚 …"); last, an account
+     * country code of AU set in Settings. null = unknown.
+     */
+    private suspend fun vehicleMarket(vin: String, cfg: VehicleConfigInfo?, shared: Boolean): String? {
+        marketCache[vin]?.let { return it.ifBlank { null } }
+        var source = "config"
+        var market = cfg?.market
+        if (market == null && shared) {
+            source = "share"
+            market = runCatching {
+                val c = store.current()
+                listOf(c.userId, c.accountUuid).filter { it.isNotBlank() }.distinct().firstNotNullOfOrNull { id ->
+                    com.openzeekr.app.net.model.ShareInviteParse.parse(client.api.shareAcceptList(userId = id).data)
+                        .firstOrNull { it.vin == vin }?.model?.let { VehicleMarket.of(it) }
+                }
+            }.getOrNull()
+        }
+        if (market == null && store.current().countryCode.equals(VehicleMarket.AU, ignoreCase = true)) {
+            source = "country code"
+            market = VehicleMarket.AU
+        }
+        marketCache[vin] = market.orEmpty()
+        com.openzeekr.app.util.Logx.d("veh", "market for …${vin.takeLast(4)}: ${market?.let { "$it (from $source)" } ?: "(unknown)"}")
+        return market
     }
 
     /** Rename the car (cloud). vehicleId is optional; the backend also keys off X-VIN. */

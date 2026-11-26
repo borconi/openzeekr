@@ -44,7 +44,7 @@ object WearCarPicture {
     private var cached: ByteArray? = null
 
     /** Which car the active VIN is (model and paint names as the cloud reports them), and when that was read. */
-    private class Identity(val vin: String, val at: Long, val model: String?, val colorName: String?)
+    private class Identity(val vin: String, val at: Long, val model: String?, val colorName: String?, val market: String?)
     private var identity: Identity? = null
     private const val IDENTITY_TTL_MS = 12 * 60 * 60 * 1000L
 
@@ -63,18 +63,18 @@ object WearCarPicture {
                 is CallResult.Ok -> r.value
                 is CallResult.Err -> null
             } ?: return null
-            Identity(vin, now, info.model, info.colorName).also { synchronized(this) { identity = it } }
+            Identity(vin, now, info.model, info.colorName, info.market).also { synchronized(this) { identity = it } }
         }
         val info = who
         val model = CarCatalog.forModel(info.model)
         // No rendered pack for this model: say so (an empty id), so a watch that still shows another car's
         // picture - the user switched cars - drops it.
         if (!Hero3dAssets.available(ctx, model.key)) return WearCarImage("", null, null).encode()
-        val paint = CarCatalog.colorFor(model, info.colorName)
-        val id = "${Hero3dAssets.packKey(model.key)}|${Integer.toHexString(paint.color.toArgb())}|v$VERSION"
+        val paint = CarCatalog.colorFor(model, info.colorName, info.market)
+        val id = "${Hero3dAssets.packKey(model.key)}|${Integer.toHexString(paint.color.toArgb())}${paint.roof?.let { "/" + Integer.toHexString(it.toArgb()) }.orEmpty()}|v$VERSION"
         if (id == knownId) return WearCarImage(id, null, null).encode()
         synchronized(this) { if (cachedId == id) cached?.let { return it } }
-        val pack = Hero3dAssets.load(ctx, model.key, paint.color) ?: return null
+        val pack = Hero3dAssets.load(ctx, model.key, paint.color, paint.roof) ?: return null
         val bytes = withContext(Dispatchers.Default) { runCatching { compose(pack, id) }.getOrNull() } ?: return null
         synchronized(this) { cachedId = id; cached = bytes }
         return bytes

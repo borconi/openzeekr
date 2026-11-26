@@ -326,7 +326,30 @@ data class VehicleInfo(
     val appYearCode: String? = null,
     /** true = right-hand drive, false = left-hand drive, null = the cloud config did not say. */
     val rightHandDrive: Boolean? = null,
+    /** Sales market the car was built for (see [VehicleMarket]); null = not known. */
+    val market: String? = null,
 )
+
+/**
+ * The car's sales market, read from Zeekr's internal model name. The region backends are shared between
+ * countries (an Australian 7X reports series "Zeekr 7X EMR", the same as other emerging markets), but the
+ * model name spells the market out: "极氪7X EM-澳大利亚 四驱性能" ("Zeekr 7X EM-Australia AWD Performance").
+ * Only Australia is recognised so far, the one market that names a paint differently.
+ */
+object VehicleMarket {
+    const val AU = "AU"
+    private val AU_RE = Regex("""澳大利亚|澳洲|\baustralia\b""", RegexOption.IGNORE_CASE)
+
+    fun of(text: String?): String? = if (text != null && AU_RE.containsMatchIn(text)) AU else null
+
+    /** First market named in any string value of [e], searched depth-first. */
+    fun of(e: JsonElement?): String? = when (e) {
+        is JsonObject -> e.values.firstNotNullOfOrNull { of(it) }
+        is JsonArray -> e.firstNotNullOfOrNull { of(it) }
+        is JsonPrimitive -> if (e.isString) of(e.content) else null
+        else -> null
+    }
+}
 
 /** Tolerant parse of the (shape-varying) vehicle-list `data`. */
 object VehicleGarage {

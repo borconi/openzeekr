@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import com.openzeekr.app.remote.CallResult
+import com.openzeekr.app.util.BoundedRead
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -174,17 +175,22 @@ class SendToCarActivity : Activity() {
     private fun expandUrl(start: String): String {
         val out = StringBuilder(start).append('\n')
         var url = start
+        // Overall wall-clock budget for all hops, so a slow-drip server cannot hold this open.
+        val deadline = System.nanoTime() + EXPAND_DEADLINE_MS * 1_000_000L
+        fun remainingMs() = (deadline - System.nanoTime()) / 1_000_000L
         runCatching {
             var hop = 0
             while (hop < 6) {
                 hop++
+                if (remainingMs() <= 0) { out.append("[timeout]\n"); break }
                 // SSRF guard: this activity is exported and expands a caller-supplied URL BEFORE the
                 // user confirms, so only follow http/https to PUBLIC hosts - never a private, loopback,
                 // link-local or cloud-metadata target, checked on the initial URL and every redirect.
                 if (!isSafeHttpUrl(url)) { out.append("[blocked: non-public URL]\n"); break }
                 val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
                     instanceFollowRedirects = false
-                    connectTimeout = 6000; readTimeout = 6000
+                    val leftMs = remainingMs().coerceIn(1L, 6000L).toInt()
+                    connectTimeout = leftMs; readTimeout = leftMs
                     requestMethod = "GET"
                     setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android)")
                 }
@@ -196,8 +202,11 @@ class SendToCarActivity : Activity() {
                     url = if (loc.startsWith("http")) loc else java.net.URL(java.net.URL(url), loc).toString()
                     conn.disconnect()
                 } else {
-                    runCatching { conn.inputStream.bufferedReader().use { it.readText() } }
-                        .getOrNull()?.let { out.append(it.take(40000)) }
+                    // Bounded read: never buffer more than EXPAND_MAX_BYTES of an untrusted body.
+                    runCatching {
+                        conn.inputStream.use { BoundedRead.readCapped(it, EXPAND_MAX_BYTES, deadline) }
+                            .toString(Charsets.UTF_8)
+                    }.getOrNull()?.let { out.append(it.take(40000)) }
                     conn.disconnect()
                     break
                 }
@@ -223,6 +232,11 @@ class SendToCarActivity : Activity() {
     }.getOrDefault(false)
 
     private companion object {
+        /** Max body bytes read while expanding a maps link (enough for the 40000-char scan). */
+        private const val EXPAND_MAX_BYTES = 64 * 1024
+        /** Overall wall-clock budget for [expandUrl], across all redirect hops. */
+        private const val EXPAND_DEADLINE_MS = 10_000L
+
         // Ordered: the maps "data"/`@`/query markers point at the PLACE; the generic pair is a last
         // resort (≥2 decimals, so it ignores zoom levels / version-like numbers).
         private val coordPatterns = listOf(

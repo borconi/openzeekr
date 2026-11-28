@@ -211,8 +211,23 @@ object Hero3dAssets {
         return H3Layer(b.asImageBitmap(), o.getInt("x").toFloat(), o.getInt("y").toFloat())
     }
 
+    private class Painted(val bmp: Bitmap, val x: Int, val y: Int)
+
+    private fun painted(ctx: Context, dir: String, o: JSONObject?, tint: FloatArray, curve: IntArray): H3Layer? =
+        paintedRaw(ctx, dir, o, tint, curve)?.let { H3Layer(it.bmp.asImageBitmap(), it.x.toFloat(), it.y.toFloat()) }
+
+    /** [base] with a two-tone roof drawn over it, as one layer. */
+    private fun withRoof(base: Painted?, roof: Painted?): H3Layer? {
+        base ?: return null
+        val out = if (roof == null) base.bmp else base.bmp.copy(Bitmap.Config.ARGB_8888, true).also {
+            android.graphics.Canvas(it).drawBitmap(roof.bmp, (roof.x - base.x).toFloat(), (roof.y - base.y).toFloat(), null)
+            base.bmp.recycle()
+        }
+        return H3Layer(out.asImageBitmap(), base.x.toFloat(), base.y.toFloat())
+    }
+
     /** K + tint * (W - K) per channel in linear light; [tint] is already divided by the white render's albedo. */
-    private fun painted(ctx: Context, dir: String, o: JSONObject?, tint: FloatArray, curve: IntArray): H3Layer? {
+    private fun paintedRaw(ctx: Context, dir: String, o: JSONObject?, tint: FloatArray, curve: IntArray): Painted? {
         o ?: return null
         val wb = decode(ctx, dir, o.getString("w")) ?: return null
         val kb = decode(ctx, dir, o.getString("k")) ?: return null
@@ -240,25 +255,33 @@ object Hero3dAssets {
             pw[i] = out
         }
         val bmp = Bitmap.createBitmap(pw, w, h, Bitmap.Config.ARGB_8888)
-        return H3Layer(bmp.asImageBitmap(), o.getInt("x").toFloat(), o.getInt("y").toFloat())
+        return Painted(bmp, o.getInt("x"), o.getInt("y"))
     }
 
-    internal suspend fun load(ctx: Context, modelKey: String, paint: Color): H3Pack? = withContext(Dispatchers.Default) {
+    /**
+     * [roof] paints a two-tone roof, when the pack has one: a "roof" layer for the hero angle and, optionally,
+     * "spin.roof_frames" alongside the turntable frames, each a white/black pair like the body. They cover the
+     * roof only, and are painted with [roof] and drawn over the body. Without them the roof stays as rendered.
+     */
+    internal suspend fun load(ctx: Context, modelKey: String, paint: Color, roof: Color? = null): H3Pack? = withContext(Dispatchers.Default) {
         val key = packKey(modelKey)
-        val id = "$key|${paint.value}"
+        val id = "$key|${paint.value}|${roof?.value}"
         synchronized(this@Hero3dAssets) { if (cacheKey == id) return@withContext cached }
         val dir = "$HERO3D_ROOT/$key"
         val pack = runCatching {
             val m = JSONObject(ctx.assets.open("$dir/manifest.json").bufferedReader().use { it.readText() })
             val albedo = m.optDouble("w_albedo", 0.8).toFloat()
             fun lin(c: Float) = toLin[(c * 255f + 0.5f).toInt().coerceIn(0, 255)]
-            val tint = floatArrayOf(lin(paint.red) / albedo, lin(paint.green) / albedo, lin(paint.blue) / albedo)
+            fun tintOf(c: Color) = floatArrayOf(lin(c.red) / albedo, lin(c.green) / albedo, lin(c.blue) / albedo)
+            val tint = tintOf(paint)
+            val roofTint = roof?.let { tintOf(it) }
             // The renders are deliberately flat (plain sRGB, so the colour maths above is exact); this curve
             // puts the contrast back. Layers without paint had it applied when the pack was built.
             val cj = m.optJSONObject("curve")
             val black = cj?.optDouble("black", 0.0)?.toFloat() ?: 0f
             val gamma = cj?.optDouble("gamma", 1.0)?.toFloat() ?: 1f
             val curve = IntArray(256) { i -> (((i / 255f - black) / (1f - black)).coerceIn(0f, 1f).pow(gamma) * 255f + 0.5f).toInt() }
+            fun roofLayer(o: JSONObject?) = roofTint?.let { paintedRaw(ctx, dir, o, it, curve) }
             val canvas = m.getJSONArray("canvas")
             val steps = m.getInt("steps")
             val carX = m.getJSONArray("car_x")
@@ -275,6 +298,7 @@ object Hero3dAssets {
                 List(arr.length()) { i -> plain(ctx, dir, arr.optJSONObject(i)) }
             }
             val spinJ = m.optJSONObject("spin")?.optJSONArray("frames")
+            val spinRoofJ = m.optJSONObject("spin")?.optJSONArray("roof_frames")
             val wheelsJ = m.getJSONArray("wheels")
             val wheelFrames = List(wheelsJ.length()) { wi ->
                 val fr = wheelsJ.getJSONObject(wi).getJSONArray("frames")
@@ -289,14 +313,17 @@ object Hero3dAssets {
                 carTop = carY?.getInt(0)?.toFloat() ?: canvas.getInt(1) * 0.28f,
                 carBottom = carY?.getInt(1)?.toFloat() ?: canvas.getInt(1) * 0.78f,
                 shadow = plain(ctx, dir, m.optJSONObject("shadow")),
-                body = painted(ctx, dir, m.getJSONObject("body"), tint, curve) ?: error("body layer missing"),
+                body = withRoof(paintedRaw(ctx, dir, m.getJSONObject("body"), tint, curve), roofLayer(m.optJSONObject("roof")))
+                    ?: error("body layer missing"),
                 partOrder = order, parts = parts, glass = glass,
                 wheelFrames = wheelFrames, wheelSmear = wheelSmear,
                 lights = plain(ctx, dir, m.optJSONObject("lights")),
                 neonLines = plain(ctx, dir, m.optJSONObject("neon_lines")),
                 neonGlow = plain(ctx, dir, m.optJSONObject("neon_glow")),
                 spinCount = spinJ?.length() ?: 0,
-                spinFrame = { i -> painted(ctx, dir, spinJ?.optJSONObject(i), tint, curve) },
+                spinFrame = { i ->
+                    withRoof(paintedRaw(ctx, dir, spinJ?.optJSONObject(i), tint, curve), roofLayer(spinRoofJ?.optJSONObject(i)))
+                },
             )
         }.getOrNull()
         synchronized(this@Hero3dAssets) { cacheKey = id; cached = pack }
@@ -307,10 +334,12 @@ object Hero3dAssets {
 /** The animated hero: the car itself, no card behind it. Falls back to nothing but a spinner while loading;
  *  the caller decides (via [Hero3dAssets.available]) whether to use this or the classic hero at all. */
 @Composable
-fun Hero3d(modelKey: String, paint: Color, status: Hero3dStatus, fx: Hero3dFx, modifier: Modifier = Modifier) {
+fun Hero3d(
+    modelKey: String, paint: Color, status: Hero3dStatus, fx: Hero3dFx, modifier: Modifier = Modifier, roof: Color? = null,
+) {
     val ctx = LocalContext.current.applicationContext
-    var pack by remember(modelKey, paint) { mutableStateOf<H3Pack?>(null) }
-    LaunchedEffect(modelKey, paint) { pack = Hero3dAssets.load(ctx, modelKey, paint) }
+    var pack by remember(modelKey, paint, roof) { mutableStateOf<H3Pack?>(null) }
+    LaunchedEffect(modelKey, paint, roof) { pack = Hero3dAssets.load(ctx, modelKey, paint, roof) }
     // Turntable frames are tinted in the background once the hero is up, the angles nearest to it first. They
     // live only as long as this screen does (about 1 MB each), so nothing is held when the hero is not shown.
     val spin = remember(pack) { mutableStateListOf<H3Layer?>().apply { repeat(pack?.spinCount ?: 0) { add(null) } } }

@@ -151,7 +151,7 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         }
     }
     val model = remember(info) { CarCatalog.forModel(info?.model) }
-    val paint = remember(info, model) { CarCatalog.colorFor(model, info?.colorName) }
+    val paint = remember(info, model) { CarCatalog.colorFor(model, info?.colorName, info?.market) }
 
     val elec = status?.additionalVehicleStatus?.electricVehicleStatus
     val safety = status?.additionalVehicleStatus?.drivingSafetyStatus
@@ -348,7 +348,7 @@ fun VehicleScreen(deps: Deps, snackbar: (String) -> Unit, modifier: Modifier = M
         // Everything else keeps the classic hero.
         if (hero3d && info != null) {
             Box {
-                Hero3d(model.key, paint.color, heroStatus, heroFx)
+                Hero3d(model.key, paint.color, heroStatus, heroFx, roof = paint.roof)
                 if (driving) HeroSpeedBadge(heroSpeed, heroSpeedUnit, Modifier.align(Alignment.TopEnd).padding(end = 20.dp))
             }
         } else Hero(model, paint, charging, soc, powerKw, driving = driving, speedNum = heroSpeed,

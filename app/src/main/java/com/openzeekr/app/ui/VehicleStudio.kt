@@ -329,7 +329,7 @@ private fun StudioHeroCard(s: StudioHomeState, onChargeLimit: (Int) -> Unit) {
                 s.loading -> Box(Modifier.fillMaxWidth().aspectRatio(2f), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.size(30.dp), color = Brand.muted, strokeWidth = 3.dp)
                 }
-                s.hero3d -> Hero3d(s.model.key, s.paint.color, s.heroStatus, s.heroFx)
+                s.hero3d -> Hero3d(s.model.key, s.paint.color, s.heroStatus, s.heroFx, roof = s.paint.roof)
                 else -> {
                     // No rendered pack for this model: the press picture, as the classic look shows it.
                     val bmp = rememberAssetBitmap(s.model.renderAsset)

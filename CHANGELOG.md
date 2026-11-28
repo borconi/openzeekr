@@ -66,7 +66,7 @@ clean-room app and is not affiliated with Zeekr.
   (for example low to medium to high to off) could leave it stuck on an in-between level: a slightly
   stale status update from the car would overwrite the level you had just set. The app now holds your
   choice for a few seconds after you tap and sends a single command once the taps settle, so a fast
-  cycle to off goes straight to off. Thanks to David Pincus for the report.
+  cycle to off goes straight to off. Thanks to David for the report.
 - **The fridge now stays on in the app.** The fridge on/off state was forgotten whenever you left the
   Vehicle tab or the app went to the background, so the fridge tile snapped back to Off even though the
   fridge was still running. People then re-toggled it to match, which sent a real Off to the car and

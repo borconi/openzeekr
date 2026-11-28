@@ -62,6 +62,7 @@ class DkProvisioning(
         // redacted and body values (digitalKey, signature, cmacKeyCert, …) are scrubbed to "***".
         val httpLog = com.openzeekr.app.net.HttpLog.interceptor()
         val ok = OkHttpClient.Builder()
+            .addInterceptor(DkRegionalCompat(store, identity))
             .addInterceptor(HeaderInterceptor(store))
             .addInterceptor(SignInterceptor(store))
             .addInterceptor { chain ->

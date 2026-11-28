@@ -1,6 +1,9 @@
 package com.openzeekr.app.ble
 
 import com.openzeekr.app.util.Logx
+import org.bouncycastle.asn1.x500.X500Name
+import org.bouncycastle.asn1.x500.style.BCStyle
+import org.bouncycastle.asn1.x500.style.IETFUtils
 import java.io.ByteArrayInputStream
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
@@ -142,21 +145,54 @@ FQ==
     }
 
     /**
-     * Throw unless [leaf] (the vehicle cert) is currently valid AND signed by a baked Geely PROD CA.
+     * The ECU issuing CAs (CN contains "ECU Issuing"): the only CAs that may sign a vehicle leaf.
+     * Root and Global policy CA are kept in [PEM] for reference but are NOT accepted as direct issuers
+     * of a vehicle cert, so a cert they signed for some other purpose can't pass as a car.
+     */
+    private val ecuIssuingCas: List<X509Certificate> by lazy { cas.filter(::isEcuIssuingCa) }
+
+    /** Number of baked ECU issuing CAs that parsed (exposed for tests; 4 expected). */
+    internal val ecuIssuingCaCount: Int get() = ecuIssuingCas.size
+
+    internal fun isEcuIssuingCa(c: X509Certificate): Boolean =
+        c.basicConstraints >= 0 &&
+            commonName(c)?.contains("ECU Issuing", ignoreCase = true) == true
+
+    private fun commonName(c: X509Certificate): String? = runCatching {
+        X500Name.getInstance(c.subjectX500Principal.encoded).getRDNs(BCStyle.CN)
+            .firstOrNull()?.first?.value?.let { IETFUtils.valueToString(it) }
+    }.getOrNull()
+
+    /**
+     * Throw unless [leaf] (the vehicle cert) is currently valid, is an end-entity cert (not a CA),
+     * AND is signed by one of the baked Geely/Zeekr ECU issuing CAs.
      * FAILS CLOSED: an empty trust store means a broken build, and we refuse to release the digital
      * key rather than skip validation (the old code allowed on an empty store - a fail-open hole).
      */
     fun requireGeelyVehicleCert(leaf: X509Certificate) {
-        val store = cas
-        check(store.isNotEmpty()) {
+        check(cas.isNotEmpty()) {
             "vehicle-cert trust store failed to load - refusing to release the digital key"
+        }
+        requireVehicleLeaf(leaf, ecuIssuingCas)
+    }
+
+    /** [requireGeelyVehicleCert] against an explicit issuer list (injectable for JVM tests). */
+    internal fun requireVehicleLeaf(leaf: X509Certificate, issuers: List<X509Certificate>) {
+        check(issuers.isNotEmpty()) {
+            "vehicle-cert trust store has no ECU issuing CA - refusing to release the digital key"
         }
         // Reject an expired / not-yet-valid vehicle cert.
         runCatching { leaf.checkValidity() }
             .onFailure { error("vehicle cert is expired or not yet valid - refusing to release the digital key (${it.message})") }
-        val issuer = store.firstOrNull { ca ->
+        // A vehicle cert is an end-entity cert. A CA cert (basicConstraints CA=true) is never a car.
+        check(leaf.basicConstraints < 0) {
+            "vehicle cert is a CA certificate, not an ECU cert - refusing to release the digital key"
+        }
+        val issuer = issuers.firstOrNull { ca ->
             runCatching { leaf.verify(ca.publicKey); true }.getOrDefault(false)
-        } ?: error("vehicle cert is NOT issued by a Geely CA - refusing to release the digital key (possible fake car)")
+        } ?: error("vehicle cert is NOT issued by a Geely ECU issuing CA - refusing to release the digital key (possible fake car)")
+        // VIN binding is NOT checked: no captured vehicle cert yet shows whether/where its subject
+        // carries the VIN. The subject is logged in RealDkSession so a capture can settle it.
         Logx.d("dk", "vehicle cert verified - issued by '${issuer.subjectX500Principal.name.take(48)}' ✓")
     }
 

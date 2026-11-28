@@ -6,6 +6,7 @@ import android.location.Geocoder
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
+import com.openzeekr.app.net.MapsLinkGuard
 import com.openzeekr.app.remote.CallResult
 import com.openzeekr.app.util.Logx
 import kotlinx.coroutines.Dispatchers
@@ -104,9 +105,7 @@ class SendToCarActivity : Activity() {
 
         // 2) A Google Maps link — usually a SHORT maps.app.goo.gl with no coords in the text. Follow
         //    its redirects and scan the resolved URL(s)/body for the place coordinates.
-        candidates.firstOrNull {
-            it.startsWith("http") && ("goo.gl" in it || "google." in it || "maps." in it || "/maps" in it)
-        }?.let { link ->
+        candidates.firstOrNull { MapsLinkGuard.isExpandableMapsLink(it) }?.let { link ->
             val expanded = expandUrl(link)
             Logx.d("sendToCar", "expanded ${link.take(90)} -> ${expanded.length} chars")
             coordsInText(expanded)?.let { (lat, lon) -> return Destination(lat, lon, label(candidates), "", "") }
@@ -179,26 +178,26 @@ class SendToCarActivity : Activity() {
             while (hop < 6) {
                 hop++
                 // SSRF guard: this activity is exported and expands a caller-supplied URL BEFORE the
-                // user confirms, so only follow http/https to PUBLIC hosts - never a private, loopback,
-                // link-local or cloud-metadata target, checked on the initial URL and every redirect.
-                if (!isSafeHttpUrl(url)) { out.append("[blocked: non-public URL]\n"); break }
-                val conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
-                    instanceFollowRedirects = false
-                    connectTimeout = 6000; readTimeout = 6000
-                    requestMethod = "GET"
-                    setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android)")
-                }
-                val code = conn.responseCode
-                out.append(conn.url).append('\n')
-                val loc = conn.getHeaderField("Location")
+                // user confirms, so only follow https to allowlisted Google Maps hosts (checked on the
+                // initial URL and every redirect), and connect only to the PUBLIC addresses that
+                // MapsLinkGuard.PublicOnlyDns resolved once (no check-then-resolve-again rebinding gap).
+                val hopUrl = MapsLinkGuard.safeHop(url)
+                if (hopUrl == null) { out.append("[blocked: non-maps URL]\n"); break }
+                val request = okhttp3.Request.Builder().url(hopUrl).get()
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android)").build()
+                val conn = expandClient.newCall(request).execute()
+                val code = conn.code
+                out.append(conn.request.url).append('\n')
+                val loc = conn.header("Location")
                 if (code in 300..399 && loc != null) {
                     out.append(loc).append('\n')
-                    url = if (loc.startsWith("http")) loc else java.net.URL(java.net.URL(url), loc).toString()
-                    conn.disconnect()
+                    url = hopUrl.resolve(loc)?.toString() ?: loc
+                    conn.close()
                 } else {
-                    runCatching { conn.inputStream.bufferedReader().use { it.readText() } }
+                    // HttpURLConnection.inputStream threw on >= 400 (no body); keep that.
+                    runCatching { check(code < 400); conn.body!!.byteStream().bufferedReader().use { it.readText() } }
                         .getOrNull()?.let { out.append(it.take(40000)) }
-                    conn.disconnect()
+                    conn.close()
                     break
                 }
             }
@@ -206,23 +205,19 @@ class SendToCarActivity : Activity() {
         return out.toString()
     }
 
-    /** True only for an http/https URL whose host resolves entirely to PUBLIC addresses - blocks the
-     *  SSRF vectors (localhost, 127/10/172.16-31/192.168 private ranges, 169.254 link-local incl. the
-     *  cloud metadata IP, IPv6 loopback/ULA, multicast, wildcard). Any resolve failure = not safe. */
-    private fun isSafeHttpUrl(raw: String): Boolean = runCatching {
-        val u = java.net.URL(raw)
-        val scheme = u.protocol?.lowercase()
-        if (scheme != "http" && scheme != "https") return false
-        val host = u.host?.trim('[', ']') ?: return false
-        if (host.isBlank() || host.equals("localhost", ignoreCase = true)) return false
-        java.net.InetAddress.getAllByName(host).isNotEmpty() &&
-            java.net.InetAddress.getAllByName(host).all { a ->
-                !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress &&
-                    !a.isAnyLocalAddress && !a.isMulticastAddress && a.hostAddress != "169.254.169.254"
-            }
-    }.getOrDefault(false)
-
     private companion object {
+        // Redirects are followed by hand so every hop is re-validated; NO_PROXY so the target host is
+        // resolved by PublicOnlyDns here rather than by a proxy.
+        private val expandClient by lazy {
+            okhttp3.OkHttpClient.Builder()
+                .dns(MapsLinkGuard.PublicOnlyDns)
+                .proxy(java.net.Proxy.NO_PROXY)
+                .followRedirects(false).followSslRedirects(false)
+                .connectTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+        }
+
         // Ordered: the maps "data"/`@`/query markers point at the PLACE; the generic pair is a last
         // resort (≥2 decimals, so it ignores zoom levels / version-like numbers).
         private val coordPatterns = listOf(
